@@ -233,6 +233,10 @@ pub(super) fn opt_const_param_of(tcx: TyCtxt<'_>, def_id: LocalDefId) -> Option<
                     .nth(arg_index)
                     .map(|param| param.def_id)
             }
+            Node::GenericParam(_) => tcx
+                .hir()
+                .opt_const_param_default_param_hir_id(hir_id)
+                .map(|param_id| tcx.hir().local_def_id(param_id).to_def_id()),
             _ => None,
         }
     } else {

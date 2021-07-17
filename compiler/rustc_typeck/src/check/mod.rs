@@ -648,6 +648,72 @@ fn typeck_with_fallback<'tcx>(
     // it will need to hold.
     assert_eq!(typeck_results.hir_owner, id.owner);
 
+    if let Some(param_id) = tcx.hir().opt_const_param_default_param_hir_id(id) {
+        debug!("typeck_with_fallback: def_id={:?} is a ct default", def_id);
+
+        let body = match tcx.hir().get(id) {
+            Node::AnonConst(ct) => tcx.hir().body(ct.body),
+            _ => bug!("default anon ct was not an anon const lololol"),
+        };
+
+        
+        let parent_item = tcx.hir().local_def_id(tcx.hir().get_parent_item(id));
+        let param_idx = {
+            let generics = tcx.generics_of(parent_item.to_def_id());
+            let param_def = tcx.hir().local_def_id(param_id).to_def_id();
+            generics.param_def_id_to_index[&param_def]
+        };
+        
+        struct FwdDeclaredParamVisitor<'tcx> {
+            typeck_results: &'tcx ty::TypeckResults<'tcx>,
+            fwd_declared_idx: u32,
+        }
+
+        use hir::intravisit;
+        impl<'tcx> intravisit::Visitor<'tcx> for FwdDeclaredParamVisitor<'tcx> {
+            type Map = intravisit::ErasedMap<'tcx>;
+
+            fn nested_visit_map(&mut self) -> intravisit::NestedVisitorMap<Self::Map> {
+                intravisit::NestedVisitorMap::None
+            }
+
+            fn visit_qpath(&mut self, path: &'tcx hir::QPath<'tcx>, id: hir::HirId, span: Span) {
+                debug!("FwdDeclaredParamVisitor: visit_qpath={:?}", path);
+                for arg in self.typeck_results.node_substs(id) {
+                    arg.super_visit_with(self);
+                }                
+                intravisit::walk_qpath(self, path, id, span);
+            }
+        }
+
+        impl<'tcx> ty::TypeVisitor<'tcx> for FwdDeclaredParamVisitor<'tcx> {
+            fn visit_ty(&mut self, t: Ty<'tcx>) -> std::ops::ControlFlow<!> {
+                debug!("FwdDeclaredParamVisitor: visit_ty={:?}", t);
+                if let ty::Param(param) = t.kind() {
+                    if param.index >= self.fwd_declared_idx {
+                        debug!("fwd declared = {:?}", param);
+                    }
+                }
+                t.super_visit_with(self)
+            }
+
+            fn visit_const(&mut self, c: &'tcx ty::Const<'tcx>) -> std::ops::ControlFlow<!> {
+                debug!("FwdDeclaredParamVisitor: visit_const={:?}", c);
+                if let ty::ConstKind::Param(param) = c.val {
+                    if param.index >= self.fwd_declared_idx {
+                        debug!("fwd declared = {:?}", param);
+                    }
+                }
+                c.super_visit_with(self)
+            }
+        }
+
+        intravisit::Visitor::visit_body(
+            &mut FwdDeclaredParamVisitor { typeck_results, fwd_declared_idx: param_idx },
+            body,
+        );
+    };
+
     typeck_results
 }
 
