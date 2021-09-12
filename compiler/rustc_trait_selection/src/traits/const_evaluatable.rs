@@ -101,6 +101,16 @@ pub fn is_const_evaluatable<'cx, 'tcx>(
 
                         ControlFlow::CONTINUE
                     }
+                    Node::Adt(_, _, adt_substs, _) => {
+                        let adt_substs = adt_substs.subst(tcx, ct.substs);
+                        if adt_substs.has_infer_types_or_consts() {
+                            failure_kind = FailureKind::MentionsInfer;
+                        } else if adt_substs.definitely_has_param_types_or_consts(tcx) {
+                            failure_kind = cmp::min(failure_kind, FailureKind::MentionsParam);
+                        }
+
+                        ControlFlow::CONTINUE
+                    }
                     Node::Binop(_, _, _) | Node::UnaryOp(_, _) | Node::FunctionCall(_, _) => {
                         ControlFlow::CONTINUE
                     }
@@ -382,6 +392,14 @@ impl<'a, 'tcx> AbstractConstBuilder<'a, 'tcx> {
                 let arg = self.recurse_build(source)?;
                 self.nodes.push(Node::Cast(abstract_const::CastKind::As, arg, node.ty))
             },
+            ExprKind::Adt(box thir::Adt { adt_def, variant_index, substs, fields, base: None, user_ty: _ }) => {
+                let mut new_fields = Vec::with_capacity(fields.len());
+                for &thir::FieldExpr { name, expr } in fields.iter() {
+                    new_fields.push(thir::abstract_const::ACFieldExpr { name, expr: self.recurse_build(expr)? });
+                }
+                let new_fields = self.tcx.arena.alloc_slice(&new_fields);
+                self.nodes.push(Node::Adt(adt_def, *variant_index, substs, new_fields))
+            },
 
             // FIXME(generic_const_exprs): We may want to support these.
             ExprKind::AddressOf { .. }
@@ -503,6 +521,14 @@ where
                 recurse(tcx, ct.subtree(func), f)?;
                 args.iter().try_for_each(|&arg| recurse(tcx, ct.subtree(arg), f))
             }
+            Node::Adt(_, _, _, fields) => {
+                // FIXME(generic_const_exprs):
+                //      I feel like we should be walking the substs to enter any unevaluateds
+                for field in fields {
+                    recurse(tcx, ct.subtree(field.expr), f)?;
+                }
+                ControlFlow::CONTINUE
+            }
             Node::Cast(_, operand, _) => recurse(tcx, ct.subtree(operand), f),
         }
     }
@@ -591,8 +617,24 @@ pub(super) fn try_unify<'tcx>(
         {
             try_unify(tcx, a.subtree(a_operand), b.subtree(b_operand))
         }
+        (
+            Node::Adt(a_adt_def, a_variant, a_substs, a_fields),
+            Node::Adt(b_adt_def, b_variant, b_substs, b_fields),
+        ) if (a_adt_def == b_adt_def)
+            && (a_variant == b_variant)
+            && (a_substs == b_substs)
+            // FIXME(generic_const_exprs): incorrectly handling substs here
+            //      need to .subst it and also `==` wont work for unevaluateds in substs
+            && (a_fields.len() == b_fields.len()) =>
+        {
+            a_fields.iter().zip(b_fields.iter()).all(|(a_field, b_field)| {
+                (a_field.name == b_field.name)
+                    && try_unify(tcx, a.subtree(a_field.expr), b.subtree(b_field.expr))
+            })
+        }
         // use this over `_ => false` to make adding variants to `Node` less error prone
         (Node::Cast(..), _)
+        | (Node::Adt(..), _)
         | (Node::FunctionCall(..), _)
         | (Node::UnaryOp(..), _)
         | (Node::Binop(..), _)

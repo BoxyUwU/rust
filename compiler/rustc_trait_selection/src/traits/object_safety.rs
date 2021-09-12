@@ -844,6 +844,22 @@ fn contains_illegal_self_type_reference<'tcx, T: TypeFoldable<'tcx>>(
                         self.visit_const(leaf)
                     }
                     Node::Cast(_, _, ty) => self.visit_ty(ty),
+                    Node::Adt(_, _, adt_substs, _) => {
+                        // FIXME(generic_const_exprs):
+                        //      this feels wrong what if `Self::Variant { ... }`
+
+                        let adt_substs = adt_substs.subst(self.tcx, ct.substs);
+                        for arg in adt_substs.iter() {
+                            use ty::subst::GenericArgKind::*;
+                            match arg.unpack() {
+                                Lifetime(_) => ControlFlow::CONTINUE,
+                                Type(ty) => self.visit_ty(ty),
+                                Const(ct) => self.visit_const(ct),
+                            }?;
+                        }
+
+                        ControlFlow::CONTINUE
+                    }
                     Node::Binop(..) | Node::UnaryOp(..) | Node::FunctionCall(_, _) => {
                         ControlFlow::CONTINUE
                     }

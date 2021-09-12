@@ -1,7 +1,9 @@
 //! A subset of a mir body used for const evaluatability checking.
 use crate::mir;
-use crate::ty::{self, Ty, TyCtxt};
+use crate::ty::subst::SubstsRef;
+use crate::ty::{self, AdtDef, Ty, TyCtxt};
 use rustc_errors::ErrorReported;
+use rustc_target::abi::VariantIdx;
 
 rustc_index::newtype_index! {
     /// An index into an `AbstractConst`.
@@ -19,6 +21,12 @@ pub enum CastKind {
     Use,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, HashStable, TyEncodable, TyDecodable)]
+pub struct ACFieldExpr {
+    pub name: mir::Field,
+    pub expr: NodeId,
+}
+
 /// A node of an `AbstractConst`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, HashStable, TyEncodable, TyDecodable)]
 pub enum Node<'tcx> {
@@ -27,6 +35,7 @@ pub enum Node<'tcx> {
     UnaryOp(mir::UnOp, NodeId),
     FunctionCall(NodeId, &'tcx [NodeId]),
     Cast(CastKind, NodeId, Ty<'tcx>),
+    Adt(&'tcx AdtDef, VariantIdx, SubstsRef<'tcx>, &'tcx [ACFieldExpr]),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, HashStable, TyEncodable, TyDecodable)]

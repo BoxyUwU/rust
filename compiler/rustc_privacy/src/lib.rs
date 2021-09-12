@@ -159,6 +159,22 @@ where
                 self.visit_const(leaf)
             }
             ACNode::Cast(_, _, ty) => self.visit_ty(ty),
+            ACNode::Adt(_, _, adt_substs, _) => {
+                // FIXME(generic_const_exprs):
+                //      this feels wrong what if `Self::Variant { ... }`
+
+                let adt_substs = adt_substs.subst(tcx, ct.substs);
+                for arg in adt_substs.iter() {
+                    use ty::subst::GenericArgKind::*;
+                    match arg.unpack() {
+                        Lifetime(_) => ControlFlow::CONTINUE,
+                        Type(ty) => self.visit_ty(ty),
+                        Const(ct) => self.visit_const(ct),
+                    }?;
+                }
+
+                ControlFlow::CONTINUE
+            }
             ACNode::Binop(..) | ACNode::UnaryOp(..) | ACNode::FunctionCall(_, _) => {
                 ControlFlow::CONTINUE
             }

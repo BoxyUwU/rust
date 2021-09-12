@@ -383,6 +383,26 @@ impl<'tcx, D: TyDecoder<'tcx>> RefDecodable<'tcx, D> for [thir::abstract_const::
     }
 }
 
+impl<'tcx, D: TyDecoder<'tcx>> RefDecodable<'tcx, D> for [mir::Field] {
+    fn decode(decoder: &mut D) -> Result<&'tcx Self, D::Error> {
+        Ok(decoder.tcx().arena.alloc_from_iter(
+            (0..decoder.read_usize()?)
+                .map(|_| Decodable::decode(decoder))
+                .collect::<Result<Vec<_>, _>>()?,
+        ))
+    }
+}
+
+impl<'tcx, D: TyDecoder<'tcx>> RefDecodable<'tcx, D> for [thir::abstract_const::ACFieldExpr] {
+    fn decode(decoder: &mut D) -> Result<&'tcx Self, D::Error> {
+        Ok(decoder.tcx().arena.alloc_from_iter(
+            (0..decoder.read_usize()?)
+                .map(|_| Decodable::decode(decoder))
+                .collect::<Result<Vec<_>, _>>()?,
+        ))
+    }
+}
+
 impl<'tcx, D: TyDecoder<'tcx>> RefDecodable<'tcx, D> for ty::List<ty::BoundVariableKind> {
     fn decode(decoder: &mut D) -> Result<&'tcx Self, D::Error> {
         let len = decoder.read_usize()?;
