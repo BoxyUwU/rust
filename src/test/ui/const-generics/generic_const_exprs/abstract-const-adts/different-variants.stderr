@@ -1,0 +1,10 @@
+error: unconstrained generic constant
+  --> $DIR/different-variants.rs:14:11
+   |
+LL |     bar::<{ MyEnum::Var2 { field: N } }>();
+   |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: try adding a `where` bound using this expression: `where [(); { MyEnum::Var2 { field: N } }]:`
+
+error: aborting due to previous error
+

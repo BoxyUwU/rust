@@ -1,0 +1,10 @@
+error: unconstrained generic constant
+  --> $DIR/adt-def-substs.rs:13:11
+   |
+LL |     bar::<{ Foo::<u8>::Variant(N) }>();
+   |           ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: try adding a `where` bound using this expression: `where [(); { Foo::<u8>::Variant(N) }]:`
+
+error: aborting due to previous error
+
