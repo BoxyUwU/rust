@@ -1410,7 +1410,7 @@ impl<'tcx> TyCtxt<'tcx> {
     pub fn lazy_normalization(self) -> bool {
         let features = self.features();
         // Note: We only use lazy normalization for generic const expressions.
-        features.generic_const_exprs
+        features.generic_const_exprs | features.type_level_assoc_const
     }
 
     #[inline]

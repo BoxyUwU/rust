@@ -33,8 +33,8 @@ pub fn is_const_evaluatable<'cx, 'tcx>(
     param_env: ty::ParamEnv<'tcx>,
     span: Span,
 ) -> Result<(), NotConstEvaluatable> {
-    debug!("is_const_evaluatable({:?})", uv);
-    if infcx.tcx.features().generic_const_exprs {
+    debug!("is_const_evaluatable(\n  uv: {:?},\n  param_env: {:?}\n)", uv, param_env);
+    if infcx.tcx.lazy_normalization() {
         let tcx = infcx.tcx;
         match AbstractConst::new(tcx, uv)? {
             // We are looking at a generic abstract constant.
@@ -433,7 +433,7 @@ pub(super) fn thir_abstract_const<'tcx>(
     tcx: TyCtxt<'tcx>,
     def: ty::WithOptConstParam<LocalDefId>,
 ) -> Result<Option<&'tcx [thir::abstract_const::Node<'tcx>]>, ErrorReported> {
-    if tcx.features().generic_const_exprs {
+    if tcx.lazy_normalization() {
         match tcx.def_kind(def.did) {
             // FIXME(generic_const_exprs): We currently only do this for anonymous constants,
             // meaning that we do not look into associated constants. I(@lcnr) am not yet sure whether

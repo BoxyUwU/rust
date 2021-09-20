@@ -1335,6 +1335,7 @@ symbols! {
         type_ascription,
         type_id,
         type_length_limit,
+        type_level_assoc_const,
         type_macros,
         type_name,
         u128,

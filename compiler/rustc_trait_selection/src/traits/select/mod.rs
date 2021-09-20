@@ -611,7 +611,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 ty::PredicateKind::ConstEquate(c1, c2) => {
                     debug!(?c1, ?c2, "evaluate_predicate_recursively: equating consts");
 
-                    if self.tcx().features().generic_const_exprs {
+                    if self.tcx().lazy_normalization() {
                         // FIXME: we probably should only try to unify abstract constants
                         // if the constants depend on generic parameters.
                         //

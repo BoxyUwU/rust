@@ -577,7 +577,7 @@ pub fn super_relate_consts<R: TypeRelation<'tcx>>(
         }
 
         (ty::ConstKind::Unevaluated(au), ty::ConstKind::Unevaluated(bu))
-            if tcx.features().generic_const_exprs =>
+            if tcx.lazy_normalization() =>
         {
             tcx.try_unify_abstract_consts((au.shrink(), bu.shrink()))
         }

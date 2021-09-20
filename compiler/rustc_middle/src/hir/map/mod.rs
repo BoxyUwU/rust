@@ -938,6 +938,26 @@ impl<'hir> Map<'hir> {
             _ => None,
         }
     }
+
+    /// Returns Some(..) if the body only contains a fully qualified associated constant
+    /// (optionally surrounded in a block)
+    pub fn is_a_fully_qualified_associated_const_expr(
+        &self,
+        body: BodyId,
+    ) -> Option<&'hir QPath<'hir>> {
+        let body = self.body(body);
+        // get rid of an optional outer level of `{}` so that this can return `Some` for
+        // the anon const in: `foo::<{ <() as Trait>::ASSOC }>();`
+        let expr = match &body.value.kind {
+            ExprKind::Block(Block { stmts: [], expr: Some(e), .. }, _) => &e.kind,
+            e => e,
+        };
+
+        match expr {
+            ExprKind::Path(path @ QPath::Resolved(Some(_), _)) => Some(path),
+            _ => None,
+        }
+    }
 }
 
 impl<'hir> intravisit::Map<'hir> for Map<'hir> {

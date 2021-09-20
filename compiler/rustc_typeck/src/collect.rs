@@ -1392,6 +1392,7 @@ impl<'v> Visitor<'v> for AnonConstInParamTyDetector {
 }
 
 fn generics_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::Generics {
+    debug!("generics_of: def_id={:?}", def_id);
     use rustc_hir::*;
 
     let hir_id = tcx.hir().local_def_id_to_hir_id(def_id.expect_local());
@@ -1408,7 +1409,11 @@ fn generics_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::Generics {
         }
         // FIXME(#43408) always enable this once `lazy_normalization` is
         // stable enough and does not need a feature gate anymore.
-        Node::AnonConst(_) => {
+        Node::AnonConst(anon_ct) => {
+            debug!(
+                "generics_of: foo={:?}",
+                tcx.hir().is_a_fully_qualified_associated_const_expr(anon_ct.body)
+            );
             let parent_id = tcx.hir().get_parent_item(hir_id);
             let parent_def_id = tcx.hir().local_def_id(parent_id);
 
@@ -1431,7 +1436,13 @@ fn generics_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::Generics {
                 // We do not allow generic parameters in anon consts if we are inside
                 // of a const parameter type, e.g. `struct Foo<const N: usize, const M: [u8; N]>` is not allowed.
                 None
-            } else if tcx.lazy_normalization() {
+            } else if let (true, Some(_)) = (
+                tcx.features().type_level_assoc_const,
+                tcx.hir().is_a_fully_qualified_associated_const_expr(anon_ct.body),
+            ) {
+                // only provide parent generics for fully qualified assoc const expressions
+                Some(parent_def_id.to_def_id())
+            } else if tcx.lazy_normalization() && (tcx.features().type_level_assoc_const == false) {
                 if let Some(param_id) = tcx.hir().opt_const_param_default_param_hir_id(hir_id) {
                     // If the def_id we are calling generics_of on is an anon ct default i.e:
                     //
@@ -2251,7 +2262,8 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
         }
     }
 
-    if tcx.features().generic_const_exprs {
+    // FIXME(type_level_assoc_const): is it right to do this? thonk
+    if tcx.lazy_normalization() {
         predicates.extend(const_evaluatable_predicates_of(tcx, def_id.expect_local()));
     }
 
@@ -2285,6 +2297,8 @@ fn const_evaluatable_predicates_of<'tcx>(
     tcx: TyCtxt<'tcx>,
     def_id: LocalDefId,
 ) -> FxIndexSet<(ty::Predicate<'tcx>, Span)> {
+    debug!("const_evaluatable_predicates_of: def_id={:?}", def_id);
+
     struct ConstCollector<'tcx> {
         tcx: TyCtxt<'tcx>,
         preds: FxIndexSet<(ty::Predicate<'tcx>, Span)>,
