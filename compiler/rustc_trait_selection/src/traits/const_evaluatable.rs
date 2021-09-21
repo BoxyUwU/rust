@@ -19,7 +19,6 @@ use rustc_middle::thir::abstract_const::{self, Node, NodeId, NotConstEvaluatable
 use rustc_middle::ty::subst::{Subst, SubstsRef};
 use rustc_middle::ty::{self, TyCtxt, TypeFoldable};
 use rustc_session::lint;
-use rustc_span::def_id::LocalDefId;
 use rustc_span::Span;
 
 use std::cmp;
@@ -223,7 +222,7 @@ impl<'tcx> AbstractConst<'tcx> {
     }
 }
 
-struct AbstractConstBuilder<'a, 'tcx> {
+pub struct AbstractConstBuilder<'a, 'tcx> {
     tcx: TyCtxt<'tcx>,
     body_id: thir::ExprId,
     body: &'a thir::Thir<'tcx>,
@@ -247,7 +246,7 @@ impl<'a, 'tcx> AbstractConstBuilder<'a, 'tcx> {
         Err(ErrorReported)
     }
 
-    fn new(
+    pub fn new(
         tcx: TyCtxt<'tcx>,
         (body, body_id): (&'a thir::Thir<'tcx>, thir::ExprId),
     ) -> Result<Option<AbstractConstBuilder<'a, 'tcx>>, ErrorReported> {
@@ -315,7 +314,7 @@ impl<'a, 'tcx> AbstractConstBuilder<'a, 'tcx> {
 
     /// Builds the abstract const by walking the thir and bailing out when
     /// encountering an unspported operation.
-    fn build(mut self) -> Result<&'tcx [Node<'tcx>], ErrorReported> {
+    pub fn build(mut self) -> Result<&'tcx [Node<'tcx>], ErrorReported> {
         debug!("Abstractconstbuilder::build: body={:?}", &*self.body);
         self.recurse_build(self.body_id)?;
 
@@ -428,36 +427,6 @@ impl<'a, 'tcx> AbstractConstBuilder<'a, 'tcx> {
     }
 }
 
-/// Builds an abstract const, do not use this directly, but use `AbstractConst::new` instead.
-pub(super) fn thir_abstract_const<'tcx>(
-    tcx: TyCtxt<'tcx>,
-    def: ty::WithOptConstParam<LocalDefId>,
-) -> Result<Option<&'tcx [thir::abstract_const::Node<'tcx>]>, ErrorReported> {
-    if tcx.lazy_normalization() {
-        match tcx.def_kind(def.did) {
-            // FIXME(generic_const_exprs): We currently only do this for anonymous constants,
-            // meaning that we do not look into associated constants. I(@lcnr) am not yet sure whether
-            // we want to look into them or treat them as opaque projections.
-            //
-            // Right now we do neither of that and simply always fail to unify them.
-            DefKind::AnonConst => (),
-            _ => return Ok(None),
-        }
-
-        let body = tcx.thir_body(def);
-        if body.0.borrow().exprs.is_empty() {
-            // type error in constant, there is no thir
-            return Err(ErrorReported);
-        }
-
-        AbstractConstBuilder::new(tcx, (&*body.0.borrow(), body.1))?
-            .map(AbstractConstBuilder::build)
-            .transpose()
-    } else {
-        Ok(None)
-    }
-}
-
 pub(super) fn try_unify_abstract_consts<'tcx>(
     tcx: TyCtxt<'tcx>,
     (a, b): (ty::Unevaluated<'tcx, ()>, ty::Unevaluated<'tcx, ()>),
@@ -564,6 +533,8 @@ pub(super) fn try_unify<'tcx>(
                 // We also take this branch for concrete anonymous constants and
                 // expand generic anonymous constants with concrete substs.
                 (ty::ConstKind::Unevaluated(a_uv), ty::ConstKind::Unevaluated(b_uv)) => {
+                    // FIXME(type_level_assoc_const): we should be relating the substs instead of
+                    // `==` to correctly handle substs that contain `ConstKind::Unevaluated`
                     a_uv == b_uv
                 }
                 // FIXME(generic_const_exprs): We may want to either actually try

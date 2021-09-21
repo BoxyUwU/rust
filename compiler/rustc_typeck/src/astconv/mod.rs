@@ -837,7 +837,8 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
         );
     }
 
-    fn ast_path_to_mono_trait_ref(
+    // FIXME(type_level_assoc_const): probably revert this change lol
+    pub(crate) fn ast_path_to_mono_trait_ref(
         &self,
         span: Span,
         trait_def_id: DefId,

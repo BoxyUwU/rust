@@ -944,7 +944,7 @@ impl<'hir> Map<'hir> {
     pub fn is_a_fully_qualified_associated_const_expr(
         &self,
         body: BodyId,
-    ) -> Option<&'hir QPath<'hir>> {
+    ) -> Option<(&'hir Ty<'hir>, &'hir Path<'hir>)> {
         let body = self.body(body);
         // get rid of an optional outer level of `{}` so that this can return `Some` for
         // the anon const in: `foo::<{ <() as Trait>::ASSOC }>();`
@@ -953,8 +953,10 @@ impl<'hir> Map<'hir> {
             e => e,
         };
 
+        // FIXME(type_level_assoc_const): this accepts more than `<T as Trait>::ASSOC`
+        // i.e. `<T>::ASSOC` for inherent assoc consts
         match expr {
-            ExprKind::Path(path @ QPath::Resolved(Some(_), _)) => Some(path),
+            ExprKind::Path(QPath::Resolved(Some(this), path)) => Some((this, path)),
             _ => None,
         }
     }
