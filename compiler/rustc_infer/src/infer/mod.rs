@@ -1580,19 +1580,22 @@ impl<'a, 'tcx> InferCtxt<'a, 'tcx> {
     /// returned.
     ///
     /// This handles inferences variables within both `param_env` and `substs` by
-    /// performing the operation on their respective canonical forms.
+    /// returning `ErrorHandled::TooGeneric`
     pub fn const_eval_resolve(
         &self,
         param_env: ty::ParamEnv<'tcx>,
         unevaluated: ty::Unevaluated<'tcx>,
         span: Option<Span>,
     ) -> EvalToConstValueResult<'tcx> {
-        let mut original_values = OriginalQueryValues::default();
-        let canonical = self.canonicalize_query((param_env, unevaluated), &mut original_values);
-
-        let (param_env, unevaluated) = canonical.value;
-        // The return value is the evaluated value which doesn't contain any reference to inference
-        // variables, thus we don't need to substitute back the original values.
+        let param_env = self.tcx.erase_regions(self.resolve_vars_if_possible(param_env));
+        let unevaluated = self.tcx.erase_regions(self.resolve_vars_if_possible(unevaluated));
+        if param_env.has_infer_types_or_consts()
+            || unevaluated.substs(self.tcx).has_infer_types_or_consts()
+        {
+            return EvalToConstValueResult::Err(
+                rustc_middle::mir::interpret::ErrorHandled::TooGeneric,
+            );
+        }
         self.tcx.const_eval_resolve(param_env, unevaluated, span)
     }
 
