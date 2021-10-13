@@ -201,6 +201,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
     /// reasonable suggestion on how to write it. For the case of multiple associated types in the
     /// same trait bound have the same name (as they come from different supertraits), we instead
     /// emit a generic note suggesting using a `where` clause to constraint instead.
+    #[tracing::instrument(level = "debug", skip(self))]
     pub(crate) fn complain_about_missing_associated_types(
         &self,
         associated_types: FxHashMap<Span, BTreeSet<DefId>>,
@@ -219,6 +220,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                 (span, def_ids.into_iter().map(|did| tcx.associated_item(did)).collect())
             })
             .collect();
+        debug!("complain_about_missing_associated_types: associated_types={:?}", associated_types);
         let mut names = vec![];
 
         // Account for things like `dyn Foo + 'a`, like in tests `issue-22434.rs` and

@@ -1382,7 +1382,11 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                         associated_types.entry(span).or_default().extend(
                             tcx.associated_items(pred.def_id())
                                 .in_definition_order()
-                                .filter(|item| item.kind == ty::AssocKind::Type)
+                                .filter(|item| {
+                                    debug!("item = {:?}", item);
+                                    item.kind == ty::AssocKind::Type
+                                        && (item.defaultness.has_value() == false)
+                                })
                                 .map(|item| item.def_id),
                         );
                     }
@@ -1431,6 +1435,8 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
             potential_assoc_types,
             trait_bounds,
         );
+
+        // TODO add assoc ty defaults to `bounds`
 
         // De-duplicate auto traits so that, e.g., `dyn Trait + Send + Send` is the same as
         // `dyn Trait + Send`.
