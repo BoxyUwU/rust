@@ -424,6 +424,9 @@ declare_features! (
     (active, lint_reasons, "1.31.0", Some(54503), None),
     /// Allows `#[marker]` on certain traits allowing overlapping implementations.
     (active, marker_trait_attr, "1.30.0", Some(29864), None),
+    /// A minimal subset of generic_const_exprs intended to solve like basically
+    /// all of the huge issues that made working on it so depressing
+    (active, min_generic_const_exprs, "1.60.0", Some(0), None),
     /// A minimal, sound subset of specialization intended to be used by the
     /// standard library until the soundness issues with specialization
     /// are fixed.
