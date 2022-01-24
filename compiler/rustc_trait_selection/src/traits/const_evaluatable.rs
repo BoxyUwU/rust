@@ -27,13 +27,45 @@ use std::iter;
 use std::ops::ControlFlow;
 
 /// Check if a given constant can be evaluated.
+#[instrument(level = "debug", skip(infcx, span))]
 pub fn is_const_evaluatable<'cx, 'tcx>(
     infcx: &InferCtxt<'cx, 'tcx>,
     uv: ty::Unevaluated<'tcx, ()>,
     param_env: ty::ParamEnv<'tcx>,
     span: Span,
 ) -> Result<(), NotConstEvaluatable> {
-    debug!("is_const_evaluatable({:?})", uv);
+    if infcx.tcx.features().min_generic_const_exprs {
+        for pred in param_env.caller_bounds() {
+            match pred.kind().skip_binder() {
+                ty::PredicateKind::ConstEvaluatable(uv_2) => {
+                    debug!(?uv_2.substs, ?uv_2.def);
+
+                    use ty::TypeVisitor;
+                    struct CheckUvEvaluatableVisitor<'tcx>(ty::Unevaluated<'tcx>);
+                    impl<'tcx> TypeVisitor<'tcx> for CheckUvEvaluatableVisitor<'tcx> {
+                        type BreakTy = ();
+                        fn visit_unevaluated_const(
+                            &mut self,
+                            uv: ty::Unevaluated<'tcx>,
+                        ) -> ControlFlow<()> {
+                            if uv == self.0 {
+                                return ControlFlow::BREAK;
+                            }
+                            uv.super_visit_with(self)
+                        }
+                    }
+
+                    let mut visitor = CheckUvEvaluatableVisitor(uv.expand());
+                    if visitor.visit_unevaluated_const(uv_2.expand()).is_break() {
+                        debug!("is_const_evaluatable: abstract_const ~~> ok");
+                        return Ok(());
+                    }
+                }
+                _ => (),
+            }
+        }
+    }
+
     if infcx.tcx.features().generic_const_exprs {
         let tcx = infcx.tcx;
         match AbstractConst::new(tcx, uv)? {
@@ -41,8 +73,8 @@ pub fn is_const_evaluatable<'cx, 'tcx>(
             Some(ct) => {
                 for pred in param_env.caller_bounds() {
                     match pred.kind().skip_binder() {
-                        ty::PredicateKind::ConstEvaluatable(uv) => {
-                            if let Some(b_ct) = AbstractConst::new(tcx, uv)? {
+                        ty::PredicateKind::ConstEvaluatable(uv_2) => {
+                            if let Some(b_ct) = AbstractConst::new(tcx, uv_2)? {
                                 // Try to unify with each subtree in the AbstractConst to allow for
                                 // `N + 1` being const evaluatable even if theres only a `ConstEvaluatable`
                                 // predicate for `(N + 1) * 2`
@@ -507,6 +539,22 @@ pub(super) fn thir_abstract_const<'tcx>(
             //
             // Right now we do neither of that and simply always fail to unify them.
             DefKind::AnonConst | DefKind::InlineConst => (),
+            // DefKind::AssocConst => {
+            //     let substs = ty::subst::InternalSubsts::identity_for_item(tcx, def.did.to_def_id());
+            //     if substs.definitely_has_param_types_or_consts(tcx) == false {
+            //         return Ok(None);
+            //     };
+            //     let ct = tcx.mk_const(ty::Const {
+            //         val: ty::ConstKind::Unevaluated(ty::Unevaluated {
+            //             def: def.to_global(),
+            //             substs_: Some(substs),
+            //             promoted: None,
+            //         }),
+            //         ty: tcx.type_of(def.def_id_for_type_of()),
+            //     });
+
+            //     return Ok(Some(tcx.arena.alloc([thir::abstract_const::Node::Leaf(ct)])));
+            // }
             _ => return Ok(None),
         }
 
@@ -528,19 +576,24 @@ pub(super) fn try_unify_abstract_consts<'tcx>(
     tcx: TyCtxt<'tcx>,
     (a, b): (ty::Unevaluated<'tcx, ()>, ty::Unevaluated<'tcx, ()>),
 ) -> bool {
-    (|| {
-        if let Some(a) = AbstractConst::new(tcx, a)? {
-            if let Some(b) = AbstractConst::new(tcx, b)? {
-                return Ok(try_unify(tcx, a, b));
-            }
-        }
+    match tcx.features().min_generic_const_exprs {
+        true => a == b,
+        false => {
+            (|| {
+                if let Some(a) = AbstractConst::new(tcx, a)? {
+                    if let Some(b) = AbstractConst::new(tcx, b)? {
+                        return Ok(try_unify(tcx, a, b));
+                    }
+                }
 
-        Ok(false)
-    })()
-    .unwrap_or_else(|ErrorReported| true)
-    // FIXME(generic_const_exprs): We should instead have this
-    // method return the resulting `ty::Const` and return `ConstKind::Error`
-    // on `ErrorReported`.
+                Ok(false)
+            })()
+            .unwrap_or_else(|ErrorReported| true)
+            // FIXME(generic_const_exprs): We should instead have this
+            // method return the resulting `ty::Const` and return `ConstKind::Error`
+            // on `ErrorReported`.
+        }
+    }
 }
 
 pub fn walk_abstract_const<'tcx, R, F>(

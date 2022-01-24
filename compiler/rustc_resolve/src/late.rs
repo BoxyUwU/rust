@@ -2360,7 +2360,9 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
         debug!("resolve_anon_const {:?} is_repeat: {:?}", constant, is_repeat);
         self.with_constant_rib(
             is_repeat,
-            constant.value.is_potential_trivial_const_param(),
+            constant.value.is_potential_trivial_const_param(
+                self.r.session.features_untracked().min_generic_const_exprs,
+            ),
             None,
             |this| {
                 visit::walk_anon_const(this, constant);
@@ -2465,7 +2467,9 @@ impl<'a: 'ast, 'b, 'ast> LateResolutionVisitor<'a, 'b, 'ast> {
                     if const_args.contains(&idx) {
                         self.with_constant_rib(
                             IsRepeatExpr::No,
-                            argument.is_potential_trivial_const_param(),
+                            argument.is_potential_trivial_const_param(
+                                self.r.session.features_untracked().min_generic_const_exprs,
+                            ),
                             None,
                             |this| {
                                 this.resolve_expr(argument, None);

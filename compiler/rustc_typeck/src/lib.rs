@@ -486,6 +486,7 @@ pub fn provide(providers: &mut Providers) {
     outlives::provide(providers);
     impl_wf_check::provide(providers);
     hir_wf_check::provide(providers);
+    providers.opt_path_const = astconv::opt_path_const_raw;
 }
 
 pub fn check_crate(tcx: TyCtxt<'_>) -> Result<(), ErrorReported> {

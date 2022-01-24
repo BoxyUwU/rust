@@ -1915,26 +1915,26 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
         Ok((ty, kind, item.def_id))
     }
 
-    fn qpath_to_ty(
+    fn qpath_to_substs(
         &self,
         span: Span,
         opt_self_ty: Option<Ty<'tcx>>,
         item_def_id: DefId,
         trait_segment: &hir::PathSegment<'_>,
         item_segment: &hir::PathSegment<'_>,
-    ) -> Ty<'tcx> {
+    ) -> Result<SubstsRef<'tcx>, ErrorReported> {
         let tcx = self.tcx();
 
         let trait_def_id = tcx.parent(item_def_id).unwrap();
 
-        debug!("qpath_to_ty: trait_def_id={:?}", trait_def_id);
+        debug!("qpath_to_substs: trait_def_id={:?}", trait_def_id);
 
         let Some(self_ty) = opt_self_ty else {
             let path_str = tcx.def_path_str(trait_def_id);
 
             let def_id = self.item_def_id();
 
-            debug!("qpath_to_ty: self.item_def_id()={:?}", def_id);
+            debug!("qpath_to_substs: self.item_def_id()={:?}", def_id);
 
             let parent_def_id = def_id
                 .and_then(|def_id| {
@@ -1942,7 +1942,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                 })
                 .map(|hir_id| tcx.hir().get_parent_item(hir_id).to_def_id());
 
-            debug!("qpath_to_ty: parent_def_id={:?}", parent_def_id);
+            debug!("qpath_to_substs: parent_def_id={:?}", parent_def_id);
 
             // If the trait in segment is the same as the trait defining the item,
             // use the `<Self as ..>` syntax in the error.
@@ -1961,10 +1961,10 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                 &path_str,
                 item_segment.ident.name,
             );
-            return tcx.ty_error();
+            return Err(ErrorReported);
         };
 
-        debug!("qpath_to_ty: self_type={:?}", self_ty);
+        debug!("qpath_to_substs: self_type={:?}", self_ty);
 
         let trait_ref =
             self.ast_path_to_mono_trait_ref(span, trait_def_id, self_ty, trait_segment, false);
@@ -1977,9 +1977,25 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
             trait_ref.substs,
         );
 
-        debug!("qpath_to_ty: trait_ref={:?}", trait_ref);
+        debug!("qpath_to_substs: trait_ref={:?}", trait_ref);
+        Ok(item_substs)
+    }
 
-        self.normalize_ty(span, tcx.mk_projection(item_def_id, item_substs))
+    fn qpath_to_ty(
+        &self,
+        span: Span,
+        opt_self_ty: Option<Ty<'tcx>>,
+        item_def_id: DefId,
+        trait_segment: &hir::PathSegment<'_>,
+        item_segment: &hir::PathSegment<'_>,
+    ) -> Ty<'tcx> {
+        let item_substs =
+            match self.qpath_to_substs(span, opt_self_ty, item_def_id, trait_segment, item_segment)
+            {
+                Err(_) => return self.tcx().ty_error(),
+                Ok(item_substs) => item_substs,
+            };
+        self.normalize_ty(span, self.tcx().mk_projection(item_def_id, item_substs))
     }
 
     pub fn prohibit_generics<'a, T: IntoIterator<Item = &'a hir::PathSegment<'a>>>(
@@ -2693,5 +2709,138 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                 );
             }
         }
+    }
+}
+
+#[instrument(level = "debug", skip(tcx))]
+pub fn opt_path_const_raw<'tcx>(
+    tcx: TyCtxt<'tcx>,
+    def: ty::WithOptConstParam<LocalDefId>,
+) -> Option<&'tcx ty::Const<'tcx>> {
+    let hir_id = tcx.hir().local_def_id_to_hir_id(def.did);
+    if tcx.hir().anon_const_needs_generics(tcx, hir_id) == false {
+        return None;
+    }
+    let body_id = match tcx.hir().get(hir_id) {
+        hir::Node::AnonConst(ac) => ac.body,
+        _ => span_bug!(
+            tcx.def_span(def.did.to_def_id()),
+            "from_anon_const can only process anonymous constants"
+        ),
+    };
+
+    let expr = &tcx.hir().body(body_id).value;
+    let expr = match &expr.kind {
+        hir::ExprKind::Block(block, _) if block.stmts.is_empty() && block.expr.is_some() => {
+            block.expr.as_ref().unwrap()
+        }
+        _ => expr,
+    };
+
+    debug!(?expr);
+    match expr.kind {
+        hir::ExprKind::Path(hir::QPath::Resolved(opt_self_ty, path))
+            if tcx.features().min_generic_const_exprs =>
+        {
+            let mut visitor = crate::collect::HirPlaceholderCollector::default();
+            visitor.visit_expr(expr);
+            crate::collect::placeholder_type_error(
+                tcx,
+                None,
+                &[],
+                visitor.0,
+                false,
+                None,
+                "anon const",
+            );
+
+            let item_hir_id = tcx
+                .hir()
+                .parent_iter(hir_id)
+                .filter(|(_, node)| matches!(node, hir::Node::Item(_)))
+                .map(|(id, _)| id)
+                .next()
+                .unwrap();
+            let item_did = tcx.hir().local_def_id(item_hir_id).to_def_id();
+            let item_ctxt =
+                &crate::collect::ItemCtxt::new(tcx, item_did) as &dyn crate::astconv::AstConv<'_>;
+            let opt_self_ty = opt_self_ty.map(|self_ty| item_ctxt.ast_ty_to_ty_in_path(self_ty));
+
+            match path.res {
+                hir::def::Res::Def(res_def_kind, res_def) => match res_def_kind {
+                    hir::def::DefKind::Const => {
+                        assert_eq!(opt_self_ty, None);
+
+                        let const_seg = match path.segments {
+                            [leading @ .., const_seg] => {
+                                item_ctxt.prohibit_generics(leading);
+                                const_seg
+                            }
+                            _ => unreachable!(),
+                        };
+
+                        let substs =
+                            item_ctxt.ast_path_substs_for_ty(path.span, res_def, const_seg);
+
+                        Some(tcx.mk_const(ty::Const {
+                            val: ty::ConstKind::Unevaluated(ty::Unevaluated::new(
+                                ty::WithOptConstParam { did: res_def, const_param_did: None },
+                                substs,
+                            )),
+                            ty: tcx.type_of(res_def).subst(tcx, substs),
+                        }))
+                    }
+                    hir::def::DefKind::AssocConst => {
+                        let (trait_seg, assoc_seg) = match path.segments {
+                            [leading @ .., trait_seg, assoc_seg] => {
+                                item_ctxt.prohibit_generics(leading);
+                                (trait_seg, assoc_seg)
+                            }
+                            _ => unreachable!(),
+                        };
+
+                        let substs = match item_ctxt.qpath_to_substs(
+                            path.span,
+                            opt_self_ty,
+                            res_def,
+                            trait_seg,
+                            assoc_seg,
+                        ) {
+                            Ok(substs) => substs,
+                            Err(_) => return Some(tcx.const_error(tcx.ty_error())),
+                        };
+
+                        Some(tcx.mk_const(ty::Const {
+                            val: ty::ConstKind::Unevaluated(ty::Unevaluated::new(
+                                ty::WithOptConstParam { did: res_def, const_param_did: None },
+                                substs,
+                            )),
+                            // do we need to be normalizing this ty?
+                            ty: tcx.type_of(res_def).subst(tcx, substs),
+                        }))
+                    }
+                    _ => span_bug!(
+                        path.span,
+                        "opt_path_const_raw called on def {:?} with invalid path res kind: {:?}",
+                        def,
+                        res_def_kind,
+                    ),
+                },
+                hir::def::Res::Err => Some(tcx.const_error(tcx.type_of(def.def_id_for_type_of()))),
+                _ => span_bug!(
+                    path.span,
+                    "opt_path_const_raw called on def {:?} with invalid path res: {:?}",
+                    def,
+                    path.res,
+                ),
+            }
+        }
+        hir::ExprKind::Path(hir::QPath::TypeRelative(_, segment))
+            if tcx.features().min_generic_const_exprs =>
+        {
+            // FIXME handle inherent assoc consts
+            span_bug!(segment.ident.span, "`QPath::TypeRelative` not yet implemented");
+        }
+        _ => span_bug!(expr.span, "unexpected expr: {:?}", expr),
     }
 }

@@ -58,14 +58,17 @@ impl<'tcx> Const<'tcx> {
 
         match Self::try_eval_lit_or_param(tcx, ty, expr) {
             Some(v) => v,
-            None => tcx.mk_const(ty::Const {
-                val: ty::ConstKind::Unevaluated(ty::Unevaluated {
-                    def: def.to_global(),
-                    substs: InternalSubsts::identity_for_item(tcx, def.did.to_def_id()),
-                    promoted: None,
+            None => match tcx.opt_path_const(def) {
+                Some(v) => v,
+                None => tcx.mk_const(ty::Const {
+                    val: ty::ConstKind::Unevaluated(ty::Unevaluated {
+                        def: def.to_global(),
+                        substs: InternalSubsts::identity_for_item(tcx, def.did.to_def_id()),
+                        promoted: None,
+                    }),
+                    ty,
                 }),
-                ty,
-            }),
+            },
         }
     }
 

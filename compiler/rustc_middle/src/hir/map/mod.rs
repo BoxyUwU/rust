@@ -1056,6 +1056,65 @@ impl<'hir> Map<'hir> {
             _ => None,
         }
     }
+
+    pub fn anon_const_needs_generics<'tcx>(&self, tcx: TyCtxt<'tcx>, anon_const: HirId) -> bool {
+        let body = match self.get(anon_const) {
+            Node::AnonConst(AnonConst { body, .. }) => self.body(*body),
+            _ => return false,
+        };
+
+        // strip outter `{}` if present
+        let expr = match &body.value.kind {
+            ExprKind::Block(block, _) if block.stmts.is_empty() && block.expr.is_some() => {
+                block.expr.as_ref().unwrap()
+            }
+            _ => &body.value,
+        };
+
+        debug!(?expr);
+        match &expr.kind {
+            // we allow `TypeRelative` here as nameres did not forbid `<Vec<T>>::ASSOC`
+            // instead `tcx.opt_path_const` is responsible for erroring on that
+            ExprKind::Path(QPath::Resolved(..) | QPath::TypeRelative(..)) => {
+                struct IsPathConstVisitor<'tcx, 'hir> {
+                    map: Map<'hir>,
+                    tcx: TyCtxt<'tcx>,
+                    is_path_const: bool,
+                }
+                impl<'v, 'tcx> intravisit::Visitor<'v> for IsPathConstVisitor<'tcx, 'v> {
+                    type NestedFilter = crate::hir::nested_filter::OnlyBodies;
+                    fn nested_visit_map(&mut self) -> Self::Map {
+                        self.map
+                    }
+
+                    fn visit_path(&mut self, path: &'v Path<'v>, _id: HirId) {
+                        self.is_path_const |= matches!(
+                            path.res,
+                            Res::Def(
+                                DefKind::TyParam | DefKind::ConstParam | DefKind::LifetimeParam,
+                                _
+                            )
+                        );
+
+                        // FIXME: no way this is right lol
+                        if let Res::SelfTy(_, Some((def_id, _))) = path.res {
+                            let self_ty = self.tcx.at(path.span).type_of(def_id);
+                            use crate::ty::fold::TypeFoldable;
+                            self.is_path_const |= self_ty.needs_subst();
+                        }
+                        self.is_path_const |= matches!(path.res, Res::SelfTy(Some(_), None));
+
+                        intravisit::walk_path(self, path);
+                    }
+                }
+
+                let mut vis = IsPathConstVisitor { map: *self, tcx, is_path_const: false };
+                vis.visit_expr(expr);
+                vis.is_path_const
+            }
+            _ => false,
+        }
+    }
 }
 
 impl<'hir> intravisit::Map<'hir> for Map<'hir> {

@@ -1148,10 +1148,11 @@ impl Expr {
     }
 
     /// Is this expr either `N`, or `{ N }`.
+    /// Or when `min_generic_const_exprs` is enabled, is this expr a path.
     ///
     /// If this is not the case, name resolution does not resolve `N` when using
     /// `min_const_generics` as more complex expressions are not supported.
-    pub fn is_potential_trivial_const_param(&self) -> bool {
+    pub fn is_potential_trivial_const_param(&self, is_min_generic_const_exprs: bool) -> bool {
         let this = if let ExprKind::Block(ref block, None) = self.kind {
             if block.stmts.len() == 1 {
                 if let StmtKind::Expr(ref expr) = block.stmts[0].kind { expr } else { self }
@@ -1162,13 +1163,18 @@ impl Expr {
             self
         };
 
-        if let ExprKind::Path(None, ref path) = this.kind {
-            if path.segments.len() == 1 && path.segments[0].args.is_none() {
-                return true;
+        match is_min_generic_const_exprs {
+            true => matches!(this.kind, ExprKind::Path(..)),
+            false => {
+                if let ExprKind::Path(None, ref path) = this.kind {
+                    if path.segments.len() == 1 && path.segments[0].args.is_none() {
+                        return true;
+                    }
+                }
+
+                false
             }
         }
-
-        false
     }
 
     pub fn to_bound(&self) -> Option<GenericBound> {

@@ -1509,8 +1509,14 @@ fn generics_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::Generics {
                 // We do not allow generic parameters in anon consts if we are inside
                 // of a const parameter type, e.g. `struct Foo<const N: usize, const M: [u8; N]>` is not allowed.
                 None
-            } else if tcx.lazy_normalization() {
-                if let Some(param_id) = tcx.hir().opt_const_param_default_param_hir_id(hir_id) {
+            } else if tcx.features().generic_const_exprs
+                || (tcx.features().min_generic_const_exprs
+                    && tcx.hir().anon_const_needs_generics(tcx, hir_id))
+            {
+                if let (Some(param_id), true) = (
+                    tcx.hir().opt_const_param_default_param_hir_id(hir_id),
+                    tcx.features().generic_const_exprs,
+                ) {
                     // If the def_id we are calling generics_of on is an anon ct default i.e:
                     //
                     // struct Foo<const N: usize = { .. }>;
@@ -2351,7 +2357,7 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
         }
     }
 
-    if tcx.features().generic_const_exprs {
+    if tcx.features().generic_const_exprs | tcx.features().min_generic_const_exprs {
         predicates.extend(const_evaluatable_predicates_of(tcx, def_id.expect_local()));
     }
 
@@ -2393,6 +2399,9 @@ fn const_evaluatable_predicates_of<'tcx>(
     impl<'tcx> intravisit::Visitor<'tcx> for ConstCollector<'tcx> {
         fn visit_anon_const(&mut self, c: &'tcx hir::AnonConst) {
             let def_id = self.tcx.hir().local_def_id(c.hir_id);
+
+            // FIXME: (?) in `feature(min_generic_const_exprs)` this adds evaluatable
+            // preds for _every_ const not just poly path consts
             let ct = ty::Const::from_anon_const(self.tcx, def_id);
             if let ty::ConstKind::Unevaluated(uv) = ct.val {
                 assert_eq!(uv.promoted, None);
@@ -2501,7 +2510,7 @@ fn explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericPredicat
             }
         }
     } else {
-        if matches!(def_kind, DefKind::AnonConst) && tcx.lazy_normalization() {
+        if matches!(def_kind, DefKind::AnonConst) && tcx.features().generic_const_exprs {
             let hir_id = tcx.hir().local_def_id_to_hir_id(def_id.expect_local());
             if tcx.hir().opt_const_param_default_param_hir_id(hir_id).is_some() {
                 // In `generics_of` we set the generics' parent to be our parent's parent which means that

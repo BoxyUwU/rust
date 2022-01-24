@@ -21,7 +21,8 @@ pub fn provide(providers: &mut Providers) {
 fn inferred_outlives_of(tcx: TyCtxt<'_>, item_def_id: DefId) -> &[(ty::Predicate<'_>, Span)] {
     let id = tcx.hir().local_def_id_to_hir_id(item_def_id.expect_local());
 
-    if matches!(tcx.def_kind(item_def_id), hir::def::DefKind::AnonConst) && tcx.lazy_normalization()
+    if matches!(tcx.def_kind(item_def_id), hir::def::DefKind::AnonConst)
+        && tcx.features().generic_const_exprs
     {
         if tcx.hir().opt_const_param_default_param_hir_id(id).is_some() {
             // In `generics_of` we set the generics' parent to be our parent's parent which means that

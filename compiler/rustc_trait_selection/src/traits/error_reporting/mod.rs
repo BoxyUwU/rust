@@ -804,7 +804,9 @@ impl<'a, 'tcx> InferCtxtExt<'tcx> for InferCtxt<'a, 'tcx> {
                 )
             }
             SelectionError::NotConstEvaluatable(NotConstEvaluatable::MentionsParam) => {
-                if !self.tcx.features().generic_const_exprs {
+                if !(self.tcx.features().generic_const_exprs
+                    | self.tcx.features().min_generic_const_exprs)
+                {
                     let mut err = self.tcx.sess.struct_span_err(
                         span,
                         "constant expression depends on a generic parameter",
