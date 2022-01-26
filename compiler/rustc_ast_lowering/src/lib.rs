@@ -2065,9 +2065,70 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
     }
 
     fn lower_anon_const(&mut self, c: &AnonConst) -> hir::AnonConst {
+        let min_generic_const_exprs = self.sess.features_untracked().min_generic_const_exprs;
+
         self.with_new_scopes(|this| hir::AnonConst {
             hir_id: this.lower_node_id(c.id),
-            body: this.lower_const_body(c.value.span, Some(&c.value)),
+            body: match c.value.is_potential_trivial_const_param(min_generic_const_exprs) {
+                true if min_generic_const_exprs => {
+                    struct IsPolyVisitor<'a>(&'a dyn ResolverAstLowering, bool);
+
+                    use rustc_ast::visit::Visitor;
+                    impl<'ast> Visitor<'ast> for IsPolyVisitor<'ast> {
+                        fn visit_item(&mut self, _: &'ast Item) {
+                            return;
+                        }
+
+                        fn visit_path(&mut self, path: &'ast Path, id: NodeId) {
+                            let res = self.0.get_partial_res(id).unwrap().base_res();
+                            match res {
+                                Res::Def(
+                                    DefKind::ConstParam | DefKind::TyParam | DefKind::LifetimeParam,
+                                    _,
+                                ) => self.1 = true,
+                                // FIXME lol
+                                Res::SelfTy(_, _) => self.1 = true,
+                                _ => (),
+                            };
+
+                            rustc_ast::visit::walk_path(self, path);
+                        }
+                    }
+
+                    let mut vis = IsPolyVisitor(&*this.resolver, false);
+                    vis.visit_anon_const(c);
+
+                    let expr = if let ExprKind::Block(ref block, None) = c.value.kind {
+                        match block.stmts.as_slice() {
+                            [Stmt { kind: StmtKind::Expr(ref expr), .. }] => expr,
+                            _ => &c.value,
+                        }
+                    } else {
+                        &c.value
+                    };
+
+                    match &expr.kind {
+                        // FIXME: dont yeet the outter `{}`
+                        ExprKind::Path(qself, p) if vis.1 => this.lower_body(|this| {
+                            let qpath = this.lower_qpath(
+                                expr.id,
+                                qself,
+                                p,
+                                ParamMode::Explicit,
+                                ImplTraitContext::disallowed(),
+                            );
+                            let kind = hir::ExprKind::Path(qpath);
+
+                            let hir_id = this.lower_node_id(expr.id);
+                            this.lower_attrs(hir_id, &expr.attrs);
+                            let expr = hir::Expr { hir_id, kind, span: this.lower_span(expr.span) };
+                            (&[], expr)
+                        }),
+                        _ => this.lower_const_body(c.value.span, Some(&c.value)),
+                    }
+                }
+                _ => this.lower_const_body(c.value.span, Some(&c.value)),
+            },
         })
     }
 

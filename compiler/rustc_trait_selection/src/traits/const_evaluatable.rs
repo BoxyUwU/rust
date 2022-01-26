@@ -539,22 +539,6 @@ pub(super) fn thir_abstract_const<'tcx>(
             //
             // Right now we do neither of that and simply always fail to unify them.
             DefKind::AnonConst | DefKind::InlineConst => (),
-            // DefKind::AssocConst => {
-            //     let substs = ty::subst::InternalSubsts::identity_for_item(tcx, def.did.to_def_id());
-            //     if substs.definitely_has_param_types_or_consts(tcx) == false {
-            //         return Ok(None);
-            //     };
-            //     let ct = tcx.mk_const(ty::Const {
-            //         val: ty::ConstKind::Unevaluated(ty::Unevaluated {
-            //             def: def.to_global(),
-            //             substs_: Some(substs),
-            //             promoted: None,
-            //         }),
-            //         ty: tcx.type_of(def.def_id_for_type_of()),
-            //     });
-
-            //     return Ok(Some(tcx.arena.alloc([thir::abstract_const::Node::Leaf(ct)])));
-            // }
             _ => return Ok(None),
         }
 
