@@ -465,6 +465,22 @@ impl<T: ?Sized> RwLock<T> {
         let data = self.data.get_mut();
         poison::map_result(self.poison.borrow(), |()| data)
     }
+
+    /// Returns a raw pointer to the underlying data
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::sync::RwLock;
+    ///
+    /// let mut lock = RwLock::new(5);
+    /// unsafe { *lock.as_ptr() = 10; }
+    /// assert_eq!(*lock.get_mut().unwrap(), 10);
+    /// ```
+    #[stable(feature = "rwlock_as_ptr", since = "1.63.0")]
+    pub fn as_ptr(&self) -> *mut T {
+        &self.data as *const UnsafeCell<T> as *mut T
+    }
 }
 
 #[stable(feature = "rust1", since = "1.0.0")]
