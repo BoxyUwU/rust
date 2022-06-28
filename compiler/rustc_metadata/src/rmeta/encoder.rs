@@ -1342,7 +1342,7 @@ impl<'a, 'tcx> EncodeContext<'a, 'tcx> {
 
                 // FIXME(generic_const_exprs): this feels wrong to have in `encode_mir`
                 let abstract_const = self.tcx.thir_abstract_const(def_id);
-                if let Ok(Some(abstract_const)) = abstract_const {
+                if let Ok(abstract_const) = abstract_const {
                     record!(self.tables.thir_abstract_const[def_id.to_def_id()] <- abstract_const);
                 }
             }

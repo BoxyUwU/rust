@@ -11,6 +11,7 @@ use rustc_middle::arena::ArenaAllocatable;
 use rustc_middle::metadata::ModChild;
 use rustc_middle::middle::exported_symbols::ExportedSymbol;
 use rustc_middle::middle::stability::DeprecationEntry;
+use rustc_middle::thir::abstract_const::{AbstractConstBuildFail, Node};
 use rustc_middle::ty::fast_reject::SimplifiedType;
 use rustc_middle::ty::query::{ExternProviders, Providers};
 use rustc_middle::ty::{self, TyCtxt, Visibility};
@@ -29,6 +30,21 @@ use super::{Decodable, DecodeContext, DecodeIterator};
 
 trait ProcessQueryValue<'tcx, T> {
     fn process_decoded(self, _tcx: TyCtxt<'tcx>, _err: impl Fn() -> !) -> T;
+}
+
+impl<'tcx> ProcessQueryValue<'tcx, Result<&'tcx [Node<'tcx>], AbstractConstBuildFail>>
+    for Option<&'tcx [Node<'tcx>]>
+{
+    fn process_decoded(
+        self,
+        _tcx: TyCtxt<'tcx>,
+        _err: impl Fn() -> !,
+    ) -> Result<&'tcx [Node<'tcx>], AbstractConstBuildFail> {
+        match ProcessQueryValue::<Option<&'tcx [Node<'tcx>]>>::process_decoded(self, _tcx, _err) {
+            Some(thing) => Ok(thing),
+            None => Err(AbstractConstBuildFail::NotGeneric),
+        }
+    }
 }
 
 impl<T> ProcessQueryValue<'_, Option<T>> for Option<T> {

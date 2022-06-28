@@ -46,12 +46,24 @@ TrivialTypeFoldableAndLiftImpls! {
     NotConstEvaluatable,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, HashStable, TyEncodable, TyDecodable)]
+pub enum AbstractConstBuildFail {
+    NotGeneric,
+    UnsupportedBody(ErrorGuaranteed),
+}
+
+impl From<ErrorGuaranteed> for AbstractConstBuildFail {
+    fn from(e: ErrorGuaranteed) -> AbstractConstBuildFail {
+        AbstractConstBuildFail::UnsupportedBody(e)
+    }
+}
+
 impl<'tcx> TyCtxt<'tcx> {
     #[inline]
     pub fn thir_abstract_const_opt_const_arg(
         self,
         def: ty::WithOptConstParam<rustc_hir::def_id::DefId>,
-    ) -> Result<Option<&'tcx [Node<'tcx>]>, ErrorGuaranteed> {
+    ) -> Result<&'tcx [Node<'tcx>], AbstractConstBuildFail> {
         if let Some((did, param_did)) = def.as_const_arg() {
             self.thir_abstract_const_of_const_arg((did, param_did))
         } else {

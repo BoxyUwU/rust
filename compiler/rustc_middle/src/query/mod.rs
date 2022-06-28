@@ -344,7 +344,7 @@ rustc_queries! {
     /// Try to build an abstract representation of the given constant.
     query thir_abstract_const(
         key: DefId
-    ) -> Result<Option<&'tcx [thir::abstract_const::Node<'tcx>]>, ErrorGuaranteed> {
+    ) -> Result<&'tcx [thir::abstract_const::Node<'tcx>], crate::thir::abstract_const::AbstractConstBuildFail> {
         desc {
             |tcx| "building an abstract representation for {}", tcx.def_path_str(key),
         }
@@ -353,7 +353,7 @@ rustc_queries! {
     /// Try to build an abstract representation of the given constant.
     query thir_abstract_const_of_const_arg(
         key: (LocalDefId, DefId)
-    ) -> Result<Option<&'tcx [thir::abstract_const::Node<'tcx>]>, ErrorGuaranteed> {
+    ) -> Result<&'tcx [thir::abstract_const::Node<'tcx>], crate::thir::abstract_const::AbstractConstBuildFail> {
         desc {
             |tcx|
             "building an abstract representation for the const argument {}",

@@ -830,7 +830,7 @@ fn contains_illegal_self_type_reference<'tcx, T: TypeFoldable<'tcx>>(
             // This shouldn't really matter though as we can't really use any
             // constants which are not considered const evaluatable.
             use rustc_middle::thir::abstract_const::Node;
-            if let Ok(Some(ct)) = AbstractConst::new(self.tcx, uv.shrink()) {
+            if let Ok(ct) = AbstractConst::new(self.tcx, uv.shrink()) {
                 const_evaluatable::walk_abstract_const(self.tcx, ct, |node| {
                     match node.root(self.tcx) {
                         Node::Leaf(leaf) => self.visit_const(leaf),

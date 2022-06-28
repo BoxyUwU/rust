@@ -15,7 +15,9 @@ use rustc_infer::infer::InferCtxt;
 use rustc_middle::mir;
 use rustc_middle::mir::interpret::{ErrorHandled, LitToConstError, LitToConstInput};
 use rustc_middle::thir;
-use rustc_middle::thir::abstract_const::{self, Node, NodeId, NotConstEvaluatable};
+use rustc_middle::thir::abstract_const::{
+    self, AbstractConstBuildFail, Node, NodeId, NotConstEvaluatable,
+};
 use rustc_middle::ty::subst::{Subst, SubstsRef};
 use rustc_middle::ty::{self, DelaySpanBugEmitted, EarlyBinder, TyCtxt, TypeFoldable};
 use rustc_session::lint;
@@ -37,60 +39,66 @@ pub fn is_const_evaluatable<'cx, 'tcx>(
     let tcx = infcx.tcx;
 
     if tcx.features().generic_const_exprs {
-        if let Some(ct) = AbstractConst::new(tcx, uv)? {
-            if satisfied_from_param_env(tcx, ct, param_env)? {
-                return Ok(());
+        match AbstractConst::new(tcx, uv) {
+            Err(AbstractConstBuildFail::UnsupportedBody(reported)) => {
+                return Err(NotConstEvaluatable::Error(reported));
             }
+            Err(AbstractConstBuildFail::NotGeneric) => (),
+            Ok(ct) => {
+                if satisfied_from_param_env(tcx, ct, param_env)? {
+                    return Ok(());
+                }
 
-            // We were unable to unify the abstract constant with
-            // a constant found in the caller bounds, there are
-            // now three possible cases here.
-            #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-            enum FailureKind {
-                /// The abstract const still references an inference
-                /// variable, in this case we return `TooGeneric`.
-                MentionsInfer,
-                /// The abstract const references a generic parameter,
-                /// this means that we emit an error here.
-                MentionsParam,
-                /// The substs are concrete enough that we can simply
-                /// try and evaluate the given constant.
-                Concrete,
-            }
-            let mut failure_kind = FailureKind::Concrete;
-            walk_abstract_const::<!, _>(tcx, ct, |node| match node.root(tcx) {
-                Node::Leaf(leaf) => {
-                    if leaf.has_infer_types_or_consts() {
-                        failure_kind = FailureKind::MentionsInfer;
-                    } else if leaf.has_param_types_or_consts() {
-                        failure_kind = cmp::min(failure_kind, FailureKind::MentionsParam);
+                // We were unable to unify the abstract constant with
+                // a constant found in the caller bounds, there are
+                // now three possible cases here.
+                #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+                enum FailureKind {
+                    /// The abstract const still references an inference
+                    /// variable, in this case we return `TooGeneric`.
+                    MentionsInfer,
+                    /// The abstract const references a generic parameter,
+                    /// this means that we emit an error here.
+                    MentionsParam,
+                    /// The substs are concrete enough that we can simply
+                    /// try and evaluate the given constant.
+                    Concrete,
+                }
+                let mut failure_kind = FailureKind::Concrete;
+                walk_abstract_const::<!, _>(tcx, ct, |node| match node.root(tcx) {
+                    Node::Leaf(leaf) => {
+                        if leaf.has_infer_types_or_consts() {
+                            failure_kind = FailureKind::MentionsInfer;
+                        } else if leaf.has_param_types_or_consts() {
+                            failure_kind = cmp::min(failure_kind, FailureKind::MentionsParam);
+                        }
+
+                        ControlFlow::CONTINUE
                     }
+                    Node::Cast(_, _, ty) => {
+                        if ty.has_infer_types_or_consts() {
+                            failure_kind = FailureKind::MentionsInfer;
+                        } else if ty.has_param_types_or_consts() {
+                            failure_kind = cmp::min(failure_kind, FailureKind::MentionsParam);
+                        }
 
-                    ControlFlow::CONTINUE
-                }
-                Node::Cast(_, _, ty) => {
-                    if ty.has_infer_types_or_consts() {
-                        failure_kind = FailureKind::MentionsInfer;
-                    } else if ty.has_param_types_or_consts() {
-                        failure_kind = cmp::min(failure_kind, FailureKind::MentionsParam);
+                        ControlFlow::CONTINUE
                     }
+                    Node::Binop(_, _, _) | Node::UnaryOp(_, _) | Node::FunctionCall(_, _) => {
+                        ControlFlow::CONTINUE
+                    }
+                });
 
-                    ControlFlow::CONTINUE
+                match failure_kind {
+                    FailureKind::MentionsInfer => {
+                        return Err(NotConstEvaluatable::MentionsInfer);
+                    }
+                    FailureKind::MentionsParam => {
+                        return Err(NotConstEvaluatable::MentionsParam);
+                    }
+                    // returned below
+                    FailureKind::Concrete => {}
                 }
-                Node::Binop(_, _, _) | Node::UnaryOp(_, _) | Node::FunctionCall(_, _) => {
-                    ControlFlow::CONTINUE
-                }
-            });
-
-            match failure_kind {
-                FailureKind::MentionsInfer => {
-                    return Err(NotConstEvaluatable::MentionsInfer);
-                }
-                FailureKind::MentionsParam => {
-                    return Err(NotConstEvaluatable::MentionsParam);
-                }
-                // returned below
-                FailureKind::Concrete => {}
             }
         }
         let concrete = infcx.const_eval_resolve(param_env, uv.expand(), Some(span));
@@ -130,7 +138,7 @@ pub fn is_const_evaluatable<'cx, 'tcx>(
           // const exprs, AND it would've passed if that expression had been evaluated with
           // generic const exprs, then suggest using generic const exprs.
           Err(_) if tcx.sess.is_nightly_build()
-            && let Ok(Some(ct)) = AbstractConst::new(tcx, uv)
+            && let Ok(ct) = AbstractConst::new(tcx, uv)
             && satisfied_from_param_env(tcx, ct, param_env) == Ok(true) => {
               tcx.sess
                   .struct_span_fatal(
@@ -190,8 +198,12 @@ fn satisfied_from_param_env<'tcx>(
 ) -> Result<bool, NotConstEvaluatable> {
     for pred in param_env.caller_bounds() {
         match pred.kind().skip_binder() {
-            ty::PredicateKind::ConstEvaluatable(uv) => {
-                if let Some(b_ct) = AbstractConst::new(tcx, uv)? {
+            ty::PredicateKind::ConstEvaluatable(uv) => match AbstractConst::new(tcx, uv) {
+                Err(AbstractConstBuildFail::UnsupportedBody(reported)) => {
+                    return Err(NotConstEvaluatable::Error(reported));
+                }
+                Err(AbstractConstBuildFail::NotGeneric) => (),
+                Ok(b_ct) => {
                     let const_unify_ctxt = ConstUnifyCtxt { tcx, param_env };
 
                     // Try to unify with each subtree in the AbstractConst to allow for
@@ -209,7 +221,7 @@ fn satisfied_from_param_env<'tcx>(
                         return Ok(true);
                     }
                 }
-            }
+            },
             _ => {} // don't care
         }
     }
@@ -219,7 +231,7 @@ fn satisfied_from_param_env<'tcx>(
 
 /// A tree representing an anonymous constant.
 ///
-/// This is only able to represent a subset of `MIR`,
+/// This is only able to represent a subset of `THIR`,
 /// and should not leak any information about desugarings.
 #[derive(Debug, Clone, Copy)]
 pub struct AbstractConst<'tcx> {
@@ -233,20 +245,22 @@ impl<'tcx> AbstractConst<'tcx> {
     pub fn new(
         tcx: TyCtxt<'tcx>,
         uv: ty::Unevaluated<'tcx, ()>,
-    ) -> Result<Option<AbstractConst<'tcx>>, ErrorGuaranteed> {
+    ) -> Result<AbstractConst<'tcx>, AbstractConstBuildFail> {
         let inner = tcx.thir_abstract_const_opt_const_arg(uv.def)?;
         debug!("AbstractConst::new({:?}) = {:?}", uv, inner);
-        Ok(inner.map(|inner| AbstractConst { inner, substs: uv.substs }))
+        Ok(AbstractConst { inner, substs: uv.substs })
     }
 
     pub fn from_const(
         tcx: TyCtxt<'tcx>,
         ct: ty::Const<'tcx>,
-    ) -> Result<Option<AbstractConst<'tcx>>, ErrorGuaranteed> {
+    ) -> Result<AbstractConst<'tcx>, AbstractConstBuildFail> {
         match ct.kind() {
             ty::ConstKind::Unevaluated(uv) => AbstractConst::new(tcx, uv.shrink()),
-            ty::ConstKind::Error(DelaySpanBugEmitted { reported, .. }) => Err(reported),
-            _ => Ok(None),
+            ty::ConstKind::Error(DelaySpanBugEmitted { reported, .. }) => {
+                Err(AbstractConstBuildFail::UnsupportedBody(reported))
+            }
+            _ => Err(AbstractConstBuildFail::NotGeneric),
         }
     }
 
@@ -306,12 +320,37 @@ impl<'a, 'tcx> AbstractConstBuilder<'a, 'tcx> {
         Err(reported)
     }
 
-    #[instrument(skip(tcx, body, body_id), level = "debug")]
+    // #[instrument(skip(tcx, body, body_id), level = "debug")]
     fn new(
         tcx: TyCtxt<'tcx>,
         (body, body_id): (&'a thir::Thir<'tcx>, thir::ExprId),
-    ) -> Result<Option<AbstractConstBuilder<'a, 'tcx>>, ErrorGuaranteed> {
-        let builder = AbstractConstBuilder { tcx, body_id, body, nodes: IndexVec::new() };
+    ) -> AbstractConstBuilder<'a, 'tcx> {
+        AbstractConstBuilder { tcx, body_id, body, nodes: IndexVec::new() }
+    }
+
+    /// We do not allow all binary operations in abstract consts, so filter disallowed ones.
+    fn check_binop(op: mir::BinOp) -> bool {
+        use mir::BinOp::*;
+        match op {
+            Add | Sub | Mul | Div | Rem | BitXor | BitAnd | BitOr | Shl | Shr | Eq | Lt | Le
+            | Ne | Ge | Gt => true,
+            Offset => false,
+        }
+    }
+
+    /// While we currently allow all unary operations, we still want to explicitly guard against
+    /// future changes here.
+    fn check_unop(op: mir::UnOp) -> bool {
+        use mir::UnOp::*;
+        match op {
+            Not | Neg => true,
+        }
+    }
+
+    /// Builds the abstract const by walking the thir and bailing out when
+    /// encountering an unsupported operation.
+    fn build(mut self) -> Result<&'tcx [Node<'tcx>], AbstractConstBuildFail> {
+        debug!("AbstractConstBuilder::build: body={:?}", &*self.body);
 
         struct IsThirPolymorphic<'a, 'tcx> {
             is_poly: bool,
@@ -375,39 +414,13 @@ impl<'a, 'tcx> AbstractConstBuilder<'a, 'tcx> {
             }
         }
 
-        let mut is_poly_vis = IsThirPolymorphic { is_poly: false, thir: body };
-        visit::walk_expr(&mut is_poly_vis, &body[body_id]);
+        let mut is_poly_vis = IsThirPolymorphic { is_poly: false, thir: self.body };
+        visit::walk_expr(&mut is_poly_vis, &self.body[self.body_id]);
         debug!("AbstractConstBuilder: is_poly={}", is_poly_vis.is_poly);
         if !is_poly_vis.is_poly {
-            return Ok(None);
+            return Err(AbstractConstBuildFail::NotGeneric);
         }
 
-        Ok(Some(builder))
-    }
-
-    /// We do not allow all binary operations in abstract consts, so filter disallowed ones.
-    fn check_binop(op: mir::BinOp) -> bool {
-        use mir::BinOp::*;
-        match op {
-            Add | Sub | Mul | Div | Rem | BitXor | BitAnd | BitOr | Shl | Shr | Eq | Lt | Le
-            | Ne | Ge | Gt => true,
-            Offset => false,
-        }
-    }
-
-    /// While we currently allow all unary operations, we still want to explicitly guard against
-    /// future changes here.
-    fn check_unop(op: mir::UnOp) -> bool {
-        use mir::UnOp::*;
-        match op {
-            Not | Neg => true,
-        }
-    }
-
-    /// Builds the abstract const by walking the thir and bailing out when
-    /// encountering an unsupported operation.
-    fn build(mut self) -> Result<&'tcx [Node<'tcx>], ErrorGuaranteed> {
-        debug!("Abstractconstbuilder::build: body={:?}", &*self.body);
         self.recurse_build(self.body_id)?;
 
         for n in self.nodes.iter() {
@@ -609,25 +622,20 @@ impl<'a, 'tcx> AbstractConstBuilder<'a, 'tcx> {
 pub(super) fn thir_abstract_const<'tcx>(
     tcx: TyCtxt<'tcx>,
     def: ty::WithOptConstParam<LocalDefId>,
-) -> Result<Option<&'tcx [thir::abstract_const::Node<'tcx>]>, ErrorGuaranteed> {
+) -> Result<&'tcx [thir::abstract_const::Node<'tcx>], AbstractConstBuildFail> {
     if tcx.features().generic_const_exprs {
         match tcx.def_kind(def.did) {
-            // FIXME(generic_const_exprs): We currently only do this for anonymous constants,
-            // meaning that we do not look into associated constants. I(@lcnr) am not yet sure whether
-            // we want to look into them or treat them as opaque projections.
-            //
-            // Right now we do neither of that and simply always fail to unify them.
             DefKind::AnonConst | DefKind::InlineConst => (),
-            _ => return Ok(None),
+            DefKind::AssocConst => return Err(AbstractConstBuildFail::NotGeneric),
+            _ => return Err(AbstractConstBuildFail::NotGeneric),
+            // FIXME(generic_const_exprs) this causes a bunch of ice from `Fn` and `AssocFn` defkinds
+            // defkind => bug!("`thir_abstract_const` called with defid of def kind {:?}", defkind),
         }
 
         let body = tcx.thir_body(def)?;
-
-        AbstractConstBuilder::new(tcx, (&*body.0.borrow(), body.1))?
-            .map(AbstractConstBuilder::build)
-            .transpose()
+        AbstractConstBuilder::new(tcx, (&*body.0.borrow(), body.1)).build()
     } else {
-        Ok(None)
+        Err(AbstractConstBuildFail::NotGeneric)
     }
 }
 
@@ -638,13 +646,18 @@ pub(super) fn try_unify_abstract_consts<'tcx>(
     param_env: ty::ParamEnv<'tcx>,
 ) -> bool {
     (|| {
-        if let Some(a) = AbstractConst::new(tcx, a)? {
-            if let Some(b) = AbstractConst::new(tcx, b)? {
-                let const_unify_ctxt = ConstUnifyCtxt { tcx, param_env };
-                return Ok(const_unify_ctxt.try_unify(a, b));
-            }
+        match AbstractConst::new(tcx, a) {
+            Err(AbstractConstBuildFail::NotGeneric) => (),
+            Err(AbstractConstBuildFail::UnsupportedBody(e)) => return Err(e),
+            Ok(a) => match AbstractConst::new(tcx, b) {
+                Err(AbstractConstBuildFail::NotGeneric) => (),
+                Err(AbstractConstBuildFail::UnsupportedBody(e)) => return Err(e),
+                Ok(b) => {
+                    let const_unify_ctxt = ConstUnifyCtxt { tcx, param_env };
+                    return Ok(const_unify_ctxt.try_unify(a, b));
+                }
+            },
         }
-
         Ok(false)
     })()
     .unwrap_or_else(|_: ErrorGuaranteed| true)
@@ -706,9 +719,11 @@ impl<'tcx> ConstUnifyCtxt<'tcx> {
     ) -> Option<AbstractConst<'tcx>> {
         while let Node::Leaf(ct) = abstr_const.root(self.tcx) {
             match AbstractConst::from_const(self.tcx, ct) {
-                Ok(Some(act)) => abstr_const = act,
-                Ok(None) => break,
-                Err(_) => return None,
+                Ok(act) => abstr_const = act,
+                Err(AbstractConstBuildFail::NotGeneric) => break,
+                // FIXME(generic_const_exprs) return `ErrorGuaranteed` ?
+                // or maybe `=> return Some(abstr_const)`
+                Err(AbstractConstBuildFail::UnsupportedBody(_)) => return None,
             }
         }
 
@@ -736,11 +751,15 @@ impl<'tcx> ConstUnifyCtxt<'tcx> {
 
         match (a_root, b_root) {
             (Node::Leaf(a_ct), Node::Leaf(b_ct)) => {
+                // FIXME(generic_const_exprs) only eval if fully concrete
                 let a_ct = a_ct.eval(self.tcx, self.param_env);
                 debug!("a_ct evaluated: {:?}", a_ct);
                 let b_ct = b_ct.eval(self.tcx, self.param_env);
                 debug!("b_ct evaluated: {:?}", b_ct);
 
+                // FIXME(adt_const_params) using `!=` here is incorrect in cases where the const param type contains
+                // higher ranked fn ptrs for example `const N: for<'a> fn(&'a (), &'a ())` or a generic const
+                // such as `const N: Foo<{ M + 1 }>`
                 if a_ct.ty() != b_ct.ty() {
                     return false;
                 }
@@ -765,11 +784,14 @@ impl<'tcx> ConstUnifyCtxt<'tcx> {
                     // We also take this branch for concrete anonymous constants and
                     // expand generic anonymous constants with concrete substs.
                     (ty::ConstKind::Unevaluated(a_uv), ty::ConstKind::Unevaluated(b_uv)) => {
+                        // FIXME(generic_const_exprs) `==` isnt correct here:
+                        // - if we have `a: Unevaluated(FOO::<{ N + 1 }>)` and `b: Unevaluated(FOO::<{ N + 1 }>)` there might
+                        //   be two different anon consts representing `N + 1` which would cause this arm to return `false`.
+                        // - if we have `a: Unevaluated(FOO::<for<'a> fn(&'a (), &'a ())>)` and
+                        //  `b: Unevaluated(FOO::<for<'a, 'b> fn(&'a (), &'b ())>)` then this arm would return
+                        //  `false` despite the two fn ptrs being the same type.
                         a_uv == b_uv
                     }
-                    // FIXME(generic_const_exprs): We may want to either actually try
-                    // to evaluate `a_ct` and `b_ct` if they are are fully concrete or something like
-                    // this, for now we just return false here.
                     _ => false,
                 }
             }
