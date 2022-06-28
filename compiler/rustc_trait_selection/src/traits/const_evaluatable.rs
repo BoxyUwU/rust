@@ -39,7 +39,10 @@ pub fn is_const_evaluatable<'cx, 'tcx>(
     let tcx = infcx.tcx;
 
     if tcx.features().generic_const_exprs {
-        match AbstractConst::new(tcx, uv) {
+        match AbstractConst::new(tcx, uv, param_env) {
+            // FIXME(generic_const_exprs) we ought to be able to relate an opaque projection with an
+            // abstract const.
+            Err(AbstractConstBuildFail::UnsupportedItem) => todo!(),
             Err(AbstractConstBuildFail::UnsupportedBody(reported)) => {
                 return Err(NotConstEvaluatable::Error(reported));
             }
@@ -138,7 +141,7 @@ pub fn is_const_evaluatable<'cx, 'tcx>(
           // const exprs, AND it would've passed if that expression had been evaluated with
           // generic const exprs, then suggest using generic const exprs.
           Err(_) if tcx.sess.is_nightly_build()
-            && let Ok(ct) = AbstractConst::new(tcx, uv)
+            && let Ok(ct) = AbstractConst::new(tcx, uv,param_env)
             && satisfied_from_param_env(tcx, ct, param_env) == Ok(true) => {
               tcx.sess
                   .struct_span_fatal(
@@ -198,7 +201,11 @@ fn satisfied_from_param_env<'tcx>(
 ) -> Result<bool, NotConstEvaluatable> {
     for pred in param_env.caller_bounds() {
         match pred.kind().skip_binder() {
-            ty::PredicateKind::ConstEvaluatable(uv) => match AbstractConst::new(tcx, uv) {
+            ty::PredicateKind::ConstEvaluatable(uv) => match AbstractConst::new(tcx, uv, param_env)
+            {
+                // FIXME(generic_const_exprs) we ought to be able to relate an opaque projection with an
+                // abstract const.
+                Err(AbstractConstBuildFail::UnsupportedItem) => todo!(),
                 Err(AbstractConstBuildFail::UnsupportedBody(reported)) => {
                     return Err(NotConstEvaluatable::Error(reported));
                 }
@@ -244,8 +251,25 @@ pub struct AbstractConst<'tcx> {
 impl<'tcx> AbstractConst<'tcx> {
     pub fn new(
         tcx: TyCtxt<'tcx>,
-        uv: ty::Unevaluated<'tcx, ()>,
+        mut uv: ty::Unevaluated<'tcx, ()>,
+        param_env: ty::ParamEnv<'tcx>,
     ) -> Result<AbstractConst<'tcx>, AbstractConstBuildFail> {
+        if let DefKind::AssocConst = tcx.def_kind(uv.def.did) {
+            match tcx.resolve_instance(param_env.and((uv.def.did, uv.substs))) {
+                Ok(Some(instance)) => {
+                    uv = ty::Unevaluated::new(
+                        ty::WithOptConstParam {
+                            did: instance.def_id(),
+                            const_param_did: uv.def.const_param_did,
+                        },
+                        instance.substs,
+                    )
+                }
+                Ok(None) => return Err(AbstractConstBuildFail::UnsupportedItem),
+                Err(e) => return Err(AbstractConstBuildFail::UnsupportedBody(e)),
+            }
+        }
+
         let inner = tcx.thir_abstract_const_opt_const_arg(uv.def)?;
         debug!("AbstractConst::new({:?}) = {:?}", uv, inner);
         Ok(AbstractConst { inner, substs: uv.substs })
@@ -254,9 +278,10 @@ impl<'tcx> AbstractConst<'tcx> {
     pub fn from_const(
         tcx: TyCtxt<'tcx>,
         ct: ty::Const<'tcx>,
+        param_env: ty::ParamEnv<'tcx>,
     ) -> Result<AbstractConst<'tcx>, AbstractConstBuildFail> {
         match ct.kind() {
-            ty::ConstKind::Unevaluated(uv) => AbstractConst::new(tcx, uv.shrink()),
+            ty::ConstKind::Unevaluated(uv) => AbstractConst::new(tcx, uv.shrink(), param_env),
             ty::ConstKind::Error(DelaySpanBugEmitted { reported, .. }) => {
                 Err(AbstractConstBuildFail::UnsupportedBody(reported))
             }
@@ -283,6 +308,45 @@ impl<'tcx> AbstractConst<'tcx> {
     }
 }
 
+pub trait AbstractConstBuilderErrorVariants: Sized {
+    fn error(
+        tcx: TyCtxt<'_>,
+        root_span: Span,
+        span: Span,
+        msg: &str,
+        is_maybe_supported_in_the_future: bool,
+    ) -> Result<!, Self>;
+}
+
+impl AbstractConstBuilderErrorVariants for ErrorGuaranteed {
+    fn error(
+        tcx: TyCtxt<'_>,
+        root_span: Span,
+        span: Span,
+        msg: &str,
+        is_maybe_supported_in_the_future: bool,
+    ) -> Result<!, ErrorGuaranteed> {
+        let mut reported = tcx.sess.struct_span_err(root_span, "overly complex generic constant");
+        reported
+            .span_label(span, msg)
+            .help("consider moving this anonymous constant into a `const` function");
+
+        if is_maybe_supported_in_the_future {
+            reported.note("this operation may be supported in the future");
+        }
+
+        Err(reported.emit())
+    }
+}
+
+struct FallibleAbstractConstBuild;
+impl AbstractConstBuilderErrorVariants for FallibleAbstractConstBuild {
+    fn error(_: TyCtxt<'_>, _: Span, _: Span, _: &str, _: bool) -> Result<!, Self> {
+        Err(FallibleAbstractConstBuild)
+    }
+}
+
+/// Use `AbstractConst::new` instead
 struct AbstractConstBuilder<'a, 'tcx> {
     tcx: TyCtxt<'tcx>,
     body_id: thir::ExprId,
@@ -296,31 +360,23 @@ impl<'a, 'tcx> AbstractConstBuilder<'a, 'tcx> {
         self.body.exprs[self.body_id].span
     }
 
-    fn error(&mut self, span: Span, msg: &str) -> Result<!, ErrorGuaranteed> {
-        let reported = self
-            .tcx
-            .sess
-            .struct_span_err(self.root_span(), "overly complex generic constant")
-            .span_label(span, msg)
-            .help("consider moving this anonymous constant into a `const` function")
-            .emit();
-
-        Err(reported)
+    fn error<E: AbstractConstBuilderErrorVariants>(
+        &mut self,
+        span: Span,
+        msg: &str,
+    ) -> Result<!, E> {
+        E::error(self.tcx, self.root_span(), span, msg, false)
     }
-    fn maybe_supported_error(&mut self, span: Span, msg: &str) -> Result<!, ErrorGuaranteed> {
-        let reported = self
-            .tcx
-            .sess
-            .struct_span_err(self.root_span(), "overly complex generic constant")
-            .span_label(span, msg)
-            .help("consider moving this anonymous constant into a `const` function")
-            .note("this operation may be supported in the future")
-            .emit();
-
-        Err(reported)
+    fn maybe_supported_error<E: AbstractConstBuilderErrorVariants>(
+        &mut self,
+        span: Span,
+        msg: &str,
+    ) -> Result<!, E> {
+        E::error(self.tcx, self.root_span(), span, msg, true)
     }
 
-    // #[instrument(skip(tcx, body, body_id), level = "debug")]
+    #[instrument(skip(tcx, body, body_id), level = "debug")]
+    /// Use `AbstractConst::new` instead
     fn new(
         tcx: TyCtxt<'tcx>,
         (body, body_id): (&'a thir::Thir<'tcx>, thir::ExprId),
@@ -349,7 +405,11 @@ impl<'a, 'tcx> AbstractConstBuilder<'a, 'tcx> {
 
     /// Builds the abstract const by walking the thir and bailing out when
     /// encountering an unsupported operation.
-    fn build(mut self) -> Result<&'tcx [Node<'tcx>], AbstractConstBuildFail> {
+    fn build<E: AbstractConstBuilderErrorVariants>(
+        mut self,
+    ) -> Result<&'tcx [Node<'tcx>], AbstractConstBuildFail<E>> {
+        // FIXME(generic_const_exprs) this shouldnt be able to return `AbstractConstBuildFail::UnsupportedItem`
+
         debug!("AbstractConstBuilder::build: body={:?}", &*self.body);
 
         struct IsThirPolymorphic<'a, 'tcx> {
@@ -421,7 +481,7 @@ impl<'a, 'tcx> AbstractConstBuilder<'a, 'tcx> {
             return Err(AbstractConstBuildFail::NotGeneric);
         }
 
-        self.recurse_build(self.body_id)?;
+        self.recurse_build::<E>(self.body_id)?;
 
         for n in self.nodes.iter() {
             if let Node::Leaf(ct) = n {
@@ -436,7 +496,10 @@ impl<'a, 'tcx> AbstractConstBuilder<'a, 'tcx> {
         Ok(self.tcx.arena.alloc_from_iter(self.nodes.into_iter()))
     }
 
-    fn recurse_build(&mut self, node: thir::ExprId) -> Result<NodeId, ErrorGuaranteed> {
+    fn recurse_build<E: AbstractConstBuilderErrorVariants>(
+        &mut self,
+        node: thir::ExprId,
+    ) -> Result<NodeId, E> {
         use thir::ExprKind;
         let node = &self.body.exprs[node];
         Ok(match &node.kind {
@@ -625,15 +688,35 @@ pub(super) fn thir_abstract_const<'tcx>(
 ) -> Result<&'tcx [thir::abstract_const::Node<'tcx>], AbstractConstBuildFail> {
     if tcx.features().generic_const_exprs {
         match tcx.def_kind(def.did) {
-            DefKind::AnonConst | DefKind::InlineConst => (),
-            DefKind::AssocConst => return Err(AbstractConstBuildFail::NotGeneric),
-            _ => return Err(AbstractConstBuildFail::NotGeneric),
-            // FIXME(generic_const_exprs) this causes a bunch of ice from `Fn` and `AssocFn` defkinds
-            // defkind => bug!("`thir_abstract_const` called with defid of def kind {:?}", defkind),
-        }
+            DefKind::AnonConst | DefKind::InlineConst => {
+                let body = tcx.thir_body(def)?;
+                AbstractConstBuilder::new(tcx, (&*body.0.borrow(), body.1))
+                    .build::<ErrorGuaranteed>()
+            }
+            DefKind::AssocConst if tcx.associated_item(def.did).defaultness.has_value() => {
+                // FIXME resolve to assoc const impl
+                // FIXME default const body in trait defs
+                let body = tcx.thir_body(def)?;
+                match AbstractConstBuilder::new(tcx, (&*body.0.borrow(), body.1))
+                    .build::<FallibleAbstractConstBuild>()
+                {
+                    Ok(ct) => return Ok(ct),
+                    Err(AbstractConstBuildFail::NotGeneric) => {
+                        Err(AbstractConstBuildFail::NotGeneric)
+                    }
+                    Err(AbstractConstBuildFail::UnsupportedItem) => bug!(""),
+                    Err(AbstractConstBuildFail::UnsupportedBody(FallibleAbstractConstBuild)) => {
+                        Err(AbstractConstBuildFail::UnsupportedItem)
+                    }
+                }
+            }
 
-        let body = tcx.thir_body(def)?;
-        AbstractConstBuilder::new(tcx, (&*body.0.borrow(), body.1)).build()
+            // FIXME(generic_const_exprs) this should be a `bug` but it causes a bunch of ICE
+            _ => Err(AbstractConstBuildFail::UnsupportedItem),
+            // defkind => {
+            //      bug!("unsupported defkind {:?} of item having an abstract const built for", defkind)
+            // }
+        }
     } else {
         Err(AbstractConstBuildFail::NotGeneric)
     }
@@ -646,12 +729,18 @@ pub(super) fn try_unify_abstract_consts<'tcx>(
     param_env: ty::ParamEnv<'tcx>,
 ) -> bool {
     (|| {
-        match AbstractConst::new(tcx, a) {
+        match AbstractConst::new(tcx, a, param_env) {
             Err(AbstractConstBuildFail::NotGeneric) => (),
             Err(AbstractConstBuildFail::UnsupportedBody(e)) => return Err(e),
-            Ok(a) => match AbstractConst::new(tcx, b) {
+            // FIXME(generic_const_exprs) we ought to be able to relate an opaque projection with an
+            // abstract const.
+            Err(AbstractConstBuildFail::UnsupportedItem) => (),
+            Ok(a) => match AbstractConst::new(tcx, b, param_env) {
                 Err(AbstractConstBuildFail::NotGeneric) => (),
                 Err(AbstractConstBuildFail::UnsupportedBody(e)) => return Err(e),
+                // FIXME(generic_const_exprs) we ought to be able to relate an opaque projection with an
+                // abstract const.
+                Err(AbstractConstBuildFail::UnsupportedItem) => (),
                 Ok(b) => {
                     let const_unify_ctxt = ConstUnifyCtxt { tcx, param_env };
                     return Ok(const_unify_ctxt.try_unify(a, b));
@@ -712,15 +801,17 @@ impl<'tcx> ConstUnifyCtxt<'tcx> {
     // ConstKind::Unevaluated could be turned into an AbstractConst that would unify e.g.
     // Param(N) should unify with Param(T), substs: [Unevaluated("T2", [Unevaluated("T3", [Param(N)])])]
     #[inline]
-    #[instrument(skip(self), level = "debug")]
+    // #[instrument(skip(self), level = "debug")]
     fn try_replace_substs_in_root(
         &self,
         mut abstr_const: AbstractConst<'tcx>,
+        param_env: ty::ParamEnv<'tcx>,
     ) -> Option<AbstractConst<'tcx>> {
         while let Node::Leaf(ct) = abstr_const.root(self.tcx) {
-            match AbstractConst::from_const(self.tcx, ct) {
+            match AbstractConst::from_const(self.tcx, ct, param_env) {
                 Ok(act) => abstr_const = act,
                 Err(AbstractConstBuildFail::NotGeneric) => break,
+                Err(AbstractConstBuildFail::UnsupportedItem) => break,
                 // FIXME(generic_const_exprs) return `ErrorGuaranteed` ?
                 // or maybe `=> return Some(abstr_const)`
                 Err(AbstractConstBuildFail::UnsupportedBody(_)) => return None,
@@ -733,13 +824,13 @@ impl<'tcx> ConstUnifyCtxt<'tcx> {
     /// Tries to unify two abstract constants using structural equality.
     #[instrument(skip(self), level = "debug")]
     fn try_unify(&self, a: AbstractConst<'tcx>, b: AbstractConst<'tcx>) -> bool {
-        let a = if let Some(a) = self.try_replace_substs_in_root(a) {
+        let a = if let Some(a) = self.try_replace_substs_in_root(a, self.param_env) {
             a
         } else {
             return true;
         };
 
-        let b = if let Some(b) = self.try_replace_substs_in_root(b) {
+        let b = if let Some(b) = self.try_replace_substs_in_root(b, self.param_env) {
             b
         } else {
             return true;

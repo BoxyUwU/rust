@@ -47,13 +47,14 @@ TrivialTypeFoldableAndLiftImpls! {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, HashStable, TyEncodable, TyDecodable)]
-pub enum AbstractConstBuildFail {
+pub enum AbstractConstBuildFail<E = ErrorGuaranteed> {
+    UnsupportedItem,
     NotGeneric,
-    UnsupportedBody(ErrorGuaranteed),
+    UnsupportedBody(E),
 }
 
-impl From<ErrorGuaranteed> for AbstractConstBuildFail {
-    fn from(e: ErrorGuaranteed) -> AbstractConstBuildFail {
+impl<E> From<E> for AbstractConstBuildFail<E> {
+    fn from(e: E) -> AbstractConstBuildFail<E> {
         AbstractConstBuildFail::UnsupportedBody(e)
     }
 }
