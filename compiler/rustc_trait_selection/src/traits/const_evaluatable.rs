@@ -37,7 +37,7 @@ pub fn is_const_evaluatable<'cx, 'tcx>(
     let tcx = infcx.tcx;
 
     if tcx.features().generic_const_exprs {
-        if let Some(ct) = AbstractConst::new(tcx, uv)? {
+        if let Some(ct) = AbstractConst::new(tcx, uv, param_env)? {
             if satisfied_from_param_env(tcx, ct, param_env)? {
                 return Ok(());
             }
@@ -130,7 +130,7 @@ pub fn is_const_evaluatable<'cx, 'tcx>(
           // const exprs, AND it would've passed if that expression had been evaluated with
           // generic const exprs, then suggest using generic const exprs.
           Err(_) if tcx.sess.is_nightly_build()
-            && let Ok(Some(ct)) = AbstractConst::new(tcx, uv)
+            && let Ok(Some(ct)) = AbstractConst::new(tcx, uv, param_env)
             && satisfied_from_param_env(tcx, ct, param_env) == Ok(true) => {
               tcx.sess
                   .struct_span_fatal(
@@ -191,7 +191,7 @@ fn satisfied_from_param_env<'tcx>(
     for pred in param_env.caller_bounds() {
         match pred.kind().skip_binder() {
             ty::PredicateKind::ConstEvaluatable(uv) => {
-                if let Some(b_ct) = AbstractConst::new(tcx, uv)? {
+                if let Some(b_ct) = AbstractConst::new(tcx, uv, param_env)? {
                     let const_unify_ctxt = ConstUnifyCtxt { tcx, param_env };
 
                     // Try to unify with each subtree in the AbstractConst to allow for
@@ -232,8 +232,29 @@ pub struct AbstractConst<'tcx> {
 impl<'tcx> AbstractConst<'tcx> {
     pub fn new(
         tcx: TyCtxt<'tcx>,
-        uv: ty::Unevaluated<'tcx, ()>,
+        mut uv: ty::Unevaluated<'tcx, ()>,
+        param_env: ty::ParamEnv<'tcx>,
     ) -> Result<Option<AbstractConst<'tcx>>, ErrorGuaranteed> {
+        debug!("AbstractConst::new param_env={:?}", param_env);
+        uv = tcx.erase_regions(uv);
+        uv = tcx.normalize_erasing_regions(param_env, uv);
+
+        if let DefKind::AssocConst = tcx.def_kind(uv.def.did) {
+            match tcx.resolve_instance(param_env.and((uv.def.did, uv.substs))) {
+                Ok(Some(instance)) => {
+                    uv = ty::Unevaluated::new(
+                        ty::WithOptConstParam {
+                            did: instance.def_id(),
+                            const_param_did: uv.def.const_param_did,
+                        },
+                        instance.substs,
+                    )
+                }
+                Ok(None) => return Ok(None),
+                Err(e) => return Err(e),
+            }
+        }
+
         let inner = tcx.thir_abstract_const_opt_const_arg(uv.def)?;
         debug!("AbstractConst::new({:?}) = {:?}", uv, inner);
         Ok(inner.map(|inner| AbstractConst { inner, substs: uv.substs }))
@@ -242,9 +263,10 @@ impl<'tcx> AbstractConst<'tcx> {
     pub fn from_const(
         tcx: TyCtxt<'tcx>,
         ct: ty::Const<'tcx>,
+        param_env: ty::ParamEnv<'tcx>,
     ) -> Result<Option<AbstractConst<'tcx>>, ErrorGuaranteed> {
         match ct.kind() {
-            ty::ConstKind::Unevaluated(uv) => AbstractConst::new(tcx, uv.shrink()),
+            ty::ConstKind::Unevaluated(uv) => AbstractConst::new(tcx, uv.shrink(), param_env),
             ty::ConstKind::Error(DelaySpanBugEmitted { reported, .. }) => Err(reported),
             _ => Ok(None),
         }
@@ -269,6 +291,44 @@ impl<'tcx> AbstractConst<'tcx> {
     }
 }
 
+pub trait RecurseBuildError: Sized {
+    fn error(
+        tcx: TyCtxt<'_>,
+        root_span: Span,
+        span: Span,
+        msg: &str,
+        is_maybe_supported_in_the_future: bool,
+    ) -> Result<!, Self>;
+}
+
+impl RecurseBuildError for ErrorGuaranteed {
+    fn error(
+        tcx: TyCtxt<'_>,
+        root_span: Span,
+        span: Span,
+        msg: &str,
+        is_maybe_supported_in_the_future: bool,
+    ) -> Result<!, ErrorGuaranteed> {
+        let mut reported = tcx.sess.struct_span_err(root_span, "overly complex generic constant");
+        reported
+            .span_label(span, msg)
+            .help("consider moving this anonymous constant into a `const` function");
+
+        if is_maybe_supported_in_the_future {
+            reported.note("this operation may be supported in the future");
+        }
+
+        Err(reported.emit())
+    }
+}
+
+struct FallibleAbstractConstBuild;
+impl RecurseBuildError for FallibleAbstractConstBuild {
+    fn error(_: TyCtxt<'_>, _: Span, _: Span, _: &str, _: bool) -> Result<!, Self> {
+        Err(FallibleAbstractConstBuild)
+    }
+}
+
 struct AbstractConstBuilder<'a, 'tcx> {
     tcx: TyCtxt<'tcx>,
     body_id: thir::ExprId,
@@ -282,37 +342,48 @@ impl<'a, 'tcx> AbstractConstBuilder<'a, 'tcx> {
         self.body.exprs[self.body_id].span
     }
 
-    fn error(&mut self, span: Span, msg: &str) -> Result<!, ErrorGuaranteed> {
-        let reported = self
-            .tcx
-            .sess
-            .struct_span_err(self.root_span(), "overly complex generic constant")
-            .span_label(span, msg)
-            .help("consider moving this anonymous constant into a `const` function")
-            .emit();
-
-        Err(reported)
+    fn error<E: RecurseBuildError>(&mut self, span: Span, msg: &str) -> Result<!, E> {
+        E::error(self.tcx, self.root_span(), span, msg, false)
     }
-    fn maybe_supported_error(&mut self, span: Span, msg: &str) -> Result<!, ErrorGuaranteed> {
-        let reported = self
-            .tcx
-            .sess
-            .struct_span_err(self.root_span(), "overly complex generic constant")
-            .span_label(span, msg)
-            .help("consider moving this anonymous constant into a `const` function")
-            .note("this operation may be supported in the future")
-            .emit();
-
-        Err(reported)
+    fn maybe_supported_error<E: RecurseBuildError>(
+        &mut self,
+        span: Span,
+        msg: &str,
+    ) -> Result<!, E> {
+        E::error(self.tcx, self.root_span(), span, msg, true)
     }
 
     #[instrument(skip(tcx, body, body_id), level = "debug")]
+    /// Use `AbstractConst::new` instead
     fn new(
         tcx: TyCtxt<'tcx>,
         (body, body_id): (&'a thir::Thir<'tcx>, thir::ExprId),
-    ) -> Result<Option<AbstractConstBuilder<'a, 'tcx>>, ErrorGuaranteed> {
-        let builder = AbstractConstBuilder { tcx, body_id, body, nodes: IndexVec::new() };
+    ) -> AbstractConstBuilder<'a, 'tcx> {
+        AbstractConstBuilder { tcx, body_id, body, nodes: IndexVec::new() }
+    }
 
+    /// We do not allow all binary operations in abstract consts, so filter disallowed ones.
+    fn check_binop(op: mir::BinOp) -> bool {
+        use mir::BinOp::*;
+        match op {
+            Add | Sub | Mul | Div | Rem | BitXor | BitAnd | BitOr | Shl | Shr | Eq | Lt | Le
+            | Ne | Ge | Gt => true,
+            Offset => false,
+        }
+    }
+
+    /// While we currently allow all unary operations, we still want to explicitly guard against
+    /// future changes here.
+    fn check_unop(op: mir::UnOp) -> bool {
+        use mir::UnOp::*;
+        match op {
+            Not | Neg => true,
+        }
+    }
+
+    /// Builds the abstract const by walking the thir and bailing out when
+    /// encountering an unsupported operation.
+    fn build<E: RecurseBuildError>(mut self) -> Result<Option<&'tcx [Node<'tcx>]>, E> {
         struct IsThirPolymorphic<'a, 'tcx> {
             is_poly: bool,
             thir: &'a thir::Thir<'tcx>,
@@ -375,40 +446,15 @@ impl<'a, 'tcx> AbstractConstBuilder<'a, 'tcx> {
             }
         }
 
-        let mut is_poly_vis = IsThirPolymorphic { is_poly: false, thir: body };
-        visit::walk_expr(&mut is_poly_vis, &body[body_id]);
+        let mut is_poly_vis = IsThirPolymorphic { is_poly: false, thir: self.body };
+        visit::walk_expr(&mut is_poly_vis, &self.body[self.body_id]);
         debug!("AbstractConstBuilder: is_poly={}", is_poly_vis.is_poly);
         if !is_poly_vis.is_poly {
             return Ok(None);
         }
 
-        Ok(Some(builder))
-    }
-
-    /// We do not allow all binary operations in abstract consts, so filter disallowed ones.
-    fn check_binop(op: mir::BinOp) -> bool {
-        use mir::BinOp::*;
-        match op {
-            Add | Sub | Mul | Div | Rem | BitXor | BitAnd | BitOr | Shl | Shr | Eq | Lt | Le
-            | Ne | Ge | Gt => true,
-            Offset => false,
-        }
-    }
-
-    /// While we currently allow all unary operations, we still want to explicitly guard against
-    /// future changes here.
-    fn check_unop(op: mir::UnOp) -> bool {
-        use mir::UnOp::*;
-        match op {
-            Not | Neg => true,
-        }
-    }
-
-    /// Builds the abstract const by walking the thir and bailing out when
-    /// encountering an unsupported operation.
-    fn build(mut self) -> Result<&'tcx [Node<'tcx>], ErrorGuaranteed> {
         debug!("Abstractconstbuilder::build: body={:?}", &*self.body);
-        self.recurse_build(self.body_id)?;
+        self.recurse_build::<E>(self.body_id)?;
 
         for n in self.nodes.iter() {
             if let Node::Leaf(ct) = n {
@@ -420,10 +466,10 @@ impl<'a, 'tcx> AbstractConstBuilder<'a, 'tcx> {
             }
         }
 
-        Ok(self.tcx.arena.alloc_from_iter(self.nodes.into_iter()))
+        Ok(Some(self.tcx.arena.alloc_from_iter(self.nodes.into_iter())))
     }
 
-    fn recurse_build(&mut self, node: thir::ExprId) -> Result<NodeId, ErrorGuaranteed> {
+    fn recurse_build<E: RecurseBuildError>(&mut self, node: thir::ExprId) -> Result<NodeId, E> {
         use thir::ExprKind;
         let node = &self.body.exprs[node];
         Ok(match &node.kind {
@@ -612,20 +658,19 @@ pub(super) fn thir_abstract_const<'tcx>(
 ) -> Result<Option<&'tcx [thir::abstract_const::Node<'tcx>]>, ErrorGuaranteed> {
     if tcx.features().generic_const_exprs {
         match tcx.def_kind(def.did) {
-            // FIXME(generic_const_exprs): We currently only do this for anonymous constants,
-            // meaning that we do not look into associated constants. I(@lcnr) am not yet sure whether
-            // we want to look into them or treat them as opaque projections.
-            //
-            // Right now we do neither of that and simply always fail to unify them.
-            DefKind::AnonConst | DefKind::InlineConst => (),
+            DefKind::AnonConst | DefKind::InlineConst => {
+                let body = tcx.thir_body(def)?;
+                AbstractConstBuilder::new(tcx, (&*body.0.borrow(), body.1))
+                    .build::<ErrorGuaranteed>()
+            }
+            DefKind::AssocConst if tcx.associated_item(def.did).defaultness.has_value() => {
+                let body = tcx.thir_body(def)?;
+                Ok(AbstractConstBuilder::new(tcx, (&*body.0.borrow(), body.1))
+                    .build::<FallibleAbstractConstBuild>()
+                    .unwrap_or(None))
+            }
             _ => return Ok(None),
         }
-
-        let body = tcx.thir_body(def)?;
-
-        AbstractConstBuilder::new(tcx, (&*body.0.borrow(), body.1))?
-            .map(AbstractConstBuilder::build)
-            .transpose()
     } else {
         Ok(None)
     }
@@ -638,8 +683,8 @@ pub(super) fn try_unify_abstract_consts<'tcx>(
     param_env: ty::ParamEnv<'tcx>,
 ) -> bool {
     (|| {
-        if let Some(a) = AbstractConst::new(tcx, a)? {
-            if let Some(b) = AbstractConst::new(tcx, b)? {
+        if let Some(a) = AbstractConst::new(tcx, a, param_env)? {
+            if let Some(b) = AbstractConst::new(tcx, b, param_env)? {
                 let const_unify_ctxt = ConstUnifyCtxt { tcx, param_env };
                 return Ok(const_unify_ctxt.try_unify(a, b));
             }
@@ -705,7 +750,7 @@ impl<'tcx> ConstUnifyCtxt<'tcx> {
         mut abstr_const: AbstractConst<'tcx>,
     ) -> Option<AbstractConst<'tcx>> {
         while let Node::Leaf(ct) = abstr_const.root(self.tcx) {
-            match AbstractConst::from_const(self.tcx, ct) {
+            match AbstractConst::from_const(self.tcx, ct, self.param_env) {
                 Ok(Some(act)) => abstr_const = act,
                 Ok(None) => break,
                 Err(_) => return None,
@@ -736,8 +781,10 @@ impl<'tcx> ConstUnifyCtxt<'tcx> {
 
         match (a_root, b_root) {
             (Node::Leaf(a_ct), Node::Leaf(b_ct)) => {
+                let a_ct = self.tcx.normalize_erasing_regions(self.param_env, a_ct);
                 let a_ct = a_ct.eval(self.tcx, self.param_env);
                 debug!("a_ct evaluated: {:?}", a_ct);
+                let b_ct = self.tcx.normalize_erasing_regions(self.param_env, b_ct);
                 let b_ct = b_ct.eval(self.tcx, self.param_env);
                 debug!("b_ct evaluated: {:?}", b_ct);
 

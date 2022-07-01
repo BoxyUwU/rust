@@ -1,0 +1,12 @@
+error[E0308]: mismatched types
+  --> $DIR/doesnt_build_for_invalid_body-2.rs:19:5
+   |
+LL |     [(); N]
+   |     ^^^^^^^ expected `<() as Trait<N>>::ASSOC`, found `N`
+   |
+   = note: expected type `<() as Trait<N>>::ASSOC`
+              found type `N`
+
+error: aborting due to previous error
+
+For more information about this error, try `rustc --explain E0308`.

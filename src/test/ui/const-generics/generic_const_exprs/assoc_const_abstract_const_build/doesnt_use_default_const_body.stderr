@@ -1,0 +1,20 @@
+error[E0308]: mismatched types
+  --> $DIR/doesnt_use_default_const_body.rs:9:5
+   |
+LL |     [(); N + 1]
+   |     ^^^^^^^^^^^ expected `<T as Trait<N>>::ASSOC`, found `N + 1`
+   |
+   = note: expected type `<T as Trait<N>>::ASSOC`
+              found type `N + 1`
+
+error: unconstrained generic constant
+  --> $DIR/doesnt_use_default_const_body.rs:9:10
+   |
+LL |     [(); N + 1]
+   |          ^^^^^
+   |
+   = help: try adding a `where` bound using this expression: `where [(); N + 1]:`
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0308`.

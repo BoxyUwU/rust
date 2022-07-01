@@ -149,7 +149,16 @@ where
                 if self.def_id_visitor.tcx().features().generic_const_exprs =>
             {
                 let tcx = self.def_id_visitor.tcx();
-                if let Ok(Some(ct)) = AbstractConst::new(tcx, uv) {
+                if tcx.features().generic_const_exprs {
+                    if let DefKind::AssocConst = tcx.def_kind(uv.def.did) {
+                        // FIXME this should visit the defid of the assoc const
+                        uv.substs.visit_with(self);
+                        // FIXME this would work better with let chains but rustfmt does not understand them
+                        return ControlFlow::CONTINUE;
+                    }
+                }
+                // FIXME(generic_const_exprs) empty param env
+                if let Ok(Some(ct)) = AbstractConst::new(tcx, uv, ty::ParamEnv::empty()) {
                     self.visit_abstract_const_expr(tcx, ct)?;
                 }
                 ControlFlow::CONTINUE
@@ -294,7 +303,18 @@ where
     fn visit_const(&mut self, c: Const<'tcx>) -> ControlFlow<Self::BreakTy> {
         self.visit_ty(c.ty())?;
         let tcx = self.def_id_visitor.tcx();
-        if let Ok(Some(ct)) = AbstractConst::from_const(tcx, c) {
+        if tcx.features().generic_const_exprs {
+            if let ty::ConstKind::Unevaluated(uv) = c.kind() {
+                if let DefKind::AssocConst = tcx.def_kind(uv.def.did) {
+                    // FIXME this should visit the defid of the assoc const
+                    uv.substs.visit_with(self);
+                    // FIXME this would work better with let chains but rustfmt does not understand them
+                    return ControlFlow::CONTINUE;
+                }
+            }
+        }
+        // FIXME(generic_const_exprs) empty param env
+        if let Ok(Some(ct)) = AbstractConst::from_const(tcx, c, ty::ParamEnv::empty()) {
             self.visit_abstract_const_expr(tcx, ct)?;
         }
         ControlFlow::CONTINUE
