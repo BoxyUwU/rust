@@ -1,7 +1,7 @@
 use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::macros::{root_macro_call_first_node, FormatArgsExpn};
 use clippy_utils::source::snippet_with_applicability;
-use clippy_utils::ty::is_type_diagnostic_item;
+use clippy_utils::ty::{is_type_diagnostic_item, is_type_lang_item};
 use rustc_errors::Applicability;
 use rustc_hir as hir;
 use rustc_lint::LateContext;
@@ -30,18 +30,20 @@ pub(super) fn check<'tcx>(
                 hir::ExprKind::AddrOf(hir::BorrowKind::Ref, _, expr) => expr,
                 hir::ExprKind::MethodCall(method_name, call_args, _) => {
                     if call_args.len() == 1
-                        && (method_name.ident.name == sym::as_str || method_name.ident.name == sym::as_ref)
+                        && (method_name.ident.name == sym::as_str
+                            || method_name.ident.name == sym::as_ref)
                         && {
                             let arg_type = cx.typeck_results().expr_ty(&call_args[0]);
                             let base_type = arg_type.peel_refs();
-                            *base_type.kind() == ty::Str || is_type_diagnostic_item(cx, base_type, sym::String)
+                            *base_type.kind() == ty::Str
+                                || is_type_lang_item(cx, base_type, hir::LangItem::String)
                         }
                     {
                         &call_args[0]
                     } else {
                         break;
                     }
-                },
+                }
                 _ => break,
             };
         }
@@ -52,7 +54,7 @@ pub(super) fn check<'tcx>(
     // converted to string.
     fn requires_to_string(cx: &LateContext<'_>, arg: &hir::Expr<'_>) -> bool {
         let arg_ty = cx.typeck_results().expr_ty(arg);
-        if is_type_diagnostic_item(cx, arg_ty, sym::String) {
+        if is_type_lang_item(cx, arg_ty, hir::LangItem::String) {
             return false;
         }
         if let ty::Ref(_, ty, ..) = arg_ty.kind() {
@@ -71,7 +73,10 @@ pub(super) fn check<'tcx>(
             hir::ExprKind::Call(fun, _) => {
                 if let hir::ExprKind::Path(ref p) = fun.kind {
                     match cx.qpath_res(p, fun.hir_id) {
-                        hir::def::Res::Def(hir::def::DefKind::Fn | hir::def::DefKind::AssocFn, def_id) => matches!(
+                        hir::def::Res::Def(
+                            hir::def::DefKind::Fn | hir::def::DefKind::AssocFn,
+                            def_id,
+                        ) => matches!(
                             cx.tcx.fn_sig(def_id).output().skip_binder().kind(),
                             ty::Ref(re, ..) if re.is_static(),
                         ),
@@ -80,17 +85,15 @@ pub(super) fn check<'tcx>(
                 } else {
                     false
                 }
-            },
+            }
             hir::ExprKind::MethodCall(..) => {
-                cx.typeck_results()
-                    .type_dependent_def_id(arg.hir_id)
-                    .map_or(false, |method_id| {
-                        matches!(
-                            cx.tcx.fn_sig(method_id).output().skip_binder().kind(),
-                            ty::Ref(re, ..) if re.is_static()
-                        )
-                    })
-            },
+                cx.typeck_results().type_dependent_def_id(arg.hir_id).map_or(false, |method_id| {
+                    matches!(
+                        cx.tcx.fn_sig(method_id).output().skip_binder().kind(),
+                        ty::Ref(re, ..) if re.is_static()
+                    )
+                })
+            }
             hir::ExprKind::Path(ref p) => matches!(
                 cx.qpath_res(p, arg.hir_id),
                 hir::def::Res::Def(hir::def::DefKind::Const | hir::def::DefKind::Static(_), _)
@@ -153,7 +156,8 @@ pub(super) fn check<'tcx>(
         return;
     }
 
-    let mut arg_root_snippet: Cow<'_, _> = snippet_with_applicability(cx, arg_root.span, "..", &mut applicability);
+    let mut arg_root_snippet: Cow<'_, _> =
+        snippet_with_applicability(cx, arg_root.span, "..", &mut applicability);
     if requires_to_string(cx, arg_root) {
         arg_root_snippet.to_mut().push_str(".to_string()");
     }
@@ -164,10 +168,7 @@ pub(super) fn check<'tcx>(
         span_replace_word,
         &format!("use of `{}` followed by a function call", name),
         "try this",
-        format!(
-            "unwrap_or_else({} {{ panic!(\"{{}}\", {}) }})",
-            closure_args, arg_root_snippet
-        ),
+        format!("unwrap_or_else({} {{ panic!(\"{{}}\", {}) }})", closure_args, arg_root_snippet),
         applicability,
     );
 }

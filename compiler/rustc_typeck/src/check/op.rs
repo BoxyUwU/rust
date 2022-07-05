@@ -601,7 +601,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let rm_borrow_msg = "remove the borrow to obtain an owned `String`";
         let to_owned_msg = "create an owned `String` from a string reference";
 
-        let string_type = self.tcx.get_diagnostic_item(sym::String);
+        let string_type = self.tcx.lang_items().string();
         let is_std_string = |ty: Ty<'tcx>| match ty.ty_adt_def() {
             Some(ty_def) => Some(ty_def.did()) == string_type,
             None => false,

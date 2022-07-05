@@ -1,6 +1,6 @@
 use clippy_utils::diagnostics::{span_lint, span_lint_and_help, span_lint_and_sugg};
 use clippy_utils::source::{snippet, snippet_with_applicability};
-use clippy_utils::ty::is_type_diagnostic_item;
+use clippy_utils::ty::is_type_lang_item;
 use clippy_utils::{get_parent_expr, is_lint_allowed, match_function_call, method_calls, paths};
 use clippy_utils::{peel_blocks, SpanlessEq};
 use if_chain::if_chain;
@@ -150,13 +150,7 @@ impl<'tcx> LateLintPass<'tcx> for StringAdd {
             return;
         }
         match e.kind {
-            ExprKind::Binary(
-                Spanned {
-                    node: BinOpKind::Add, ..
-                },
-                left,
-                _,
-            ) => {
+            ExprKind::Binary(Spanned { node: BinOpKind::Add, .. }, left, _) => {
                 if is_string(cx, left) {
                     if !is_lint_allowed(cx, STRING_ADD_ASSIGN, e.hir_id) {
                         let parent = get_parent_expr(cx, e);
@@ -176,7 +170,7 @@ impl<'tcx> LateLintPass<'tcx> for StringAdd {
                         "you added something to a string. Consider using `String::push_str()` instead",
                     );
                 }
-            },
+            }
             ExprKind::Assign(target, src, _) => {
                 if is_string(cx, target) && is_add(cx, src, target) {
                     span_lint(
@@ -187,10 +181,10 @@ impl<'tcx> LateLintPass<'tcx> for StringAdd {
                          `String::push_str()` instead",
                     );
                 }
-            },
+            }
             ExprKind::Index(target, _idx) => {
                 let e_ty = cx.typeck_results().expr_ty(target).peel_refs();
-                if matches!(e_ty.kind(), ty::Str) || is_type_diagnostic_item(cx, e_ty, sym::String) {
+                if matches!(e_ty.kind(), ty::Str) || is_type_lang_item(cx, e_ty, LangItem::String) {
                     span_lint(
                         cx,
                         STRING_SLICE,
@@ -198,25 +192,21 @@ impl<'tcx> LateLintPass<'tcx> for StringAdd {
                         "indexing into a string may panic if the index is within a UTF-8 character",
                     );
                 }
-            },
-            _ => {},
+            }
+            _ => {}
         }
     }
 }
 
 fn is_string(cx: &LateContext<'_>, e: &Expr<'_>) -> bool {
-    is_type_diagnostic_item(cx, cx.typeck_results().expr_ty(e).peel_refs(), sym::String)
+    is_type_lang_item(cx, cx.typeck_results().expr_ty(e).peel_refs(), LangItem::String)
 }
 
 fn is_add(cx: &LateContext<'_>, src: &Expr<'_>, target: &Expr<'_>) -> bool {
     match peel_blocks(src).kind {
-        ExprKind::Binary(
-            Spanned {
-                node: BinOpKind::Add, ..
-            },
-            left,
-            _,
-        ) => SpanlessEq::new(cx).eq_expr(target, left),
+        ExprKind::Binary(Spanned { node: BinOpKind::Add, .. }, left, _) => {
+            SpanlessEq::new(cx).eq_expr(target, left)
+        }
         _ => false,
     }
 }
@@ -446,7 +436,7 @@ impl<'tcx> LateLintPass<'tcx> for StringToString {
             if let ExprKind::MethodCall(path, [self_arg, ..], _) = &expr.kind;
             if path.ident.name == sym!(to_string);
             let ty = cx.typeck_results().expr_ty(self_arg);
-            if is_type_diagnostic_item(cx, ty, sym::String);
+            if is_type_lang_item(cx, ty, LangItem::String);
             then {
                 span_lint_and_help(
                     cx,

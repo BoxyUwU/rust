@@ -1,15 +1,18 @@
 use clippy_utils::diagnostics::{multispan_sugg, span_lint_and_then};
 use clippy_utils::ptr::get_spans;
 use clippy_utils::source::{snippet, snippet_opt};
-use clippy_utils::ty::{implements_trait, is_copy, is_type_diagnostic_item};
+use clippy_utils::ty::{implements_trait, is_copy, is_type_diagnostic_item, is_type_lang_item};
 use clippy_utils::{get_trait_def_id, is_self, paths};
 use if_chain::if_chain;
 use rustc_ast::ast::Attribute;
 use rustc_data_structures::fx::FxHashSet;
 use rustc_errors::{Applicability, Diagnostic};
 use rustc_hir::intravisit::FnKind;
-use rustc_hir::{BindingAnnotation, Body, FnDecl, GenericArg, HirId, Impl, ItemKind, Node, PatKind, QPath, TyKind};
-use rustc_hir::{HirIdMap, HirIdSet};
+use rustc_hir::{
+    BindingAnnotation, Body, FnDecl, GenericArg, HirId, Impl, ItemKind, Node, PatKind, QPath,
+    TyKind,
+};
+use rustc_hir::{HirIdMap, HirIdSet, LangItem};
 use rustc_infer::infer::TyCtxtInferExt;
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::mir::FakeReadCause;
@@ -90,7 +93,7 @@ impl<'tcx> LateLintPass<'tcx> for NeedlessPassByValue {
                 if header.abi != Abi::Rust || requires_exact_signature(attrs) {
                     return;
                 }
-            },
+            }
             FnKind::Method(..) => (),
             FnKind::Closure => return,
         }
@@ -122,7 +125,9 @@ impl<'tcx> LateLintPass<'tcx> for NeedlessPassByValue {
             .filter_map(|obligation| {
                 // Note that we do not want to deal with qualified predicates here.
                 match obligation.predicate.kind().no_bound_vars() {
-                    Some(ty::PredicateKind::Trait(pred)) if pred.def_id() != sized_trait => Some(pred),
+                    Some(ty::PredicateKind::Trait(pred)) if pred.def_id() != sized_trait => {
+                        Some(pred)
+                    }
                     _ => None,
                 }
             })
@@ -130,15 +135,17 @@ impl<'tcx> LateLintPass<'tcx> for NeedlessPassByValue {
 
         // Collect moved variables and spans which will need dereferencings from the
         // function body.
-        let MovedVariablesCtxt {
-            moved_vars,
-            spans_need_deref,
-            ..
-        } = {
+        let MovedVariablesCtxt { moved_vars, spans_need_deref, .. } = {
             let mut ctx = MovedVariablesCtxt::default();
             cx.tcx.infer_ctxt().enter(|infcx| {
-                euv::ExprUseVisitor::new(&mut ctx, &infcx, fn_def_id, cx.param_env, cx.typeck_results())
-                    .consume_body(body);
+                euv::ExprUseVisitor::new(
+                    &mut ctx,
+                    &infcx,
+                    fn_def_id,
+                    cx.param_env,
+                    cx.typeck_results(),
+                )
+                .consume_body(body);
             });
             ctx
         };
@@ -146,7 +153,9 @@ impl<'tcx> LateLintPass<'tcx> for NeedlessPassByValue {
         let fn_sig = cx.tcx.fn_sig(fn_def_id);
         let fn_sig = cx.tcx.erase_late_bound_regions(fn_sig);
 
-        for (idx, ((input, &ty), arg)) in decl.inputs.iter().zip(fn_sig.inputs()).zip(body.params).enumerate() {
+        for (idx, ((input, &ty), arg)) in
+            decl.inputs.iter().zip(fn_sig.inputs()).zip(body.params).enumerate()
+        {
             // All spans generated from a proc-macro invocation are the same...
             if span == input.span {
                 return;
@@ -252,7 +261,7 @@ impl<'tcx> LateLintPass<'tcx> for NeedlessPassByValue {
                             }
                         }
 
-                        if is_type_diagnostic_item(cx, ty, sym::String) {
+                        if is_type_lang_item(cx, ty, LangItem::String) {
                             if let Some(clone_spans) =
                                 get_spans(cx, Some(body.id()), idx, &[("clone", ".to_string()"), ("as_str", "")]) {
                                 diag.span_suggestion(
@@ -343,5 +352,11 @@ impl<'tcx> euv::Delegate<'tcx> for MovedVariablesCtxt {
 
     fn mutate(&mut self, _: &euv::PlaceWithHirId<'tcx>, _: HirId) {}
 
-    fn fake_read(&mut self, _: &rustc_typeck::expr_use_visitor::PlaceWithHirId<'tcx>, _: FakeReadCause, _: HirId) {}
+    fn fake_read(
+        &mut self,
+        _: &rustc_typeck::expr_use_visitor::PlaceWithHirId<'tcx>,
+        _: FakeReadCause,
+        _: HirId,
+    ) {
+    }
 }

@@ -1,6 +1,6 @@
 use clippy_utils::diagnostics::span_lint_and_sugg;
 use clippy_utils::source::snippet;
-use clippy_utils::ty::is_type_diagnostic_item;
+use clippy_utils::ty::{is_type_diagnostic_item, is_type_lang_item};
 use clippy_utils::{get_parent_expr, match_def_path, paths, SpanlessEq};
 use clippy_utils::{meets_msrv, msrvs};
 use rustc_errors::Applicability;
@@ -12,12 +12,8 @@ use rustc_semver::RustcVersion;
 use rustc_session::{declare_tool_lint, impl_lint_pass};
 use rustc_span::symbol::sym;
 
-const ACCEPTABLE_METHODS: [&[&str]; 4] = [
-    &paths::HASHSET_ITER,
-    &paths::BTREESET_ITER,
-    &paths::SLICE_INTO,
-    &paths::VEC_DEQUE_ITER,
-];
+const ACCEPTABLE_METHODS: [&[&str]; 4] =
+    [&paths::HASHSET_ITER, &paths::BTREESET_ITER, &paths::SLICE_INTO, &paths::VEC_DEQUE_ITER];
 const ACCEPTABLE_TYPES: [(rustc_span::Symbol, Option<RustcVersion>); 6] = [
     (sym::BTreeSet, Some(msrvs::BTREE_SET_RETAIN)),
     (sym::BTreeMap, Some(msrvs::BTREE_MAP_RETAIN)),
@@ -140,13 +136,18 @@ fn check_to_owned(
         && let Some(chars_expr_def_id) = cx.typeck_results().type_dependent_def_id(chars_expr.hir_id)
         && match_def_path(cx, chars_expr_def_id, &paths::STR_CHARS)
         && let ty = cx.typeck_results().expr_ty(str_expr).peel_refs()
-        && is_type_diagnostic_item(cx, ty, sym::String)
+        && is_type_lang_item(cx, ty, hir::LangItem::String)
         && SpanlessEq::new(cx).eq_expr(left_expr, str_expr) {
         suggest(cx, parent_expr, left_expr, filter_expr);
     }
 }
 
-fn suggest(cx: &LateContext<'_>, parent_expr: &hir::Expr<'_>, left_expr: &hir::Expr<'_>, filter_expr: &hir::Expr<'_>) {
+fn suggest(
+    cx: &LateContext<'_>,
+    parent_expr: &hir::Expr<'_>,
+    left_expr: &hir::Expr<'_>,
+    filter_expr: &hir::Expr<'_>,
+) {
     if let hir::ExprKind::MethodCall(_, [_, closure], _) = filter_expr.kind
         && let hir::ExprKind::Closure{ body, ..} = closure.kind
         && let filter_body = cx.tcx.hir().body(body)
@@ -188,38 +189,43 @@ fn make_sugg(
     filter_body: &hir::Body<'_>,
 ) -> Option<String> {
     match (&key_pat.kind, &value_pat.kind) {
-        (hir::PatKind::Binding(_, _, key_param_ident, None), hir::PatKind::Binding(_, _, value_param_ident, None)) => {
-            Some(format!(
-                "{}.retain(|{}, &mut {}| {})",
-                snippet(cx, left_expr.span, ".."),
-                key_param_ident,
-                value_param_ident,
-                snippet(cx, filter_body.value.span, "..")
-            ))
-        },
+        (
+            hir::PatKind::Binding(_, _, key_param_ident, None),
+            hir::PatKind::Binding(_, _, value_param_ident, None),
+        ) => Some(format!(
+            "{}.retain(|{}, &mut {}| {})",
+            snippet(cx, left_expr.span, ".."),
+            key_param_ident,
+            value_param_ident,
+            snippet(cx, filter_body.value.span, "..")
+        )),
         (hir::PatKind::Binding(_, _, key_param_ident, None), hir::PatKind::Wild) => Some(format!(
             "{}.retain(|{}, _| {})",
             snippet(cx, left_expr.span, ".."),
             key_param_ident,
             snippet(cx, filter_body.value.span, "..")
         )),
-        (hir::PatKind::Wild, hir::PatKind::Binding(_, _, value_param_ident, None)) => Some(format!(
-            "{}.retain(|_, &mut {}| {})",
-            snippet(cx, left_expr.span, ".."),
-            value_param_ident,
-            snippet(cx, filter_body.value.span, "..")
-        )),
+        (hir::PatKind::Wild, hir::PatKind::Binding(_, _, value_param_ident, None)) => {
+            Some(format!(
+                "{}.retain(|_, &mut {}| {})",
+                snippet(cx, left_expr.span, ".."),
+                value_param_ident,
+                snippet(cx, filter_body.value.span, "..")
+            ))
+        }
         _ => None,
     }
 }
 
 fn match_acceptable_def_path(cx: &LateContext<'_>, collect_def_id: DefId) -> bool {
-    ACCEPTABLE_METHODS
-        .iter()
-        .any(|&method| match_def_path(cx, collect_def_id, method))
+    ACCEPTABLE_METHODS.iter().any(|&method| match_def_path(cx, collect_def_id, method))
 }
 
-fn match_acceptable_type(cx: &LateContext<'_>, expr: &hir::Expr<'_>, msrv: Option<RustcVersion>) -> bool {
+fn match_acceptable_type(
+    cx: &LateContext<'_>,
+    expr: &hir::Expr<'_>,
+    msrv: Option<RustcVersion>,
+) -> bool {
     let expr_ty = cx.typeck_results().expr_ty(expr).peel_refs();
     ACCEPTABLE_TYPES.iter().any(|(ty, acceptable_msrv)| {
         is_type_diagnostic_item(cx, expr_ty, *ty)

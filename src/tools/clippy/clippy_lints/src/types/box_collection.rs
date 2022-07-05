@@ -41,5 +41,6 @@ fn get_std_collection(cx: &LateContext<'_>, qpath: &QPath<'_>) -> Option<Symbol>
     let id = path_def_id(cx, param)?;
     cx.tcx
         .get_diagnostic_name(id)
-        .filter(|&name| matches!(name, sym::HashMap | sym::String | sym::Vec))
+        .filter(|&name| matches!(name, sym::HashMap | sym::Vec))
+        .or_else(|| cx.tcx.lang_items().string().filter(|did| id == *did).map(|_| sym::String))
 }
