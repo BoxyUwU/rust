@@ -420,7 +420,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
         if self.tcx.features().deref_patterns && let hir::ExprKind::Lit(Spanned { node: ast::LitKind::Str(..), .. }) = lt.kind {
             let tcx = self.tcx;
-            let expected = self.structurally_resolved_type(span, expected);
+            let expected = self.resolve_vars_if_possible(expected);
             pat_ty = match expected.kind() {
                 ty::Adt(def, _) if Some(def.did()) == tcx.lang_items().string() => expected,
                 ty::Str => tcx.mk_static_str(),

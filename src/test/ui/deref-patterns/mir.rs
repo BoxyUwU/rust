@@ -1,5 +1,5 @@
 // compile-flags: -Z unpretty=mir
-// build-pass
+// check-pass
 #![feature(deref_patterns)]
 
 fn main() {
