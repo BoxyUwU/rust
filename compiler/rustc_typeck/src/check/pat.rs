@@ -298,7 +298,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             //
             // Call `resolve_vars_if_possible` here for inline const blocks.
             PatKind::Lit(lt) => match self.resolve_vars_if_possible(self.check_expr(lt)).kind() {
-                ty::Ref(..) => AdjustMode::Pass,
+                ty::Ref(..) if !self.tcx.features().deref_patterns => AdjustMode::Pass,
                 _ => AdjustMode::Peel,
             },
             PatKind::Path(_) => match opt_path_res.unwrap() {
@@ -348,33 +348,85 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     ) -> (Ty<'tcx>, BindingMode) {
         let mut expected = self.resolve_vars_with_obligations(expected);
 
-        // Peel off as many `&` or `&mut` from the scrutinee type as possible. For example,
-        // for `match &&&mut Some(5)` the loop runs three times, aborting when it reaches
-        // the `Some(5)` which is not of type Ref.
-        //
-        // For each ampersand peeled off, update the binding mode and push the original
-        // type into the adjustments vector.
-        //
-        // See the examples in `ui/match-defbm*.rs`.
         let mut pat_adjustments = vec![];
-        while let ty::Ref(_, inner_ty, inner_mutability) = *expected.kind() {
-            debug!("inspecting {:?}", expected);
+        if self.tcx.features().deref_patterns {
+            let autoderef = self.autoderef(pat.span, expected);
+            let mut satisfied = false;
 
-            debug!("current discriminant is Ref, inserting implicit deref");
-            // Preserve the reference type. We'll need it later during THIR lowering.
-            pat_adjustments.push(expected);
+            // Deref "by demand" -- we want to deref the expression enough times that
+            // the expression is "shallow compatible" with the pattern. See below for
+            // what exactly that means.
+            for (ty, _) in autoderef {
+                if self.pattern_is_shallow_compatible(pat, ty) {
+                    expected = ty;
+                    satisfied = true;
+                    break;
+                }
 
-            expected = inner_ty;
-            def_bm = ty::BindByReference(match def_bm {
-                // If default binding mode is by value, make it `ref` or `ref mut`
-                // (depending on whether we observe `&` or `&mut`).
-                ty::BindByValue(_) |
-                // When `ref mut`, stay a `ref mut` (on `&mut`) or downgrade to `ref` (on `&`).
-                ty::BindByReference(hir::Mutability::Mut) => inner_mutability,
-                // Once a `ref`, always a `ref`.
-                // This is because a `& &mut` cannot mutate the underlying value.
-                ty::BindByReference(m @ hir::Mutability::Not) => m,
-            });
+                // This simulates an 'autoref' step by popping off one of the deref steps
+                // if `&{ty}` is compatible with the pattern.
+                //
+                // In effect, if we have a `String` and need compatibility with `&str`,
+                // then we don't record any deref steps. This exists solely to accomodate
+                // string literal patterns.
+                if self.probe(|_| {
+                    let autoref_ty = self.tcx.mk_ref(
+                        self.next_region_var(infer::RegionVariableOrigin::Autoref(pat.span)),
+                        ty::TypeAndMut { ty, mutbl: hir::Mutability::Not },
+                    );
+                    self.pattern_is_shallow_compatible(pat, autoref_ty)
+                }) {
+                    if let Some(last_ty) = pat_adjustments.pop() {
+                        expected = last_ty;
+                        satisfied = true;
+                        break;
+                    }
+                }
+
+                pat_adjustments.push(ty);
+
+                // TODO: explain why these semantics
+                if let ty::Ref(_, _, inner_mutability) = *ty.kind() {
+                    def_bm = ty::BindByReference(match def_bm {
+                        ty::BindByValue(_) | ty::BindByReference(hir::Mutability::Mut) => {
+                            inner_mutability
+                        }
+                        ty::BindByReference(m @ hir::Mutability::Not) => m,
+                    });
+                }
+            }
+
+            if !satisfied {
+                pat_adjustments.clear();
+            }
+        } else {
+            // Peel off as many `&` or `&mut` from the scrutinee type as possible. For example,
+            // for `match &&&mut Some(5)` the loop runs three times, aborting when it reaches
+            // the `Some(5)` which is not of type Ref.
+            //
+            // For each ampersand peeled off, update the binding mode and push the original
+            // type into the adjustments vector.
+            //
+            // See the examples in `ui/match-defbm*.rs`.
+            while let ty::Ref(_, inner_ty, inner_mutability) = *expected.kind() {
+                debug!("inspecting {:?}", expected);
+
+                debug!("current discriminant is Ref, inserting implicit deref");
+                // Preserve the reference type. We'll need it later during THIR lowering.
+                pat_adjustments.push(expected);
+
+                expected = inner_ty;
+                def_bm = ty::BindByReference(match def_bm {
+                    // If default binding mode is by value, make it `ref` or `ref mut`
+                    // (depending on whether we observe `&` or `&mut`).
+                    ty::BindByValue(_) |
+                    // When `ref mut`, stay a `ref mut` (on `&mut`) or downgrade to `ref` (on `&`).
+                    ty::BindByReference(hir::Mutability::Mut) => inner_mutability,
+                    // Once a `ref`, always a `ref`.
+                    // This is because a `& &mut` cannot mutate the underlying value.
+                    ty::BindByReference(m @ hir::Mutability::Not) => m,
+                });
+            }
         }
 
         if !pat_adjustments.is_empty() {
@@ -387,6 +439,44 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         }
 
         (expected, def_bm)
+    }
+
+    // Checks that a type is compatible with a pattern "up to one layer".
+    // This means that if we have a `Option<T>` and a `Some(pat)` pattern,
+    // then it's compatible regardless of the type of `T` and `pat`. This
+    // is a "good enough" heuristic to tell us if we need to proceed with
+    // more deref steps.
+    fn pattern_is_shallow_compatible(&self, pat: &'tcx Pat<'tcx>, ty: Ty<'tcx>) -> bool {
+        if ty.is_ty_infer() {
+            return true;
+        }
+
+        match &pat.kind {
+            PatKind::Wild | PatKind::Binding(_, _, _, None) => true,
+            PatKind::Binding(_, _, _, Some(pat)) => self.pattern_is_shallow_compatible(*pat, ty),
+            PatKind::Struct(qpath, _, _) | PatKind::TupleStruct(qpath, _, _) | PatKind::Path(qpath) => {
+                let (res, _, _) =
+                    self.resolve_ty_and_res_fully_qualified_call(qpath, pat.hir_id, pat.span);
+                // FIXME: make this not ICE when we have a bad res
+                let variant = self.tcx.expect_variant_res(res);
+                if let ty::Adt(def, _) = ty.kind() && def.variants().iter().any(|v| v.def_id == variant.def_id) { 
+                    true
+                } else {
+                    false 
+                }
+            }
+            PatKind::Lit(expr) => {
+                // We already computed the node_ty of the expr, so just sub to gauge compatibility
+                // FIXME: is this direction correct, lol
+                self.can_sub(self.param_env, ty, self.node_ty(expr.hir_id)).is_ok()
+            }
+            PatKind::Or(pats) => pats.iter().all(|pat| self.pattern_is_shallow_compatible(pat, ty)),
+            PatKind::Tuple(_, _) => matches!(ty.kind(), ty::Tuple(..)),
+            PatKind::Box(_) => ty.is_box(),
+            PatKind::Ref(..) => ty.is_ref(),
+            PatKind::Range(_, _, _) => todo!(),
+            PatKind::Slice(_, _, _) => ty.is_slice() || ty.is_array(),
+        }
     }
 
     fn check_pat_lit(
@@ -418,14 +508,10 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             }
         }
 
-        if self.tcx.features().deref_patterns && let hir::ExprKind::Lit(Spanned { node: ast::LitKind::Str(..), .. }) = lt.kind {
-            let tcx = self.tcx;
-            let expected = self.resolve_vars_if_possible(expected);
-            pat_ty = match expected.kind() {
-                ty::Adt(def, _) if Some(def.did()) == tcx.lang_items().string() => expected,
-                ty::Str => tcx.mk_static_str(),
-                _ => pat_ty,
-            };
+        if self.tcx.features().deref_patterns && let ty::Ref(_, pointee_ty, _) = ty.kind() && pointee_ty.is_str() {
+            if self.autoderef(span, expected).nth(1).is_some_and(|(ty, _)| ty.is_str()) {
+                pat_ty = expected;
+            }
         }
 
         // Somewhat surprising: in this case, the subtyping relation goes the
