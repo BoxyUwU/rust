@@ -1308,8 +1308,19 @@ impl<'p, 'tcx> DeconstructedPat<'p, 'tcx> {
                 fields = Fields::empty();
             }
             PatKind::Deref { subpattern } => {
-                ctor = Single;
-                fields = Fields::singleton(cx, mkpat(subpattern));
+                match pat.ty.kind() {
+                    ty::Ref(..) => {
+                        ctor = Single;
+                        fields = Fields::singleton(cx, mkpat(subpattern));
+                    }
+                    ty::Adt(adt, _) if adt.is_box() => {
+                        // The only legal patterns of type `Box` (outside `std`) are `_` and box
+                        // patterns. If we're here we can assume this is a box pattern.
+                        ctor = Single;
+                        fields = Fields::singleton(cx, mkpat(subpattern));
+                    }
+                    _ => bug!("pattern has unexpected type: pat: {:?}, ty: {:?}", pat, pat.ty),
+                }
             }
             PatKind::Leaf { subpatterns } | PatKind::Variant { subpatterns, .. } => {
                 match pat.ty.kind() {
