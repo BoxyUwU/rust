@@ -385,7 +385,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
                 pat_adjustments.push(ty);
 
-                // TODO: explain why these semantics
+                // FIXME(deref-patterns): explain why these semantics are the way they are
                 if let ty::Ref(_, _, inner_mutability) = *ty.kind() {
                     def_bm = ty::BindByReference(match def_bm {
                         ty::BindByValue(_) | ty::BindByReference(hir::Mutability::Mut) => {
@@ -454,15 +454,17 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         match &pat.kind {
             PatKind::Wild | PatKind::Binding(_, _, _, None) => true,
             PatKind::Binding(_, _, _, Some(pat)) => self.pattern_is_shallow_compatible(*pat, ty),
-            PatKind::Struct(qpath, _, _) | PatKind::TupleStruct(qpath, _, _) | PatKind::Path(qpath) => {
+            PatKind::Struct(qpath, _, _)
+            | PatKind::TupleStruct(qpath, _, _)
+            | PatKind::Path(qpath) => {
                 let (res, _, _) =
                     self.resolve_ty_and_res_fully_qualified_call(qpath, pat.hir_id, pat.span);
                 // FIXME: make this not ICE when we have a bad res
                 let variant = self.tcx.expect_variant_res(res);
-                if let ty::Adt(def, _) = ty.kind() && def.variants().iter().any(|v| v.def_id == variant.def_id) { 
+                if let ty::Adt(def, _) = ty.kind() && def.variants().iter().any(|v| v.def_id == variant.def_id) {
                     true
                 } else {
-                    false 
+                    false
                 }
             }
             PatKind::Lit(expr) => {

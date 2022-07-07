@@ -353,6 +353,8 @@ pub(super) struct PatCtxt<'a, 'p, 'tcx> {
     pub(super) is_top_level: bool,
     /// Whether the current pattern is from a `non_exhaustive` enum.
     pub(super) is_non_exhaustive: bool,
+    /// Whether the current pattern is from a PatKind::Deref
+    pub(super) deref_ty: Option<Ty<'tcx>>,
 }
 
 impl<'a, 'p, 'tcx> fmt::Debug for PatCtxt<'a, 'p, 'tcx> {
@@ -809,7 +811,14 @@ fn is_useful<'p, 'tcx>(
     let ty = v.head().ty();
     let is_non_exhaustive = cx.is_foreign_non_exhaustive_enum(ty);
     debug!("v.head: {:?}, v.span: {:?}", v.head(), v.head().span());
-    let pcx = PatCtxt { cx, ty, span: v.head().span(), is_top_level, is_non_exhaustive };
+    let pcx = PatCtxt {
+        cx,
+        ty,
+        span: v.head().span(),
+        is_top_level,
+        is_non_exhaustive,
+        deref_ty: v.head().ctor().as_deref(),
+    };
 
     // If the first pattern is an or-pattern, expand it.
     let mut ret = Usefulness::new_not_useful(witness_preference);

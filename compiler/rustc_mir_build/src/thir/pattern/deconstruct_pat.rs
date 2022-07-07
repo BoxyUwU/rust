@@ -642,6 +642,8 @@ pub(super) enum Constructor<'tcx> {
     /// The constructor for patterns that have a single constructor, like tuples, struct patterns
     /// and fixed-length arrays.
     Single,
+    /// The constructor for a deref pattern
+    Deref(Ty<'tcx>),
     /// Enum variants.
     Variant(VariantIdx),
     /// Ranges of integer literal values (`2`, `2..=5` or `2..5`).
@@ -692,6 +694,13 @@ impl<'tcx> Constructor<'tcx> {
         }
     }
 
+    pub(super) fn as_deref(&self) -> Option<Ty<'tcx>> {
+        match self {
+            Deref(ty) => Some(*ty),
+            _ => None,
+        }
+    }
+
     /// Checks if the `Constructor` is a variant and `TyCtxt::eval_stability` returns
     /// `EvalResult::Deny { .. }`.
     ///
@@ -733,6 +742,7 @@ impl<'tcx> Constructor<'tcx> {
     /// `Fields::wildcards`.
     pub(super) fn arity(&self, pcx: PatCtxt<'_, '_, 'tcx>) -> usize {
         match self {
+            Deref(_) => 1,
             Single | Variant(_) => match pcx.ty.kind() {
                 ty::Tuple(fs) => fs.len(),
                 ty::Ref(..) => 1,
@@ -820,7 +830,10 @@ impl<'tcx> Constructor<'tcx> {
             (Missing { .. } | Wildcard, _) => false,
 
             (Single, Single) => true,
+            (Deref(_), Deref(_)) => true,
             (Variant(self_id), Variant(other_id)) => self_id == other_id,
+
+            (Deref(_), Single | Variant(_)) | (Single | Variant(_), Deref(_)) => false,
 
             (IntRange(self_range), IntRange(other_range)) => self_range.is_covered_by(other_range),
             (
@@ -875,7 +888,7 @@ impl<'tcx> Constructor<'tcx> {
         // This must be kept in sync with `is_covered_by`.
         match self {
             // If `self` is `Single`, `used_ctors` cannot contain anything else than `Single`s.
-            Single => !used_ctors.is_empty(),
+            Single | Deref(_) => !used_ctors.is_empty(),
             Variant(vid) => used_ctors.iter().any(|c| matches!(c, Variant(i) if i == vid)),
             IntRange(range) => used_ctors
                 .iter()
@@ -1032,7 +1045,9 @@ impl<'tcx> SplitWildcard<'tcx> {
             }
             ty::Never => smallvec![],
             _ if cx.is_uninhabited(pcx.ty) => smallvec![],
-            ty::Adt(..) | ty::Tuple(..) | ty::Ref(..) => smallvec![Single],
+            ty::Adt(..) | ty::Tuple(..) | ty::Ref(..) => {
+                smallvec![if let Some(deref_ty) = pcx.deref_ty { Deref(deref_ty) } else { Single }]
+            }
             // This type is one for which we cannot list constructors, like `str` or `f64`.
             _ => smallvec![NonExhaustive],
         };
@@ -1208,6 +1223,7 @@ impl<'p, 'tcx> Fields<'p, 'tcx> {
         constructor: &Constructor<'tcx>,
     ) -> Self {
         let ret = match constructor {
+            Deref(ty) => Fields::wildcards_from_tys(cx, [*ty]),
             Single | Variant(_) => match ty.kind() {
                 ty::Tuple(fs) => Fields::wildcards_from_tys(cx, fs.iter()),
                 ty::Ref(_, rty, _) => Fields::wildcards_from_tys(cx, once(*rty)),
@@ -1308,18 +1324,23 @@ impl<'p, 'tcx> DeconstructedPat<'p, 'tcx> {
                 fields = Fields::empty();
             }
             PatKind::Deref { subpattern } => {
-                match pat.ty.kind() {
-                    ty::Ref(..) => {
-                        ctor = Single;
-                        fields = Fields::singleton(cx, mkpat(subpattern));
+                if cx.tcx.features().deref_patterns {
+                    ctor = Deref(subpattern.ty);
+                    fields = Fields::singleton(cx, mkpat(subpattern));
+                } else {
+                    match pat.ty.kind() {
+                        ty::Ref(..) => {
+                            ctor = Single;
+                            fields = Fields::singleton(cx, mkpat(subpattern));
+                        }
+                        ty::Adt(adt, _) if adt.is_box() => {
+                            // The only legal patterns of type `Box` (outside `std`) are `_` and box
+                            // patterns. If we're here we can assume this is a box pattern.
+                            ctor = Single;
+                            fields = Fields::singleton(cx, mkpat(subpattern));
+                        }
+                        _ => bug!("pattern has unexpected type: pat: {:?}, ty: {:?}", pat, pat.ty),
                     }
-                    ty::Adt(adt, _) if adt.is_box() => {
-                        // The only legal patterns of type `Box` (outside `std`) are `_` and box
-                        // patterns. If we're here we can assume this is a box pattern.
-                        ctor = Single;
-                        fields = Fields::singleton(cx, mkpat(subpattern));
-                    }
-                    _ => bug!("pattern has unexpected type: pat: {:?}, ty: {:?}", pat, pat.ty),
                 }
             }
             PatKind::Leaf { subpatterns } | PatKind::Variant { subpatterns, .. } => {
@@ -1460,6 +1481,7 @@ impl<'p, 'tcx> DeconstructedPat<'p, 'tcx> {
         };
         let mut subpatterns = self.iter_fields().map(|p| p.to_pat(cx));
         let pat = match &self.ctor {
+            Deref(_) => PatKind::Deref { subpattern: subpatterns.next().unwrap() },
             Single | Variant(_) => match self.ty.kind() {
                 ty::Tuple(..) => PatKind::Leaf {
                     subpatterns: subpatterns
@@ -1645,6 +1667,7 @@ impl<'p, 'tcx> fmt::Debug for DeconstructedPat<'p, 'tcx> {
         let mut start_or_comma = || start_or_continue(", ");
 
         match &self.ctor {
+            Deref(_) => write!(f, "&{:?}", self.iter_fields().next().unwrap()),
             Single | Variant(_) => match self.ty.kind() {
                 ty::Adt(def, _) if def.is_box() => {
                     // Without `box_patterns`, the only legal pattern of type `Box` is `_` (outside

@@ -783,7 +783,10 @@ impl<'tcx> fmt::Display for Pat<'tcx> {
                     ty::Ref(_, _, mutbl) => {
                         write!(f, "&{}", mutbl.prefix_str())?;
                     }
-                    _ => bug!("{} is a bad Deref pattern type", self.ty),
+                    // FIXME(deref-patterns): This is not right (yet?)
+                    _ => {
+                        write!(f, "&")?;
+                    }
                 }
                 write!(f, "{}", subpattern)
             }
