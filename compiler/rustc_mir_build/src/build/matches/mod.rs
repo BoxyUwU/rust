@@ -995,6 +995,8 @@ enum TestKind<'tcx> {
 #[derive(Debug)]
 pub(crate) struct Test<'tcx> {
     span: Span,
+    /// Number of `ops::Deref` calls to do before testing
+    deref_steps: usize,
     kind: TestKind<'tcx>,
 }
 
@@ -1578,7 +1580,7 @@ impl<'a, 'tcx> Builder<'a, 'tcx> {
     ) {
         // extract the match-pair from the highest priority candidate
         let match_pair = &candidates.first().unwrap().match_pairs[0];
-        let mut test = self.test(match_pair);
+        let mut test = self.test(&match_pair.pattern);
         let match_place = match_pair.place.clone();
 
         // most of the time, the test to perform is simply a function

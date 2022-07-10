@@ -15,7 +15,7 @@
 use crate::build::expr::as_place::PlaceBuilder;
 use crate::build::matches::{Ascription, Binding, Candidate, MatchPair};
 use crate::build::Builder;
-use rustc_hir::RangeEnd;
+use rustc_hir::{LangItem, RangeEnd};
 use rustc_middle::thir::{self, *};
 use rustc_middle::ty;
 use rustc_middle::ty::layout::IntegerExt;
@@ -306,10 +306,37 @@ impl<'a, 'tcx> Builder<'a, 'tcx> {
                 Ok(())
             }
 
-            PatKind::Deref { ref subpattern } => {
+            PatKind::Deref { ref subpattern } if match_pair.pattern.ty.is_ref() => {
                 let place_builder = match_pair.place.deref();
                 candidate.match_pairs.push(MatchPair::new(place_builder, subpattern));
                 Ok(())
+            }
+            PatKind::Deref { ref subpattern } => {
+                if let Ok(resolved) =
+                    match_pair.place.clone().try_upvars_resolved(self.tcx, self.typeck_results)
+                {
+                    let ty = resolved
+                        .into_place(self.tcx, self.typeck_results)
+                        .ty(&self.local_decls, self.tcx)
+                        .ty;
+                    let re_erased = self.tcx.lifetimes.re_erased;
+                    let deref_target = self.tcx.require_lang_item(LangItem::DerefTarget, None);
+                    let derefed_ref_ty_ty = self.tcx.mk_imm_ref(
+                        re_erased,
+                        self.tcx.mk_projection(
+                            deref_target,
+                            self.tcx.mk_substs([ty::GenericArg::from(ty)].into_iter()),
+                        ),
+                    );
+                    let derefed_place =
+                        self.temp(derefed_ref_ty_ty, candidate.span).as_local().unwrap();
+                    self.simplify_match_pair(
+                        MatchPair::new(PlaceBuilder::from(derefed_place), subpattern),
+                        candidate,
+                    )
+                } else {
+                    return Err(match_pair);
+                }
             }
 
             PatKind::Or { .. } => Err(match_pair),

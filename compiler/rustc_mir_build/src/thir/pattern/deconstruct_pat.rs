@@ -888,6 +888,7 @@ impl<'tcx> Constructor<'tcx> {
         // This must be kept in sync with `is_covered_by`.
         match self {
             // If `self` is `Single`, `used_ctors` cannot contain anything else than `Single`s.
+            // FIXME(deref-patterns): this logic is probably wrong
             Single | Deref(_) => !used_ctors.is_empty(),
             Variant(vid) => used_ctors.iter().any(|c| matches!(c, Variant(i) if i == vid)),
             IntRange(range) => used_ctors

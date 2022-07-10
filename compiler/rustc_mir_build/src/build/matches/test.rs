@@ -28,23 +28,27 @@ impl<'a, 'tcx> Builder<'a, 'tcx> {
     /// Identifies what test is needed to decide if `match_pair` is applicable.
     ///
     /// It is a bug to call this with a not-fully-simplified pattern.
-    pub(super) fn test<'pat>(&mut self, match_pair: &MatchPair<'pat, 'tcx>) -> Test<'tcx> {
-        match *match_pair.pattern.kind {
+    pub(super) fn test<'pat>(&mut self, pattern: &'pat Pat<'tcx>) -> Test<'tcx> {
+        debug!("Builder::test(pattern={:?}", pattern);
+
+        match *pattern.kind {
             PatKind::Variant { adt_def, substs: _, variant_index: _, subpatterns: _ } => Test {
-                span: match_pair.pattern.span,
+                span: pattern.span,
+                deref_steps: 0,
                 kind: TestKind::Switch {
                     adt_def,
                     variants: BitSet::new_empty(adt_def.variants().len()),
                 },
             },
 
-            PatKind::Constant { .. } if is_switch_ty(match_pair.pattern.ty) => {
+            PatKind::Constant { .. } if is_switch_ty(pattern.ty) => {
                 // For integers, we use a `SwitchInt` match, which allows
                 // us to handle more cases.
                 Test {
-                    span: match_pair.pattern.span,
+                    span: pattern.span,
+                    deref_steps: 0,
                     kind: TestKind::SwitchInt {
-                        switch_ty: match_pair.pattern.ty,
+                        switch_ty: pattern.ty,
 
                         // these maps are empty to start; cases are
                         // added below in add_cases_to_switch
@@ -54,30 +58,41 @@ impl<'a, 'tcx> Builder<'a, 'tcx> {
             }
 
             PatKind::Constant { value } => Test {
-                span: match_pair.pattern.span,
-                kind: TestKind::Eq { value, ty: match_pair.pattern.ty },
+                span: pattern.span,
+                deref_steps: 0,
+                kind: TestKind::Eq { value, ty: pattern.ty },
             },
 
             PatKind::Range(range) => {
-                assert_eq!(range.lo.ty(), match_pair.pattern.ty);
-                assert_eq!(range.hi.ty(), match_pair.pattern.ty);
-                Test { span: match_pair.pattern.span, kind: TestKind::Range(range) }
+                assert_eq!(range.lo.ty(), pattern.ty);
+                assert_eq!(range.hi.ty(), pattern.ty);
+                Test { span: pattern.span, deref_steps: 0, kind: TestKind::Range(range) }
             }
 
             PatKind::Slice { ref prefix, ref slice, ref suffix } => {
                 let len = prefix.len() + suffix.len();
                 let op = if slice.is_some() { BinOp::Ge } else { BinOp::Eq };
-                Test { span: match_pair.pattern.span, kind: TestKind::Len { len: len as u64, op } }
+                Test {
+                    span: pattern.span,
+                    deref_steps: 0,
+                    kind: TestKind::Len { len: len as u64, op },
+                }
             }
 
             PatKind::Or { .. } => bug!("or-patterns should have already been handled"),
+
+            PatKind::Deref { .. } if pattern.ty.is_ref() => self.error_simplifyable(pattern),
+
+            PatKind::Deref { ref subpattern } => {
+                let test = self.test(subpattern);
+                Test { deref_steps: test.deref_steps + 1, ..test }
+            }
 
             PatKind::AscribeUserType { .. }
             | PatKind::Array { .. }
             | PatKind::Wild
             | PatKind::Binding { .. }
-            | PatKind::Leaf { .. }
-            | PatKind::Deref { .. } => self.error_simplifyable(match_pair),
+            | PatKind::Leaf { .. } => self.error_simplifyable(pattern),
         }
     }
 
@@ -148,12 +163,12 @@ impl<'a, 'tcx> Builder<'a, 'tcx> {
         &mut self,
         match_start_span: Span,
         scrutinee_span: Span,
-        block: BasicBlock,
+        mut block: BasicBlock,
         place_builder: PlaceBuilder<'tcx>,
         test: &Test<'tcx>,
         make_target_blocks: impl FnOnce(&mut Self) -> Vec<BasicBlock>,
     ) {
-        let place: Place<'tcx>;
+        let mut place: Place<'tcx>;
         if let Ok(test_place_builder) =
             place_builder.try_upvars_resolved(self.tcx, self.typeck_results)
         {
@@ -170,6 +185,52 @@ impl<'a, 'tcx> Builder<'a, 'tcx> {
         );
 
         let source_info = self.source_info(test.span);
+
+        for _ in 0..test.deref_steps {
+            let tcx = self.tcx;
+            let ty = place.ty(&self.local_decls, self.tcx).ty;
+            // FIXME(deref-patterns) this is setup for `String -> &str` not `T -> &<T as Deref>::Target`
+            let re_erased = tcx.lifetimes.re_erased;
+            let ref_ty = self.temp(tcx.mk_imm_ref(re_erased, ty), test.span);
+            let deref_target = tcx.require_lang_item(LangItem::DerefTarget, None);
+            let derefed_ref_ty_ty = tcx.mk_imm_ref(
+                re_erased,
+                tcx.mk_projection(deref_target, tcx.mk_substs([GenericArg::from(ty)].into_iter())),
+            );
+            debug!("derefed_ref_ty_ty={:?}", derefed_ref_ty_ty);
+            let derefed_ref_ty = self.temp(derefed_ref_ty_ty, test.span);
+            let deref = tcx.require_lang_item(LangItem::Deref, None);
+            let method = trait_method(tcx, deref, sym::deref, ty, &[]);
+            let eq_block = self.cfg.start_new_block();
+            self.cfg.push_assign(
+                block,
+                source_info,
+                ref_ty,
+                Rvalue::Ref(re_erased, BorrowKind::Shared, place),
+            );
+            self.cfg.terminate(
+                block,
+                source_info,
+                TerminatorKind::Call {
+                    func: Operand::Constant(Box::new(Constant {
+                        span: test.span,
+                        user_ty: None,
+                        literal: method,
+                    })),
+                    args: vec![Operand::Move(ref_ty)],
+                    destination: derefed_ref_ty,
+                    target: Some(eq_block),
+                    cleanup: None,
+                    from_hir_call: false,
+                    fn_span: source_info.span,
+                },
+            );
+            place = derefed_ref_ty;
+            block = eq_block;
+        }
+        let place = place;
+        let block = block;
+
         match test.kind {
             TestKind::Switch { adt_def, ref variants } => {
                 let target_blocks = make_target_blocks(self);
@@ -251,51 +312,8 @@ impl<'a, 'tcx> Builder<'a, 'tcx> {
             }
 
             TestKind::Eq { value, ty } => {
-                let tcx = self.tcx;
-                // if our value is &str, but our ty is not &str
-                // then we should deref, since the only way that
-                // we got here is if <ty as Deref>::Target == str
-                if let ty::Ref(_, ref_ty, _) = value.ty().kind() && ref_ty.is_str() {
-                    // if it's `&str` then just do a regular non_scalar_compare
-                    if let ty::Ref(_, ref_ty, Mutability::Not) = ty.kind() && ref_ty.is_str() {
-                        self.non_scalar_compare(
-                            block,
-                            make_target_blocks,
-                            source_info,
-                            value,
-                            place,
-                            ty,
-                        );
-                    } else {
-                        let re_erased = tcx.lifetimes.re_erased;
-                        let ref_string = self.temp(tcx.mk_imm_ref(re_erased, ty), test.span);
-                        let ref_str_ty = tcx.mk_imm_ref(re_erased, tcx.types.str_);
-                        let ref_str = self.temp(ref_str_ty, test.span);
-                        let deref = tcx.require_lang_item(LangItem::Deref, None);
-                        let method = trait_method(tcx, deref, sym::deref, ty, &[]);
-                        let eq_block = self.cfg.start_new_block();
-                        self.cfg.push_assign(block, source_info, ref_string, Rvalue::Ref(re_erased, BorrowKind::Shared, place));
-                        self.cfg.terminate(
-                            block,
-                            source_info,
-                            TerminatorKind::Call {
-                                func: Operand::Constant(Box::new(Constant {
-                                    span: test.span,
-                                    user_ty: None,
-                                    literal: method,
-                                })),
-                                args: vec![Operand::Move(ref_string)],
-                                destination: ref_str,
-                                target: Some(eq_block),
-                                cleanup: None,
-                                from_hir_call: false,
-                                fn_span: source_info.span
-                            }
-                        );
-                        self.non_scalar_compare(eq_block, make_target_blocks, source_info, value, ref_str, ref_str_ty);
-                        return;
-                    }
-                } else if !ty.is_scalar() {
+                // FIXME(deref-patters) `ty` field on `_::Eq` doesnt work
+                if !value.ty().is_scalar() {
                     // Use `PartialEq::eq` instead of `BinOp::Eq`
                     // (the binop can only handle primitives)
                     self.non_scalar_compare(
@@ -304,7 +322,7 @@ impl<'a, 'tcx> Builder<'a, 'tcx> {
                         source_info,
                         value,
                         place,
-                        ty,
+                        value.ty(),
                     );
                 } else if let [success, fail] = *make_target_blocks(self) {
                     assert_eq!(value.ty(), ty);
@@ -729,7 +747,7 @@ impl<'a, 'tcx> Builder<'a, 'tcx> {
                 // These are all binary tests.
                 //
                 // FIXME(#29623) we can be more clever here
-                let pattern_test = self.test(&match_pair);
+                let pattern_test = self.test(&match_pair.pattern);
                 if pattern_test.kind == test.kind {
                     self.candidate_without_match_pair(match_pair_index, candidate);
                     Some(0)
@@ -792,8 +810,8 @@ impl<'a, 'tcx> Builder<'a, 'tcx> {
         candidate.match_pairs.extend(consequent_match_pairs);
     }
 
-    fn error_simplifyable<'pat>(&mut self, match_pair: &MatchPair<'pat, 'tcx>) -> ! {
-        span_bug!(match_pair.pattern.span, "simplifyable pattern found: {:?}", match_pair.pattern)
+    fn error_simplifyable<'pat>(&mut self, pattern: &'pat Pat<'tcx>) -> ! {
+        span_bug!(pattern.span, "simplifyable pattern found: {:?}", pattern)
     }
 
     fn const_range_contains(
