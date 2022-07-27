@@ -475,6 +475,10 @@ impl<'tcx> WfPredicates<'tcx> {
                                     .to_predicate(self.tcx()),
                             ));
                         }
+                        // FIXME(julianknodt): need to infer any nested consts here
+                        // so walk and search recursively?
+                        ty::ConstKind::Expr(_) => unimplemented!(),
+
                         ty::ConstKind::Error(_)
                         | ty::ConstKind::Param(_)
                         | ty::ConstKind::Bound(..)
