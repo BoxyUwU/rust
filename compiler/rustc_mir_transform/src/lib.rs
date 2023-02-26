@@ -209,14 +209,14 @@ fn remap_mir_for_const_eval_select<'tcx>(
 fn is_mir_available(tcx: TyCtxt<'_>, def_id: DefId) -> bool {
     let def_id = def_id.expect_local();
     match tcx.def_kind(def_id) {
-        DefKind::Fn
-        | DefKind::Const
-        | DefKind::Static(_)
+        DefKind::Const
         | DefKind::InlineConst
         | DefKind::AnonConst
         | DefKind::Closure
         | DefKind::Generator => true,
-        DefKind::AssocFn | DefKind::AssocConst => tcx.hir().body_owners().any(|bo| bo == def_id),
+        DefKind::Static(_) | DefKind::Fn | DefKind::AssocFn | DefKind::AssocConst => {
+            tcx.hir().body_owners().any(|bo| bo == def_id)
+        }
         _ => false,
     }
 }
