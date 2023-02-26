@@ -417,7 +417,7 @@ impl<'hir> Map<'hir> {
     }
 
     pub fn body_owner_def_id(self, body_id: BodyId) -> LocalDefId {
-        self.maybe_body_owner_def_id(body_id).unwrap()
+        self.maybe_body_owner_def_id(body_id).expect(&format!("{:?}", self.body(body_id).value))
     }
 
     /// Given a `LocalDefId`, returns the `BodyId` associated with it,
@@ -436,7 +436,7 @@ impl<'hir> Map<'hir> {
             span_bug!(
                 self.span(hir_id),
                 "body_owned_by: {} has no associated body",
-                self.node_to_string(hir_id)
+                self.node_to_string(hir_id),
             );
         })
     }
