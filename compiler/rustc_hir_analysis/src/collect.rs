@@ -55,7 +55,6 @@ fn collect_mod_item_types(tcx: TyCtxt<'_>, module_def_id: LocalDefId) {
 pub fn provide(providers: &mut Providers) {
     resolve_bound_vars::provide(providers);
     *providers = Providers {
-        opt_const_param_of: type_of::opt_const_param_of,
         type_of: type_of::type_of,
         item_bounds: item_bounds::item_bounds,
         explicit_item_bounds: item_bounds::explicit_item_bounds,
@@ -290,8 +289,7 @@ impl<'tcx> Visitor<'tcx> for CollectItemTypesVisitor<'tcx> {
                 hir::GenericParamKind::Const { default, .. } => {
                     self.tcx.ensure().type_of(param.def_id);
                     if let Some(default) = default {
-                        // need to store default and type of default
-                        self.tcx.ensure().type_of(default.def_id);
+                        // `const_param_default` creates the `DefId` for the `AnonConst`.
                         self.tcx.ensure().const_param_default(param.def_id);
                     }
                 }
@@ -865,7 +863,11 @@ fn adt_def(tcx: TyCtxt<'_>, def_id: DefId) -> ty::AdtDef<'_> {
                 .map(|v| {
                     let discr = if let Some(e) = &v.disr_expr {
                         distance_from_explicit = 0;
-                        ty::VariantDiscr::Explicit(e.def_id.to_def_id())
+                        let const_def_id = tcx.create_anon_const((
+                            e.hir_id,
+                            ty::EarlyBinder(repr.discr_type().to_ty(tcx)),
+                        ));
+                        ty::VariantDiscr::Explicit(const_def_id.to_def_id())
                     } else {
                         ty::VariantDiscr::Relative(distance_from_explicit)
                     };

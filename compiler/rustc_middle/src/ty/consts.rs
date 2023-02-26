@@ -63,7 +63,7 @@ impl<'tcx> Const<'tcx> {
         def: ty::WithOptConstParam<LocalDefId>,
     ) -> Self {
         let body_id = match tcx.hir().get_by_def_id(def.did) {
-            hir::Node::AnonConst(ac) => ac.body,
+            hir::Node::AnonConst(_, ac) => ac.body,
             _ => span_bug!(
                 tcx.def_span(def.did.to_def_id()),
                 "from_anon_const can only process anonymous constants"
@@ -267,7 +267,7 @@ pub fn const_param_default(tcx: TyCtxt<'_>, def_id: DefId) -> ty::EarlyBinder<Co
         hir::Node::GenericParam(hir::GenericParam {
             kind: hir::GenericParamKind::Const { default: Some(ac), .. },
             ..
-        }) => ac.def_id,
+        }) => tcx.create_anon_const((ac.hir_id, tcx.type_of(def_id))),
         _ => span_bug!(
             tcx.def_span(def_id),
             "`const_param_default` expected a generic parameter with a constant"

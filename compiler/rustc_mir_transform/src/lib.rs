@@ -26,7 +26,6 @@ use rustc_data_structures::steal::Steal;
 use rustc_hir as hir;
 use rustc_hir::def::DefKind;
 use rustc_hir::def_id::{DefId, LocalDefId};
-use rustc_hir::intravisit::{self, Visitor};
 use rustc_index::vec::IndexVec;
 use rustc_middle::mir::visit::Visitor as _;
 use rustc_middle::mir::{
@@ -209,7 +208,17 @@ fn remap_mir_for_const_eval_select<'tcx>(
 
 fn is_mir_available(tcx: TyCtxt<'_>, def_id: DefId) -> bool {
     let def_id = def_id.expect_local();
-    tcx.mir_keys(()).contains(&def_id)
+    match tcx.def_kind(def_id) {
+        DefKind::Fn
+        | DefKind::Const
+        | DefKind::Static(_)
+        | DefKind::InlineConst
+        | DefKind::AnonConst
+        | DefKind::Closure
+        | DefKind::Generator => true,
+        DefKind::AssocFn | DefKind::AssocConst => tcx.hir().body_owners().any(|bo| bo == def_id),
+        _ => false,
+    }
 }
 
 /// Finds the full set of `DefId`s within the current crate that have
@@ -220,20 +229,17 @@ fn mir_keys(tcx: TyCtxt<'_>, (): ()) -> FxIndexSet<LocalDefId> {
     // All body-owners have MIR associated with them.
     set.extend(tcx.hir().body_owners());
 
+    tcx.ensure().typeck_item_bodies(());
+
     // Additionally, tuple struct/variant constructors have MIR, but
     // they don't have a BodyId, so we need to build them separately.
-    struct GatherCtors<'a> {
-        set: &'a mut FxIndexSet<LocalDefId>,
-    }
-    impl<'tcx> Visitor<'tcx> for GatherCtors<'_> {
-        fn visit_variant_data(&mut self, v: &'tcx hir::VariantData<'tcx>) {
-            if let hir::VariantData::Tuple(_, _, def_id) = *v {
-                self.set.insert(def_id);
-            }
-            intravisit::walk_struct_def(self, v)
+    // We may create `AnonConst`s during typeck, so we need to ensure they are all created.
+    for def_id in tcx.iter_local_def_id() {
+        if let DefKind::InlineConst | DefKind::AnonConst | DefKind::Ctor(..) = tcx.def_kind(def_id)
+        {
+            set.insert(def_id);
         }
     }
-    tcx.hir().visit_all_item_likes_in_crate(&mut GatherCtors { set: &mut set });
 
     set
 }

@@ -600,7 +600,9 @@ impl<'a, 'tcx> PatCtxt<'a, 'tcx> {
         id: hir::HirId,
         span: Span,
     ) -> PatKind<'tcx> {
-        let value = mir::ConstantKind::from_inline_const(self.tcx, anon_const.def_id);
+        let ty = self.typeck_results.node_type(anon_const.hir_id);
+        let def_id = self.tcx.create_anon_const((anon_const.hir_id, ty::EarlyBinder(ty)));
+        let value = mir::ConstantKind::from_inline_const(self.tcx, def_id);
 
         // Evaluate early like we do in `lower_path`.
         let value = value.eval(self.tcx, self.param_env);
@@ -634,7 +636,7 @@ impl<'a, 'tcx> PatCtxt<'a, 'tcx> {
             hir::ExprKind::Path(ref qpath) => {
                 return self.lower_path(qpath, expr.hir_id, expr.span).kind;
             }
-            hir::ExprKind::ConstBlock(ref anon_const) => {
+            hir::ExprKind::ConstBlock(_, ref anon_const) => {
                 return self.lower_inline_const(anon_const, expr.hir_id, expr.span);
             }
             hir::ExprKind::Lit(ref lit) => (lit, false),

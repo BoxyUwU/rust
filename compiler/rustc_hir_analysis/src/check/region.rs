@@ -392,7 +392,7 @@ fn resolve_expr<'tcx>(visitor: &mut RegionResolutionVisitor<'tcx>, expr: &'tcx h
         // Manually recurse over closures and inline consts, because they are the only
         // case of nested bodies that share the parent environment.
         hir::ExprKind::Closure(&hir::Closure { body, .. })
-        | hir::ExprKind::ConstBlock(hir::AnonConst { body, .. }) => {
+        | hir::ExprKind::ConstBlock(_, hir::AnonConst { body, .. }) => {
             let body = visitor.tcx.hir().body(body);
             visitor.visit_body(body);
         }
@@ -762,7 +762,8 @@ impl<'tcx> Visitor<'tcx> for RegionResolutionVisitor<'tcx> {
 
     fn visit_body(&mut self, body: &'tcx hir::Body<'tcx>) {
         let body_id = body.id();
-        let owner_id = self.tcx.hir().body_owner_def_id(body_id);
+        let owner_id = self.tcx.hir().body_owner(body.id());
+        let owner_kind = self.tcx.hir().owner_kind(body.id());
 
         debug!(
             "visit_body(id={:?}, span={:?}, body.id={:?}, cx.parent={:?})",
@@ -796,7 +797,7 @@ impl<'tcx> Visitor<'tcx> for RegionResolutionVisitor<'tcx> {
 
         // The body of the every fn is a root scope.
         self.cx.parent = self.cx.var_parent;
-        if self.tcx.hir().body_owner_kind(owner_id).is_fn_or_closure() {
+        if owner_kind.is_fn_or_closure() {
             self.visit_expr(&body.value)
         } else {
             // Only functions have an outer terminating (drop) scope, while

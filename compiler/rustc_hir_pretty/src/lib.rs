@@ -83,7 +83,7 @@ impl<'a> State<'a> {
             Node::TraitItem(a) => self.print_trait_item(a),
             Node::ImplItem(a) => self.print_impl_item(a),
             Node::Variant(a) => self.print_variant(a),
-            Node::AnonConst(a) => self.print_anon_const(a),
+            Node::AnonConst(_, a) => self.print_anon_const(a),
             Node::Expr(a) => self.print_expr(a),
             Node::ExprField(a) => self.print_expr_field(&a),
             Node::Stmt(a) => self.print_stmt(a),
@@ -1373,7 +1373,7 @@ impl<'a> State<'a> {
             hir::ExprKind::Array(exprs) => {
                 self.print_expr_vec(exprs);
             }
-            hir::ExprKind::ConstBlock(ref anon_const) => {
+            hir::ExprKind::ConstBlock(_, ref anon_const) => {
                 self.print_expr_anon_const(anon_const);
             }
             hir::ExprKind::Repeat(element, ref count) => {

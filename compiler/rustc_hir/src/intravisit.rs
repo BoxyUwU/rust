@@ -332,7 +332,7 @@ pub trait Visitor<'v>: Sized {
     fn visit_array_length(&mut self, len: &'v ArrayLen) {
         walk_array_len(self, len)
     }
-    fn visit_anon_const(&mut self, c: &'v AnonConst) {
+    fn visit_anon_const(&mut self, _: Option<LocalDefId>, c: &'v AnonConst) {
         walk_anon_const(self, c)
     }
     fn visit_expr(&mut self, ex: &'v Expr<'v>) {
@@ -670,7 +670,7 @@ pub fn walk_pat_field<'v, V: Visitor<'v>>(visitor: &mut V, field: &'v PatField<'
 pub fn walk_array_len<'v, V: Visitor<'v>>(visitor: &mut V, len: &'v ArrayLen) {
     match len {
         &ArrayLen::Infer(hir_id, _span) => visitor.visit_id(hir_id),
-        ArrayLen::Body(c) => visitor.visit_anon_const(c),
+        ArrayLen::Body(c) => visitor.visit_anon_const(None, c),
     }
 }
 
@@ -686,7 +686,9 @@ pub fn walk_expr<'v, V: Visitor<'v>>(visitor: &mut V, expression: &'v Expr<'v>) 
         ExprKind::Array(subexpressions) => {
             walk_list!(visitor, visit_expr, subexpressions);
         }
-        ExprKind::ConstBlock(ref anon_const) => visitor.visit_anon_const(anon_const),
+        ExprKind::ConstBlock(def_id, ref anon_const) => {
+            visitor.visit_anon_const(Some(def_id), anon_const)
+        }
         ExprKind::Repeat(ref element, ref count) => {
             visitor.visit_expr(element);
             visitor.visit_array_length(count)
@@ -843,7 +845,7 @@ pub fn walk_ty<'v, V: Visitor<'v>>(visitor: &mut V, typ: &'v Ty<'v>) {
             }
             visitor.visit_lifetime(lifetime);
         }
-        TyKind::Typeof(ref expression) => visitor.visit_anon_const(expression),
+        TyKind::Typeof(ref expression) => visitor.visit_anon_const(None, expression),
         TyKind::Infer | TyKind::Err(_) => {}
     }
 }
@@ -867,7 +869,7 @@ pub fn walk_generic_param<'v, V: Visitor<'v>>(visitor: &mut V, param: &'v Generi
 }
 
 pub fn walk_const_param_default<'v, V: Visitor<'v>>(visitor: &mut V, ct: &'v AnonConst) {
-    visitor.visit_anon_const(ct)
+    visitor.visit_anon_const(None, ct)
 }
 
 pub fn walk_generics<'v, V: Visitor<'v>>(visitor: &mut V, generics: &'v Generics<'v>) {
@@ -1098,7 +1100,9 @@ pub fn walk_variant<'v, V: Visitor<'v>>(visitor: &mut V, variant: &'v Variant<'v
     visitor.visit_ident(variant.ident);
     visitor.visit_id(variant.hir_id);
     visitor.visit_variant_data(&variant.data);
-    walk_list!(visitor, visit_anon_const, &variant.disr_expr);
+    if let Some(discr) = &variant.disr_expr {
+        visitor.visit_anon_const(None, discr);
+    }
 }
 
 pub fn walk_label<'v, V: Visitor<'v>>(visitor: &mut V, label: &'v Label) {
@@ -1113,7 +1117,7 @@ pub fn walk_generic_arg<'v, V: Visitor<'v>>(visitor: &mut V, generic_arg: &'v Ge
     match generic_arg {
         GenericArg::Lifetime(lt) => visitor.visit_lifetime(lt),
         GenericArg::Type(ty) => visitor.visit_ty(ty),
-        GenericArg::Const(ct) => visitor.visit_anon_const(&ct.value),
+        GenericArg::Const(ct) => visitor.visit_anon_const(None, &ct.value),
         GenericArg::Infer(inf) => visitor.visit_infer(inf),
     }
 }
@@ -1166,7 +1170,7 @@ pub fn walk_assoc_type_binding<'v, V: Visitor<'v>>(
     match type_binding.kind {
         TypeBindingKind::Equality { ref term } => match term {
             Term::Ty(ref ty) => visitor.visit_ty(ty),
-            Term::Const(ref c) => visitor.visit_anon_const(c),
+            Term::Const(ref c) => visitor.visit_anon_const(None, c),
         },
         TypeBindingKind::Constraint { bounds } => walk_list!(visitor, visit_param_bound, bounds),
     }
@@ -1202,7 +1206,9 @@ pub fn walk_inline_asm<'v, V: Visitor<'v>>(visitor: &mut V, asm: &'v InlineAsm<'
                 }
             }
             InlineAsmOperand::Const { anon_const, .. }
-            | InlineAsmOperand::SymFn { anon_const, .. } => visitor.visit_anon_const(anon_const),
+            | InlineAsmOperand::SymFn { anon_const, .. } => {
+                visitor.visit_anon_const(None, anon_const)
+            }
             InlineAsmOperand::SymStatic { path, .. } => visitor.visit_qpath(path, id, *op_sp),
         }
     }

@@ -127,7 +127,7 @@ fn primary_body_of(
             hir::ImplItemKind::Fn(ref sig, body) => Some((body, None, Some(sig))),
             _ => None,
         },
-        Node::AnonConst(constant) => Some((constant.body, None, None)),
+        Node::AnonConst(_, constant) => Some((constant.body, None, None)),
         _ => None,
     }
 }
@@ -165,12 +165,8 @@ fn typeck_const_arg<'tcx>(
 }
 
 fn typeck<'tcx>(tcx: TyCtxt<'tcx>, def_id: LocalDefId) -> &ty::TypeckResults<'tcx> {
-    if let Some(param_did) = tcx.opt_const_param_of(def_id) {
-        tcx.typeck_const_arg((def_id, param_did))
-    } else {
-        let fallback = move || tcx.type_of(def_id.to_def_id()).subst_identity();
-        typeck_with_fallback(tcx, def_id, fallback)
-    }
+    let fallback = move || tcx.type_of(def_id.to_def_id()).subst_identity();
+    typeck_with_fallback(tcx, def_id, fallback)
 }
 
 /// Used only to get `TypeckResults` for type inference during error recovery.
@@ -235,9 +231,9 @@ fn typeck_with_fallback<'tcx>(
                     _ => None,
                 })
                 .unwrap_or_else(|| match tcx.hir().get(id) {
-                    Node::AnonConst(_) => match tcx.hir().get(tcx.hir().parent_id(id)) {
+                    Node::AnonConst(..) => match tcx.hir().get(tcx.hir().parent_id(id)) {
                         Node::Expr(&hir::Expr {
-                            kind: hir::ExprKind::ConstBlock(ref anon_const),
+                            kind: hir::ExprKind::ConstBlock(_, ref anon_const),
                             ..
                         }) if anon_const.hir_id == id => fcx.next_ty_var(TypeVariableOrigin {
                             kind: TypeVariableOriginKind::TypeInference,
@@ -332,7 +328,7 @@ fn typeck_with_fallback<'tcx>(
 
         fcx.infcx.skip_region_resolution();
 
-        fcx.resolve_type_vars_in_body(body)
+        fcx.resolve_type_vars_in_body(def_id, body)
     });
 
     // Consistency check our TypeckResults instance can hold all ItemLocalIds

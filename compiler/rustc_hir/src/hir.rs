@@ -1643,7 +1643,6 @@ impl ArrayLen {
 #[derive(Copy, Clone, PartialEq, Eq, Encodable, Debug, HashStable_Generic)]
 pub struct AnonConst {
     pub hir_id: HirId,
-    pub def_id: LocalDefId,
     pub body: BodyId,
 }
 
@@ -1659,7 +1658,7 @@ impl Expr<'_> {
     pub fn precedence(&self) -> ExprPrecedence {
         match self.kind {
             ExprKind::Box(_) => ExprPrecedence::Box,
-            ExprKind::ConstBlock(_) => ExprPrecedence::ConstBlock,
+            ExprKind::ConstBlock(..) => ExprPrecedence::ConstBlock,
             ExprKind::Array(_) => ExprPrecedence::Array,
             ExprKind::Call(..) => ExprPrecedence::Call,
             ExprKind::MethodCall(..) => ExprPrecedence::MethodCall,
@@ -1898,7 +1897,7 @@ pub enum ExprKind<'hir> {
     /// A `box x` expression.
     Box(&'hir Expr<'hir>),
     /// Allow anonymous constants from an inline `const` block
-    ConstBlock(AnonConst),
+    ConstBlock(LocalDefId, AnonConst),
     /// An array (e.g., `[a, b, c, d]`).
     Array(&'hir [Expr<'hir>]),
     /// A function call.
@@ -3604,7 +3603,7 @@ pub enum Node<'hir> {
     ImplItem(&'hir ImplItem<'hir>),
     Variant(&'hir Variant<'hir>),
     Field(&'hir FieldDef<'hir>),
-    AnonConst(&'hir AnonConst),
+    AnonConst(Option<LocalDefId>, &'hir AnonConst),
     Expr(&'hir Expr<'hir>),
     ExprField(&'hir ExprField<'hir>),
     Stmt(&'hir Stmt<'hir>),
@@ -3823,7 +3822,7 @@ impl<'hir> Node<'hir> {
     /// Expect a [`Node::AnonConst`] or panic.
     #[track_caller]
     pub fn expect_anon_const(self) -> &'hir AnonConst {
-        let Node::AnonConst(this) = self else { self.expect_failed("an anonymous constant") };
+        let Node::AnonConst(_, this) = self else { self.expect_failed("an anonymous constant") };
         this
     }
 
@@ -3963,7 +3962,7 @@ mod size_asserts {
     static_assert_size!(FnDecl<'_>, 40);
     static_assert_size!(ForeignItem<'_>, 72);
     static_assert_size!(ForeignItemKind<'_>, 40);
-    static_assert_size!(GenericArg<'_>, 32);
+    static_assert_size!(GenericArg<'_>, 24);
     static_assert_size!(GenericBound<'_>, 48);
     static_assert_size!(Generics<'_>, 56);
     static_assert_size!(Impl<'_>, 80);

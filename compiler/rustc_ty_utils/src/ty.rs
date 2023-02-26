@@ -168,7 +168,7 @@ fn param_env(tcx: TyCtxt<'_>, def_id: DefId) -> ty::ParamEnv<'_> {
             | hir::Node::TraitItem(hir::TraitItem {
                 kind: hir::TraitItemKind::Const(..), ..
             })
-            | hir::Node::AnonConst(_)
+            | hir::Node::AnonConst(..)
             | hir::Node::ImplItem(hir::ImplItem { kind: hir::ImplItemKind::Const(..), .. })
             | hir::Node::ImplItem(hir::ImplItem {
                 kind:

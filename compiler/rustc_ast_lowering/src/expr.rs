@@ -73,8 +73,14 @@ impl<'hir> LoweringContext<'_, 'hir> {
                 ExprKind::Box(inner) => hir::ExprKind::Box(self.lower_expr(inner)),
                 ExprKind::Array(exprs) => hir::ExprKind::Array(self.lower_exprs(exprs)),
                 ExprKind::ConstBlock(anon_const) => {
+                    let def_id = self.create_def(
+                        self.current_hir_id_owner.def_id,
+                        anon_const.id,
+                        DefPathData::AnonConst,
+                        anon_const.value.span,
+                    );
                     let anon_const = self.lower_anon_const(anon_const);
-                    hir::ExprKind::ConstBlock(anon_const)
+                    hir::ExprKind::ConstBlock(def_id, anon_const)
                 }
                 ExprKind::Repeat(expr, count) => {
                     let expr = self.lower_expr(expr);

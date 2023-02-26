@@ -52,7 +52,7 @@ impl<'a, 'hir> Visitor<'hir> for CheckLoopVisitor<'a, 'hir> {
         self.hir_map
     }
 
-    fn visit_anon_const(&mut self, c: &'hir hir::AnonConst) {
+    fn visit_anon_const(&mut self, _: Option<LocalDefId>, c: &'hir hir::AnonConst) {
         self.with_context(AnonConst, |v| intravisit::walk_anon_const(v, c));
     }
 

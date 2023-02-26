@@ -2507,4 +2507,13 @@ pub fn provide(providers: &mut ty::query::Providers) {
         tcx.lang_items().panic_impl().map_or(false, |did| did.is_local())
     };
     providers.source_span = |tcx, def_id| tcx.untracked.source_span.get(def_id).unwrap_or(DUMMY_SP);
+    providers.create_anon_const = |tcx, (hir_id, ty)| {
+        let parent_def_id = hir_id.owner.def_id;
+        let span = tcx.hir().span(hir_id);
+        let feeder =
+            tcx.at(span).create_def(parent_def_id, hir::definitions::DefPathData::AnonConst);
+        feeder.opt_local_def_id_to_hir_id(Some(hir_id));
+        feeder.type_of(ty);
+        feeder.def_id()
+    };
 }

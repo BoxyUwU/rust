@@ -1504,19 +1504,13 @@ impl WithOptConstParam<LocalDefId> {
     /// `None` otherwise.
     #[inline(always)]
     pub fn try_lookup(did: LocalDefId, tcx: TyCtxt<'_>) -> Option<(LocalDefId, DefId)> {
-        tcx.opt_const_param_of(did).map(|param_did| (did, param_did))
+        None
     }
 
     /// In case `self` is unknown but `self.did` is a const argument, this returns
     /// a `WithOptConstParam` with the correct `const_param_did`.
     #[inline(always)]
     pub fn try_upgrade(self, tcx: TyCtxt<'_>) -> Option<WithOptConstParam<LocalDefId>> {
-        if self.const_param_did.is_none() {
-            if let const_param_did @ Some(_) = tcx.opt_const_param_of(self.did) {
-                return Some(WithOptConstParam { did: self.did, const_param_did });
-            }
-        }
-
         None
     }
 

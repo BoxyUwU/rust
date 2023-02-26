@@ -336,16 +336,27 @@ fn const_evaluatable_predicates_of(
     }
 
     impl<'tcx> intravisit::Visitor<'tcx> for ConstCollector<'tcx> {
-        fn visit_anon_const(&mut self, c: &'tcx hir::AnonConst) {
-            let ct = ty::Const::from_anon_const(self.tcx, c.def_id);
-            if let ty::ConstKind::Unevaluated(_) = ct.kind() {
-                let span = self.tcx.def_span(c.def_id);
-                self.preds.insert((
-                    ty::Binder::dummy(ty::PredicateKind::ConstEvaluatable(ct))
-                        .to_predicate(self.tcx),
-                    span,
-                ));
+        fn visit_anon_const(&mut self, def_id: Option<LocalDefId>, c: &'tcx hir::AnonConst) {
+            if let Some(def_id) = def_id {
+                let ct = ty::Const::from_anon_const(self.tcx, def_id);
+                if let ty::ConstKind::Unevaluated(_) = ct.kind() {
+                    let span = self.tcx.def_span(def_id);
+                    self.preds.insert((
+                        ty::Binder::dummy(ty::PredicateKind::ConstEvaluatable(ct))
+                            .to_predicate(self.tcx),
+                        span,
+                    ));
+                }
             }
+            //let ct = ty::Const::from_anon_const(self.tcx, c.def_id);
+            //if let ty::ConstKind::Unevaluated(_) = ct.kind() {
+            //    let span = self.tcx.def_span(c.def_id);
+            //    self.preds.insert((
+            //        ty::Binder::dummy(ty::PredicateKind::ConstEvaluatable(ct))
+            //            .to_predicate(self.tcx),
+            //        span,
+            //    ));
+            //}
         }
 
         fn visit_const_param_default(&mut self, _param: HirId, _ct: &'tcx hir::AnonConst) {

@@ -215,8 +215,8 @@ impl<'a, 'hir> Visitor<'hir> for NodeCollector<'a, 'hir> {
         });
     }
 
-    fn visit_anon_const(&mut self, constant: &'hir AnonConst) {
-        self.insert(DUMMY_SP, constant.hir_id, Node::AnonConst(constant));
+    fn visit_anon_const(&mut self, def_id: Option<LocalDefId>, constant: &'hir AnonConst) {
+        self.insert(DUMMY_SP, constant.hir_id, Node::AnonConst(def_id, constant));
 
         self.with_parent(constant.hir_id, |this| {
             intravisit::walk_anon_const(this, constant);

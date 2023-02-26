@@ -7,9 +7,9 @@ use rustc_hir::{HirId, Node};
 use rustc_middle::hir::nested_filter;
 use rustc_middle::ty::print::with_forced_trimmed_paths;
 use rustc_middle::ty::subst::InternalSubsts;
-use rustc_middle::ty::util::IntTypeExt;
 use rustc_middle::ty::{
-    self, DefIdTree, IsSuggestable, Ty, TyCtxt, TypeFolder, TypeSuperFoldable, TypeVisitableExt,
+    self, DefIdTree, IsSuggestable, Ty, TyCtxt, TypeFolder, TypeSuperFoldable, TypeVisitable,
+    TypeVisitableExt,
 };
 use rustc_span::symbol::Ident;
 use rustc_span::{Span, DUMMY_SP};
@@ -17,231 +17,6 @@ use rustc_span::{Span, DUMMY_SP};
 use super::ItemCtxt;
 use super::{bad_placeholder, is_suggestable_infer_ty};
 use crate::errors::UnconstrainedOpaqueType;
-
-/// Computes the relevant generic parameter for a potential generic const argument.
-///
-/// This should be called using the query `tcx.opt_const_param_of`.
-pub(super) fn opt_const_param_of(tcx: TyCtxt<'_>, def_id: LocalDefId) -> Option<DefId> {
-    use hir::*;
-    let hir_id = tcx.hir().local_def_id_to_hir_id(def_id);
-
-    match tcx.hir().get(hir_id) {
-        Node::AnonConst(_) => (),
-        _ => return None,
-    };
-
-    let parent_node_id = tcx.hir().parent_id(hir_id);
-    let parent_node = tcx.hir().get(parent_node_id);
-
-    let (generics, arg_idx) = match parent_node {
-        // This match arm is for when the def_id appears in a GAT whose
-        // path can't be resolved without typechecking e.g.
-        //
-        // trait Foo {
-        //   type Assoc<const N: usize>;
-        //   fn foo() -> Self::Assoc<3>;
-        // }
-        //
-        // In the above code we would call this query with the def_id of 3 and
-        // the parent_node we match on would be the hir node for Self::Assoc<3>
-        //
-        // `Self::Assoc<3>` cant be resolved without typechecking here as we
-        // didnt write <Self as Foo>::Assoc<3>. If we did then another match
-        // arm would handle this.
-        //
-        // I believe this match arm is only needed for GAT but I am not 100% sure - BoxyUwU
-        Node::Ty(hir_ty @ Ty { kind: TyKind::Path(QPath::TypeRelative(_, segment)), .. }) => {
-            // Find the Item containing the associated type so we can create an ItemCtxt.
-            // Using the ItemCtxt convert the HIR for the unresolved assoc type into a
-            // ty which is a fully resolved projection.
-            // For the code example above, this would mean converting Self::Assoc<3>
-            // into a ty::Alias(ty::Projection, <Self as Foo>::Assoc<3>)
-            let item_def_id = tcx
-                .hir()
-                .parent_owner_iter(hir_id)
-                .find(|(_, node)| matches!(node, OwnerNode::Item(_)))
-                .unwrap()
-                .0
-                .to_def_id();
-            let item_ctxt = &ItemCtxt::new(tcx, item_def_id) as &dyn crate::astconv::AstConv<'_>;
-            let ty = item_ctxt.ast_ty_to_ty(hir_ty);
-
-            // Iterate through the generics of the projection to find the one that corresponds to
-            // the def_id that this query was called with. We filter to only type and const args here
-            // as a precaution for if it's ever allowed to elide lifetimes in GAT's. It currently isn't
-            // but it can't hurt to be safe ^^
-            if let ty::Alias(ty::Projection, projection) = ty.kind() {
-                let generics = tcx.generics_of(projection.def_id);
-
-                let arg_index = segment
-                    .args
-                    .and_then(|args| {
-                        args.args
-                            .iter()
-                            .filter(|arg| arg.is_ty_or_const())
-                            .position(|arg| arg.hir_id() == hir_id)
-                    })
-                    .unwrap_or_else(|| {
-                        bug!("no arg matching AnonConst in segment");
-                    });
-
-                (generics, arg_index)
-            } else {
-                // I dont think it's possible to reach this but I'm not 100% sure - BoxyUwU
-                tcx.sess.delay_span_bug(
-                    tcx.def_span(def_id),
-                    "unexpected non-GAT usage of an anon const",
-                );
-                return None;
-            }
-        }
-        Node::Expr(&Expr {
-            kind:
-                ExprKind::MethodCall(segment, ..) | ExprKind::Path(QPath::TypeRelative(_, segment)),
-            ..
-        }) => {
-            let body_owner = tcx.hir().enclosing_body_owner(hir_id);
-            let tables = tcx.typeck(body_owner);
-            // This may fail in case the method/path does not actually exist.
-            // As there is no relevant param for `def_id`, we simply return
-            // `None` here.
-            let type_dependent_def = tables.type_dependent_def_id(parent_node_id)?;
-            let idx = segment
-                .args
-                .and_then(|args| {
-                    args.args
-                        .iter()
-                        .filter(|arg| arg.is_ty_or_const())
-                        .position(|arg| arg.hir_id() == hir_id)
-                })
-                .unwrap_or_else(|| {
-                    bug!("no arg matching AnonConst in segment");
-                });
-
-            (tcx.generics_of(type_dependent_def), idx)
-        }
-
-        Node::Ty(&Ty { kind: TyKind::Path(_), .. })
-        | Node::Expr(&Expr { kind: ExprKind::Path(_) | ExprKind::Struct(..), .. })
-        | Node::TraitRef(..)
-        | Node::Pat(_) => {
-            let path = match parent_node {
-                Node::Ty(&Ty { kind: TyKind::Path(QPath::Resolved(_, path)), .. })
-                | Node::TraitRef(&TraitRef { path, .. }) => &*path,
-                Node::Expr(&Expr {
-                    kind:
-                        ExprKind::Path(QPath::Resolved(_, path))
-                        | ExprKind::Struct(&QPath::Resolved(_, path), ..),
-                    ..
-                }) => {
-                    let body_owner = tcx.hir().enclosing_body_owner(hir_id);
-                    let _tables = tcx.typeck(body_owner);
-                    &*path
-                }
-                Node::Pat(pat) => {
-                    if let Some(path) = get_path_containing_arg_in_pat(pat, hir_id) {
-                        path
-                    } else {
-                        tcx.sess.delay_span_bug(
-                            tcx.def_span(def_id),
-                            &format!("unable to find const parent for {} in pat {:?}", hir_id, pat),
-                        );
-                        return None;
-                    }
-                }
-                _ => {
-                    tcx.sess.delay_span_bug(
-                        tcx.def_span(def_id),
-                        &format!("unexpected const parent path {:?}", parent_node),
-                    );
-                    return None;
-                }
-            };
-
-            // We've encountered an `AnonConst` in some path, so we need to
-            // figure out which generic parameter it corresponds to and return
-            // the relevant type.
-            let Some((arg_index, segment)) = path.segments.iter().find_map(|seg| {
-                let args = seg.args?;
-                args.args
-                .iter()
-                .filter(|arg| arg.is_ty_or_const())
-                .position(|arg| arg.hir_id() == hir_id)
-                .map(|index| (index, seg)).or_else(|| args.bindings
-                    .iter()
-                    .filter_map(TypeBinding::opt_const)
-                    .position(|ct| ct.hir_id == hir_id)
-                    .map(|idx| (idx, seg)))
-            }) else {
-                tcx.sess.delay_span_bug(
-                    tcx.def_span(def_id),
-                    "no arg matching AnonConst in path",
-                );
-                return None;
-            };
-
-            let generics = match tcx.res_generics_def_id(segment.res) {
-                Some(def_id) => tcx.generics_of(def_id),
-                None => {
-                    tcx.sess.delay_span_bug(
-                        tcx.def_span(def_id),
-                        &format!("unexpected anon const res {:?} in path: {:?}", segment.res, path),
-                    );
-                    return None;
-                }
-            };
-
-            (generics, arg_index)
-        }
-        _ => return None,
-    };
-
-    debug!(?parent_node);
-    debug!(?generics, ?arg_idx);
-    generics
-        .params
-        .iter()
-        .filter(|param| param.kind.is_ty_or_const())
-        .nth(match generics.has_self && generics.parent.is_none() {
-            true => arg_idx + 1,
-            false => arg_idx,
-        })
-        .and_then(|param| match param.kind {
-            ty::GenericParamDefKind::Const { .. } => {
-                debug!(?param);
-                Some(param.def_id)
-            }
-            _ => None,
-        })
-}
-
-fn get_path_containing_arg_in_pat<'hir>(
-    pat: &'hir hir::Pat<'hir>,
-    arg_id: HirId,
-) -> Option<&'hir hir::Path<'hir>> {
-    use hir::*;
-
-    let is_arg_in_path = |p: &hir::Path<'_>| {
-        p.segments
-            .iter()
-            .filter_map(|seg| seg.args)
-            .flat_map(|args| args.args)
-            .any(|arg| arg.hir_id() == arg_id)
-    };
-    let mut arg_path = None;
-    pat.walk(|pat| match pat.kind {
-        PatKind::Struct(QPath::Resolved(_, path), _, _)
-        | PatKind::TupleStruct(QPath::Resolved(_, path), _, _)
-        | PatKind::Path(QPath::Resolved(_, path))
-            if is_arg_in_path(path) =>
-        {
-            arg_path = Some(path);
-            false
-        }
-        _ => true,
-    });
-    arg_path
-}
 
 pub(super) fn type_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::EarlyBinder<Ty<'_>> {
     let def_id = def_id.expect_local();
@@ -259,8 +34,11 @@ pub(super) fn type_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::EarlyBinder<Ty<'_>>
             }
             TraitItemKind::Const(ty, body_id) => body_id
                 .and_then(|body_id| {
-                    is_suggestable_infer_ty(ty)
-                        .then(|| infer_placeholder_type(tcx, def_id, body_id, ty.span, item.ident, "constant",))
+                    is_suggestable_infer_ty(ty).then(|| {
+                        infer_placeholder_type(
+                            tcx, def_id, body_id, ty.span, item.ident, "constant",
+                        )
+                    })
                 })
                 .unwrap_or_else(|| icx.to_ty(ty)),
             TraitItemKind::Type(_, Some(ty)) => icx.to_ty(ty),
@@ -316,14 +94,15 @@ pub(super) fn type_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::EarlyBinder<Ty<'_>>
                     }
                 }
                 ItemKind::TyAlias(self_ty, _) => icx.to_ty(self_ty),
-                ItemKind::Impl(hir::Impl { self_ty, .. }) => {
-                    match self_ty.find_self_aliases() {
-                        spans if spans.len() > 0 => {
-                            let guar = tcx.sess.emit_err(crate::errors::SelfInImplSelf { span: spans.into(), note: () });
-                            tcx.ty_error(guar)
-                        },
-                        _ => icx.to_ty(*self_ty),
+                ItemKind::Impl(hir::Impl { self_ty, .. }) => match self_ty.find_self_aliases() {
+                    spans if spans.len() > 0 => {
+                        let guar = tcx.sess.emit_err(crate::errors::SelfInImplSelf {
+                            span: spans.into(),
+                            note: (),
+                        });
+                        tcx.ty_error(guar)
                     }
+                    _ => icx.to_ty(*self_ty),
                 },
                 ItemKind::Fn(..) => {
                     let substs = InternalSubsts::identity_for_item(tcx, def_id.to_def_id());
@@ -391,138 +170,7 @@ pub(super) fn type_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::EarlyBinder<Ty<'_>>
             tcx.typeck(def_id).node_type(hir_id)
         }
 
-        Node::AnonConst(_) if let Some(param) = tcx.opt_const_param_of(def_id) => {
-            // We defer to `type_of` of the corresponding parameter
-            // for generic arguments.
-            tcx.type_of(param).subst_identity()
-        }
-
-        Node::AnonConst(_) => {
-            let parent_node = tcx.hir().get_parent(hir_id);
-            match parent_node {
-                Node::Ty(Ty { kind: TyKind::Array(_, constant), .. })
-                | Node::Expr(Expr { kind: ExprKind::Repeat(_, constant), .. })
-                    if constant.hir_id() == hir_id =>
-                {
-                    tcx.types.usize
-                }
-                Node::Ty(Ty { kind: TyKind::Typeof(e), .. }) if e.hir_id == hir_id => {
-                    tcx.typeck(def_id).node_type(e.hir_id)
-                }
-
-                Node::Expr(Expr { kind: ExprKind::ConstBlock(anon_const), .. })
-                    if anon_const.hir_id == hir_id =>
-                {
-                    let substs = InternalSubsts::identity_for_item(tcx, def_id.to_def_id());
-                    substs.as_inline_const().ty()
-                }
-
-                Node::Expr(&Expr { kind: ExprKind::InlineAsm(asm), .. })
-                | Node::Item(&Item { kind: ItemKind::GlobalAsm(asm), .. })
-                    if asm.operands.iter().any(|(op, _op_sp)| match op {
-                        hir::InlineAsmOperand::Const { anon_const }
-                        | hir::InlineAsmOperand::SymFn { anon_const } => {
-                            anon_const.hir_id == hir_id
-                        }
-                        _ => false,
-                    }) =>
-                {
-                    tcx.typeck(def_id).node_type(hir_id)
-                }
-
-                Node::Variant(Variant { disr_expr: Some(e), .. }) if e.hir_id == hir_id => {
-                    tcx.adt_def(tcx.hir().get_parent_item(hir_id)).repr().discr_type().to_ty(tcx)
-                }
-
-                Node::TypeBinding(
-                    TypeBinding {
-                        hir_id: binding_id,
-                        kind: TypeBindingKind::Equality { term: Term::Const(e) },
-                        ident,
-                        ..
-                    },
-                ) if let Node::TraitRef(trait_ref) =
-                    tcx.hir().get_parent(*binding_id)
-                    && e.hir_id == hir_id =>
-                {
-                    let Some(trait_def_id) = trait_ref.trait_def_id() else {
-                        return ty::EarlyBinder(tcx.ty_error_with_message(DUMMY_SP, "Could not find trait"));
-                    };
-                    let assoc_items = tcx.associated_items(trait_def_id);
-                    let assoc_item = assoc_items.find_by_name_and_kind(
-                        tcx,
-                        *ident,
-                        ty::AssocKind::Const,
-                        def_id.to_def_id(),
-                    );
-                    if let Some(assoc_item) = assoc_item {
-                        tcx.type_of(assoc_item.def_id).subst_identity()
-                    } else {
-                        // FIXME(associated_const_equality): add a useful error message here.
-                        tcx.ty_error_with_message(
-                            DUMMY_SP,
-                            "Could not find associated const on trait",
-                        )
-                    }
-                }
-
-                Node::TypeBinding(
-                    TypeBinding { hir_id: binding_id, gen_args, kind, ident, .. },
-                ) if let Node::TraitRef(trait_ref) =
-                    tcx.hir().get_parent(*binding_id)
-                    && let Some((idx, _)) =
-                        gen_args.args.iter().enumerate().find(|(_, arg)| {
-                            if let GenericArg::Const(ct) = arg {
-                                ct.value.hir_id == hir_id
-                            } else {
-                                false
-                            }
-                        }) =>
-                {
-                    let Some(trait_def_id) = trait_ref.trait_def_id() else {
-                        return ty::EarlyBinder(tcx.ty_error_with_message(DUMMY_SP, "Could not find trait"));
-                    };
-                    let assoc_items = tcx.associated_items(trait_def_id);
-                    let assoc_item = assoc_items.find_by_name_and_kind(
-                        tcx,
-                        *ident,
-                        match kind {
-                            // I think `<A: T>` type bindings requires that `A` is a type
-                            TypeBindingKind::Constraint { .. }
-                            | TypeBindingKind::Equality { term: Term::Ty(..) } => {
-                                ty::AssocKind::Type
-                            }
-                            TypeBindingKind::Equality { term: Term::Const(..) } => {
-                                ty::AssocKind::Const
-                            }
-                        },
-                        def_id.to_def_id(),
-                    );
-                    if let Some(param)
-                        = assoc_item.map(|item| &tcx.generics_of(item.def_id).params[idx]).filter(|param| param.kind.is_ty_or_const())
-                    {
-                        tcx.type_of(param.def_id).subst_identity()
-                    } else {
-                        // FIXME(associated_const_equality): add a useful error message here.
-                        tcx.ty_error_with_message(
-                            DUMMY_SP,
-                            "Could not find associated const on trait",
-                        )
-                    }
-                }
-
-                Node::GenericParam(&GenericParam {
-                    def_id: param_def_id,
-                    kind: GenericParamKind::Const { default: Some(ct), .. },
-                    ..
-                }) if ct.hir_id == hir_id => tcx.type_of(param_def_id).subst_identity(),
-
-                x => tcx.ty_error_with_message(
-                    DUMMY_SP,
-                    &format!("unexpected const parent in type_of(): {x:?}"),
-                ),
-            }
-        }
+        Node::AnonConst(Some(_), anon_const) => tcx.typeck(def_id).node_type(hir_id),
 
         Node::GenericParam(param) => match &param.kind {
             GenericParamKind::Type { default: Some(ty), .. }

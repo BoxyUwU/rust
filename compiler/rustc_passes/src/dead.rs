@@ -449,13 +449,15 @@ impl<'tcx> Visitor<'tcx> for MarkSymbolVisitor<'tcx> {
         intravisit::walk_ty(self, ty);
     }
 
-    fn visit_anon_const(&mut self, c: &'tcx hir::AnonConst) {
+    fn visit_anon_const(&mut self, def_id: Option<LocalDefId>, c: &'tcx hir::AnonConst) {
         // When inline const blocks are used in pattern position, paths
         // referenced by it should be considered as used.
         let in_pat = mem::replace(&mut self.in_pat, false);
 
-        self.live_symbols.insert(c.def_id);
-        intravisit::walk_anon_const(self, c);
+        if let Some(def_id) = def_id {
+            self.live_symbols.insert(def_id);
+            intravisit::walk_anon_const(self, c);
+        }
 
         self.in_pat = in_pat;
     }

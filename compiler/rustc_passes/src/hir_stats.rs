@@ -433,7 +433,7 @@ impl<'v> hir_visit::Visitor<'v> for StatCollector<'v> {
         match ga {
             hir::GenericArg::Lifetime(lt) => self.visit_lifetime(lt),
             hir::GenericArg::Type(ty) => self.visit_ty(ty),
-            hir::GenericArg::Const(ct) => self.visit_anon_const(&ct.value),
+            hir::GenericArg::Const(ct) => self.visit_anon_const(None, &ct.value),
             hir::GenericArg::Infer(inf) => self.visit_infer(inf),
         }
     }

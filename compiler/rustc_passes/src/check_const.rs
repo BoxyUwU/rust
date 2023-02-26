@@ -196,15 +196,16 @@ impl<'tcx> Visitor<'tcx> for CheckConstVisitor<'tcx> {
         self.tcx.hir()
     }
 
-    fn visit_anon_const(&mut self, anon: &'tcx hir::AnonConst) {
+    fn visit_anon_const(&mut self, owner: Option<LocalDefId>, anon: &'tcx hir::AnonConst) {
         let kind = Some(hir::ConstContext::Const);
-        self.recurse_into(kind, None, |this| intravisit::walk_anon_const(this, anon));
+        let body = self.tcx.hir().body(anon.body);
+        self.recurse_into(kind, owner, |this| intravisit::walk_body(this, body));
     }
 
     fn visit_body(&mut self, body: &'tcx hir::Body<'tcx>) {
-        let owner = self.tcx.hir().body_owner_def_id(body.id());
-        let kind = self.tcx.hir().body_const_context(owner);
-        self.recurse_into(kind, Some(owner), |this| intravisit::walk_body(this, body));
+        let owner = self.tcx.hir().maybe_body_owner_def_id(body.id());
+        let kind = self.tcx.hir().const_context(body.id());
+        self.recurse_into(kind, owner, |this| intravisit::walk_body(this, body));
     }
 
     fn visit_expr(&mut self, e: &'tcx hir::Expr<'tcx>) {

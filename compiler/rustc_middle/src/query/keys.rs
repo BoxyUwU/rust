@@ -691,10 +691,18 @@ impl Key for HirId {
     fn default_span(&self, tcx: TyCtxt<'_>) -> Span {
         tcx.hir().span(*self)
     }
+}
+
+impl Key for (HirId, ty::EarlyBinder<Ty<'_>>) {
+    type CacheSelector = DefaultCacheSelector<Self>;
 
     #[inline(always)]
-    fn key_as_def_id(&self) -> Option<DefId> {
-        None
+    fn query_crate_is_local(&self) -> bool {
+        true
+    }
+
+    fn default_span(&self, tcx: TyCtxt<'_>) -> Span {
+        tcx.hir().span(self.0)
     }
 }
 

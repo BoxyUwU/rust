@@ -2425,7 +2425,7 @@ impl<'tcx> ConstantKind<'tcx> {
     pub fn from_inline_const(tcx: TyCtxt<'tcx>, def_id: LocalDefId) -> Self {
         let hir_id = tcx.hir().local_def_id_to_hir_id(def_id);
         let body_id = match tcx.hir().get(hir_id) {
-            hir::Node::AnonConst(ac) => ac.body,
+            hir::Node::AnonConst(_, ac) => ac.body,
             _ => span_bug!(
                 tcx.def_span(def_id.to_def_id()),
                 "from_inline_const can only process anonymous constants"
@@ -2477,7 +2477,7 @@ impl<'tcx> ConstantKind<'tcx> {
         param_env: ty::ParamEnv<'tcx>,
     ) -> Self {
         let body_id = match tcx.hir().get_by_def_id(def.did) {
-            hir::Node::AnonConst(ac) => ac.body,
+            hir::Node::AnonConst(_, ac) => ac.body,
             _ => span_bug!(
                 tcx.def_span(def.did.to_def_id()),
                 "from_anon_const can only process anonymous constants"

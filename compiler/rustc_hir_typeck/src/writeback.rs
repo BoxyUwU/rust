@@ -38,10 +38,9 @@ use std::ops::ControlFlow;
 impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     pub fn resolve_type_vars_in_body(
         &self,
+        item_def_id: LocalDefId,
         body: &'tcx hir::Body<'tcx>,
     ) -> &'tcx ty::TypeckResults<'tcx> {
-        let item_def_id = self.tcx.hir().body_owner_def_id(body.id());
-
         // This attribute causes us to dump some writeback information
         // in the form of errors, which is used for unit tests.
         let rustc_dump_user_substs =
@@ -299,7 +298,7 @@ impl<'cx, 'tcx> Visitor<'tcx> for WritebackCx<'cx, 'tcx> {
             hir::ExprKind::Field(..) => {
                 self.visit_field_id(e.hir_id);
             }
-            hir::ExprKind::ConstBlock(anon_const) => {
+            hir::ExprKind::ConstBlock(_, anon_const) => {
                 self.visit_node_id(e.span, anon_const.hir_id);
 
                 let body = self.tcx().hir().body(anon_const.body);

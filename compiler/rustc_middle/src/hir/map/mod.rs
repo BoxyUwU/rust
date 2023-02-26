@@ -18,7 +18,7 @@ use rustc_span::Span;
 use rustc_target::spec::abi::Abi;
 
 #[inline]
-pub fn associated_body(node: Node<'_>) -> Option<(LocalDefId, BodyId)> {
+pub fn associated_body(node: Node<'_>) -> Option<(Option<LocalDefId>, BodyId)> {
     match node {
         Node::Item(Item {
             owner_id,
@@ -35,14 +35,13 @@ pub fn associated_body(node: Node<'_>) -> Option<(LocalDefId, BodyId)> {
             owner_id,
             kind: ImplItemKind::Const(_, body) | ImplItemKind::Fn(_, body),
             ..
-        }) => Some((owner_id.def_id, *body)),
+        }) => Some((Some(owner_id.def_id), *body)),
 
         Node::Expr(Expr { kind: ExprKind::Closure(Closure { def_id, body, .. }), .. }) => {
-            Some((*def_id, *body))
+            Some((Some(*def_id), *body))
         }
 
-        Node::AnonConst(constant) => Some((constant.def_id, constant.body)),
-
+        Node::AnonConst(def_id, constant) => Some((def_id, constant.body)),
         _ => None,
     }
 }
@@ -232,13 +231,8 @@ impl<'hir> Map<'hir> {
                     None => bug!("constructor node without a constructor"),
                 }
             }
-            Node::AnonConst(_) => {
-                let inline = match self.find_parent(hir_id) {
-                    Some(Node::Expr(&Expr {
-                        kind: ExprKind::ConstBlock(ref anon_const), ..
-                    })) if anon_const.hir_id == hir_id => true,
-                    _ => false,
-                };
+            Node::AnonConst(_, ac) => {
+                let inline = self.is_inline_const(ac);
                 if inline { DefKind::InlineConst } else { DefKind::AnonConst }
             }
             Node::Field(_) => DefKind::Field,
@@ -269,6 +263,17 @@ impl<'hir> Map<'hir> {
             | Node::Block(_) => return None,
         };
         Some(def_kind)
+    }
+
+    pub fn is_inline_const(self, ac: &'hir AnonConst) -> bool {
+        match self.find_parent(ac.hir_id) {
+            Some(Node::Expr(&Expr { kind: ExprKind::ConstBlock(_, ref anon_const), .. }))
+                if anon_const.hir_id == ac.hir_id =>
+            {
+                true
+            }
+            _ => false,
+        }
     }
 
     /// Finds the id of the parent node to this one.
@@ -386,7 +391,7 @@ impl<'hir> Map<'hir> {
     #[track_caller]
     pub fn enclosing_body_owner(self, hir_id: HirId) -> LocalDefId {
         for (_, node) in self.parent_iter(hir_id) {
-            if let Some((def_id, _)) = associated_body(node) {
+            if let Some((Some(def_id), _)) = associated_body(node) {
                 return def_id;
             }
         }
@@ -399,13 +404,20 @@ impl<'hir> Map<'hir> {
     /// item (possibly associated), a closure, or a `hir::AnonConst`.
     pub fn body_owner(self, BodyId { hir_id }: BodyId) -> HirId {
         let parent = self.parent_id(hir_id);
-        assert!(self.find(parent).map_or(false, |n| is_body_owner(n, hir_id)), "{hir_id:?}");
+        assert!(
+            self.find(parent).map_or(false, |n| is_body_owner(n, hir_id)),
+            "{hir_id:?} has no body owner"
+        );
         parent
     }
 
-    pub fn body_owner_def_id(self, BodyId { hir_id }: BodyId) -> LocalDefId {
+    pub fn maybe_body_owner_def_id(self, BodyId { hir_id }: BodyId) -> Option<LocalDefId> {
         let parent = self.parent_id(hir_id);
-        associated_body(self.get(parent)).unwrap().0
+        associated_body(self.get(parent))?.0
+    }
+
+    pub fn body_owner_def_id(self, body_id: BodyId) -> LocalDefId {
+        self.maybe_body_owner_def_id(body_id).unwrap()
     }
 
     /// Given a `LocalDefId`, returns the `BodyId` associated with it,
@@ -451,6 +463,30 @@ impl<'hir> Map<'hir> {
         }
     }
 
+    pub fn owner_kind(self, body_id: BodyId) -> BodyOwnerKind {
+        for (_, owner) in self.parent_iter(body_id.hir_id) {
+            match owner {
+                Node::Item(Item { kind: ItemKind::Static(_, mt, _), .. }) => {
+                    return BodyOwnerKind::Static(*mt);
+                }
+                Node::Item(Item { kind: ItemKind::Const(..), .. })
+                | Node::TraitItem(TraitItem { kind: TraitItemKind::Const(..), .. })
+                | Node::ImplItem(ImplItem { kind: ImplItemKind::Const(..), .. })
+                | Node::AnonConst(..) => return BodyOwnerKind::Const,
+                Node::Item(Item { kind: ItemKind::Fn(..), .. })
+                | Node::TraitItem(TraitItem { kind: TraitItemKind::Fn(..), .. })
+                | Node::ImplItem(ImplItem { kind: ImplItemKind::Fn(..), .. }) => {
+                    return BodyOwnerKind::Fn;
+                }
+                Node::Expr(Expr { kind: ExprKind::Closure(_), .. }) => {
+                    return BodyOwnerKind::Closure;
+                }
+                _ => {}
+            }
+        }
+        bug!("{:?} is not a body node", body_id)
+    }
+
     /// Returns the `ConstContext` of the body associated with this `LocalDefId`.
     ///
     /// Panics if `LocalDefId` does not have an associated body.
@@ -475,6 +511,27 @@ impl<'hir> Map<'hir> {
             BodyOwnerKind::Fn | BodyOwnerKind::Closure => return None,
         };
 
+        Some(ccx)
+    }
+
+    pub fn const_context(self, body_id: BodyId) -> Option<ConstContext> {
+        let ccx = match self.owner_kind(body_id) {
+            BodyOwnerKind::Const => ConstContext::Const,
+            BodyOwnerKind::Static(mt) => ConstContext::Static(mt),
+            BodyOwnerKind::Fn => {
+                let def_id = self.body_owner_def_id(body_id);
+                if self.tcx.is_constructor(def_id.to_def_id()) {
+                    return None;
+                } else if self.tcx.is_const_fn_raw(def_id.to_def_id())
+                    || self.tcx.is_const_default_method(def_id.to_def_id())
+                {
+                    ConstContext::ConstFn
+                } else {
+                    return None;
+                }
+            }
+            BodyOwnerKind::Closure => return None,
+        };
         Some(ccx)
     }
 
@@ -1048,7 +1105,7 @@ impl<'hir> Map<'hir> {
             Node::ImplItem(impl_item) => impl_item.span,
             Node::Variant(variant) => variant.span,
             Node::Field(field) => field.span,
-            Node::AnonConst(constant) => self.body(constant.body).value.span,
+            Node::AnonConst(_, constant) => self.body(constant.body).value.span,
             Node::Expr(expr) => expr.span,
             Node::ExprField(field) => field.span,
             Node::Stmt(stmt) => stmt.span,
@@ -1263,7 +1320,7 @@ fn hir_id_to_string(map: Map<'_>, id: HirId) -> String {
         Some(Node::Field(ref field)) => {
             format!("{id} (field `{}` in {})", field.ident, path_str(field.def_id))
         }
-        Some(Node::AnonConst(_)) => node_str("const"),
+        Some(Node::AnonConst(..)) => node_str("const"),
         Some(Node::Expr(_)) => node_str("expr"),
         Some(Node::ExprField(_)) => node_str("expr field"),
         Some(Node::Stmt(_)) => node_str("stmt"),
@@ -1402,11 +1459,6 @@ impl<'hir> Visitor<'hir> for ItemCollector<'hir> {
     fn visit_foreign_item(&mut self, item: &'hir ForeignItem<'hir>) {
         self.foreign_items.push(item.foreign_item_id());
         intravisit::walk_foreign_item(self, item)
-    }
-
-    fn visit_anon_const(&mut self, c: &'hir AnonConst) {
-        self.body_owners.push(c.def_id);
-        intravisit::walk_anon_const(self, c)
     }
 
     fn visit_expr(&mut self, ex: &'hir Expr<'hir>) {

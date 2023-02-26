@@ -446,14 +446,9 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                         handle_ty_args(has_default, &inf.to_ty())
                     }
                     (GenericParamDefKind::Const { .. }, GenericArg::Const(ct)) => {
-                        ty::Const::from_opt_const_arg_anon_const(
-                            tcx,
-                            ty::WithOptConstParam {
-                                did: ct.value.def_id,
-                                const_param_did: Some(param.def_id),
-                            },
-                        )
-                        .into()
+                        let did =
+                            tcx.create_anon_const((ct.value.hir_id, tcx.type_of(param.def_id)));
+                        ty::Const::from_anon_const(tcx, did).into()
                     }
                     (&GenericParamDefKind::Const { .. }, hir::GenericArg::Infer(inf)) => {
                         let ty = tcx
@@ -565,6 +560,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
 
     fn create_assoc_bindings_for_generic_args<'a>(
         &self,
+        trait_def_id: DefId,
         generic_args: &'a hir::GenericArgs<'_>,
     ) -> Vec<ConvertedBinding<'a, 'tcx>> {
         // Convert associated-type bindings or constraints into a separate vector.
@@ -586,7 +582,24 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                             ConvertedBindingKind::Equality(self.ast_ty_to_ty(ty).into())
                         }
                         hir::Term::Const(c) => {
-                            let c = Const::from_anon_const(self.tcx(), c.def_id);
+                            let tcx = self.tcx();
+                            let assoc_items = tcx.associated_items(trait_def_id);
+                            let assoc_item = assoc_items.find_by_name_and_kind(
+                                tcx,
+                                binding.ident,
+                                ty::AssocKind::Const,
+                                c.hir_id.owner.to_def_id(),
+                            );
+                            let ty = if let Some(assoc_item) = assoc_item {
+                                tcx.type_of(assoc_item.def_id)
+                            } else {
+                                ty::EarlyBinder(tcx.ty_error_with_message(
+                                    tcx.hir().span(c.hir_id),
+                                    "Could not find associated const on trait",
+                                ))
+                            };
+                            let const_def_id = tcx.create_anon_const((c.hir_id, ty));
+                            let c = Const::from_anon_const(tcx, const_def_id);
                             ConvertedBindingKind::Equality(c.into())
                         }
                     },
@@ -690,7 +703,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
         let bound_vars = tcx.late_bound_vars(hir_id);
         debug!(?bound_vars);
 
-        let assoc_bindings = self.create_assoc_bindings_for_generic_args(args);
+        let assoc_bindings = self.create_assoc_bindings_for_generic_args(trait_def_id, args);
 
         let poly_trait_ref =
             ty::Binder::bind_with_vars(tcx.mk_trait_ref(trait_def_id, substs), bound_vars);
@@ -3085,26 +3098,30 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                 let length = match length {
                     &hir::ArrayLen::Infer(_, span) => self.ct_infer(tcx.types.usize, None, span),
                     hir::ArrayLen::Body(constant) => {
-                        ty::Const::from_anon_const(tcx, constant.def_id)
+                        let length_def_id = tcx
+                            .create_anon_const((constant.hir_id, ty::EarlyBinder(tcx.types.usize)));
+                        ty::Const::from_anon_const(tcx, length_def_id)
                     }
                 };
 
                 tcx.mk_array_with_const_len(self.ast_ty_to_ty(ty), length)
             }
             hir::TyKind::Typeof(e) => {
-                let ty_erased = tcx.type_of(e.def_id).subst_identity();
-                let ty = tcx.fold_regions(ty_erased, |r, _| {
-                    if r.is_erased() { tcx.lifetimes.re_static } else { r }
-                });
-                let span = ast_ty.span;
-                let (ty, opt_sugg) = if let Some(ty) = ty.make_suggestable(tcx, false) {
-                    (ty, Some((span, Applicability::MachineApplicable)))
-                } else {
-                    (ty, None)
-                };
-                tcx.sess.emit_err(TypeofReservedKeywordUsed { span, ty, opt_sugg });
+                todo!()
 
-                ty
+                // let ty_erased = tcx.type_of(e.def_id).subst_identity();
+                // let ty = tcx.fold_regions(ty_erased, |r, _| {
+                //     if r.is_erased() { tcx.lifetimes.re_static } else { r }
+                // });
+                // let span = ast_ty.span;
+                // let (ty, opt_sugg) = if let Some(ty) = ty.make_suggestable(tcx, false) {
+                //     (ty, Some((span, Applicability::MachineApplicable)))
+                // } else {
+                //     (ty, None)
+                // };
+                // tcx.sess.emit_err(TypeofReservedKeywordUsed { span, ty, opt_sugg });
+
+                // ty
             }
             hir::TyKind::Infer => {
                 // Infer also appears as the type of arguments or return

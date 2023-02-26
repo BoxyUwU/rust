@@ -5,7 +5,7 @@ use hir::{
 };
 use rustc_hir as hir;
 use rustc_hir::def::DefKind;
-use rustc_hir::def_id::DefId;
+use rustc_hir::def_id::{DefId, LocalDefId};
 use rustc_middle::ty::{self, TyCtxt};
 use rustc_session::lint;
 use rustc_span::symbol::{kw, Symbol};
@@ -28,7 +28,7 @@ pub(super) fn generics_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::Generics {
         }
         // FIXME(#43408) always enable this once `lazy_normalization` is
         // stable enough and does not need a feature gate anymore.
-        Node::AnonConst(_) => {
+        Node::AnonConst(..) => {
             let parent_def_id = tcx.hir().get_parent_item(hir_id);
 
             let mut in_param_ty = false;
@@ -120,7 +120,7 @@ pub(super) fn generics_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::Generics {
                     {
                         Some(parent_def_id.to_def_id())
                     }
-                    Node::Expr(&Expr { kind: ExprKind::ConstBlock(_), .. }) => {
+                    Node::Expr(&Expr { kind: ExprKind::ConstBlock(..), .. }) => {
                         Some(tcx.typeck_root_def_id(def_id))
                     }
                     // Exclude `GlobalAsm` here which cannot have generics.
@@ -333,9 +333,9 @@ pub(super) fn generics_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::Generics {
     }
 
     // provide junk type parameter defs for const blocks.
-    if let Node::AnonConst(_) = node {
+    if let Node::AnonConst(..) = node {
         let parent_node = tcx.hir().get_parent(hir_id);
-        if let Node::Expr(&Expr { kind: ExprKind::ConstBlock(_), .. }) = parent_node {
+        if let Node::Expr(&Expr { kind: ExprKind::ConstBlock(..), .. }) = parent_node {
             params.push(ty::GenericParamDef {
                 index: next_index(),
                 name: Symbol::intern("<const_ty>"),
@@ -472,7 +472,7 @@ impl<'v> Visitor<'v> for AnonConstInParamTyDetector {
         }
     }
 
-    fn visit_anon_const(&mut self, c: &'v hir::AnonConst) {
+    fn visit_anon_const(&mut self, _: Option<LocalDefId>, c: &'v hir::AnonConst) {
         if self.in_param_ty && self.ct == c.hir_id {
             self.found_anon_const_in_param_ty = true;
         } else {
