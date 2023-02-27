@@ -1,15 +1,16 @@
+use std::ops::ControlFlow;
+
 use crate::astconv::AstConv;
 use crate::bounds::Bounds;
 use crate::collect::ItemCtxt;
 use crate::constrained_generic_params as cgp;
-use hir::{HirId, Node};
+use hir::Node;
 use rustc_data_structures::fx::FxIndexSet;
 use rustc_hir as hir;
 use rustc_hir::def::DefKind;
 use rustc_hir::def_id::{DefId, LocalDefId};
-use rustc_hir::intravisit::{self, Visitor};
 use rustc_middle::ty::subst::InternalSubsts;
-use rustc_middle::ty::{self, Ty, TyCtxt};
+use rustc_middle::ty::{self, Ty, TyCtxt, TypeSuperVisitable, TypeVisitable, TypeVisitor};
 use rustc_middle::ty::{GenericPredicates, ToPredicate};
 use rustc_span::symbol::{sym, Ident};
 use rustc_span::{Span, DUMMY_SP};
@@ -252,10 +253,6 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
         }
     }
 
-    if tcx.features().generic_const_exprs {
-        predicates.extend(const_evaluatable_predicates_of(tcx, def_id.expect_local()));
-    }
-
     let mut predicates: Vec<_> = predicates.into_iter().collect();
 
     // Subtle: before we store the predicates into the tcx, we
@@ -320,82 +317,106 @@ fn gather_explicit_predicates_of(tcx: TyCtxt<'_>, def_id: DefId) -> ty::GenericP
         debug!(?predicates);
     }
 
+    if tcx.features().generic_const_exprs {
+        const_evaluatable_predicates_of(tcx, def_id.expect_local(), &mut predicates);
+    }
+
     ty::GenericPredicates {
         parent: generics.parent,
         predicates: tcx.arena.alloc_from_iter(predicates),
     }
 }
 
-fn const_evaluatable_predicates_of(
-    tcx: TyCtxt<'_>,
+fn const_evaluatable_predicates_of<'tcx>(
+    tcx: TyCtxt<'tcx>,
     def_id: LocalDefId,
-) -> FxIndexSet<(ty::Predicate<'_>, Span)> {
+    predicates: &mut Vec<(ty::Predicate<'tcx>, Span)>,
+) {
     struct ConstCollector<'tcx> {
         tcx: TyCtxt<'tcx>,
-        preds: FxIndexSet<(ty::Predicate<'tcx>, Span)>,
+        anon_consts: Vec<(ty::Predicate<'tcx>, Span)>,
     }
 
-    impl<'tcx> intravisit::Visitor<'tcx> for ConstCollector<'tcx> {
-        fn visit_anon_const(&mut self, def_id: Option<LocalDefId>, c: &'tcx hir::AnonConst) {
-            if let Some(def_id) = def_id {
-                let ct = ty::Const::from_anon_const(self.tcx, def_id);
-                if let ty::ConstKind::Unevaluated(_) = ct.kind() {
-                    let span = self.tcx.def_span(def_id);
-                    self.preds.insert((
-                        ty::Binder::dummy(ty::PredicateKind::ConstEvaluatable(ct))
-                            .to_predicate(self.tcx),
-                        span,
-                    ));
-                }
+    impl<'tcx> TypeVisitor<TyCtxt<'tcx>> for ConstCollector<'tcx> {
+        type BreakTy = !;
+
+        fn visit_predicate(&mut self, p: ty::Predicate<'tcx>) -> ControlFlow<Self::BreakTy> {
+            // When we support explicitly writing `evaluatable { ... }` it would be silly to see the
+            // anon const there and add a second implicit `evaluatable { ... }`.
+            if let ty::PredicateKind::ConstEvaluatable(_) = p.kind().skip_binder() {
+                return ControlFlow::Continue(());
             }
-            //let ct = ty::Const::from_anon_const(self.tcx, c.def_id);
-            //if let ty::ConstKind::Unevaluated(_) = ct.kind() {
-            //    let span = self.tcx.def_span(c.def_id);
-            //    self.preds.insert((
-            //        ty::Binder::dummy(ty::PredicateKind::ConstEvaluatable(ct))
-            //            .to_predicate(self.tcx),
-            //        span,
-            //    ));
-            //}
+
+            p.super_visit_with(self)
         }
 
-        fn visit_const_param_default(&mut self, _param: HirId, _ct: &'tcx hir::AnonConst) {
-            // Do not look into const param defaults,
-            // these get checked when they are actually instantiated.
-            //
-            // We do not want the following to error:
-            //
-            //     struct Foo<const N: usize, const M: usize = { N + 1 }>;
-            //     struct Bar<const N: usize>(Foo<N, 3>);
+        fn visit_const(&mut self, c: ty::Const<'tcx>) -> ControlFlow<!> {
+            let span = match c.kind() {
+                ty::ConstKind::Param(_)
+                | ty::ConstKind::Infer(_)
+                | ty::ConstKind::Bound(_, _)
+                | ty::ConstKind::Placeholder(_)
+                | ty::ConstKind::Value(_)
+                | ty::ConstKind::Error(_) => return ControlFlow::Continue(()),
+                ty::ConstKind::Unevaluated(uv) => self.tcx.def_span(uv.def.did),
+                ty::ConstKind::Expr(..) => DUMMY_SP,
+            };
+
+            self.anon_consts.push((
+                self.tcx.mk_predicate(ty::Binder::dummy(ty::PredicateKind::ConstEvaluatable(c))),
+                span,
+            ));
+
+            ControlFlow::Continue(())
         }
     }
+
+    let mut collector = ConstCollector { tcx, anon_consts: vec![] };
+
+    predicates.as_slice().visit_with(&mut collector);
 
     let hir_id = tcx.hir().local_def_id_to_hir_id(def_id);
-    let node = tcx.hir().get(hir_id);
+    let item = tcx.hir().get(hir_id).expect_item();
 
-    let mut collector = ConstCollector { tcx, preds: FxIndexSet::default() };
-    if let hir::Node::Item(item) = node && let hir::ItemKind::Impl(impl_) = item.kind {
-        if let Some(of_trait) = &impl_.of_trait {
-            debug!("const_evaluatable_predicates_of({:?}): visit impl trait_ref", def_id);
-            collector.visit_trait_ref(of_trait);
+    match &item.kind {
+        hir::ItemKind::Impl(_) => {
+            tcx.impl_trait_ref(def_id).unwrap().subst_identity().visit_with(&mut collector);
+        }
+        hir::ItemKind::Fn(_, _, _) => {
+            tcx.fn_sig(def_id).subst_identity().visit_with(&mut collector);
+        }
+        hir::ItemKind::Static(_, _, _) => {
+            tcx.type_of(def_id)
+                .no_bound_vars()
+                .expect("generic statics are not supported")
+                .visit_with(&mut collector);
+        }
+        hir::ItemKind::TyAlias(_, _) | hir::ItemKind::Const(_, _) => {
+            tcx.type_of(def_id).subst_identity().visit_with(&mut collector);
         }
 
-        debug!("const_evaluatable_predicates_of({:?}): visit_self_ty", def_id);
-        collector.visit_ty(impl_.self_ty);
+        hir::ItemKind::Struct(variant_data, _) => {
+            // FIXME(generic_const_exprs): take into account field privacy?
+            for field_def in variant_data.fields() {
+                tcx.type_of(field_def.def_id).subst_identity().visit_with(&mut collector);
+            }
+        }
+
+        hir::ItemKind::ExternCrate(_)
+        | hir::ItemKind::Use(_, _)
+        | hir::ItemKind::Macro(_, _)
+        | hir::ItemKind::Mod(_)
+        | hir::ItemKind::ForeignMod { .. }
+        | hir::ItemKind::GlobalAsm(_)
+        | hir::ItemKind::OpaqueTy(_)
+        | hir::ItemKind::Enum(_, _)
+        | hir::ItemKind::Union(_, _)
+        | hir::ItemKind::Trait(_, _, _, _, _)
+        | hir::ItemKind::TraitAlias(_, _) => (),
     }
 
-    if let Some(generics) = node.generics() {
-        debug!("const_evaluatable_predicates_of({:?}): visit_generics", def_id);
-        collector.visit_generics(generics);
-    }
-
-    if let Some(fn_sig) = tcx.hir().fn_sig_by_hir_id(hir_id) {
-        debug!("const_evaluatable_predicates_of({:?}): visit_fn_decl", def_id);
-        collector.visit_fn_decl(fn_sig.decl);
-    }
-    debug!("const_evaluatable_predicates_of({:?}) = {:?}", def_id, collector.preds);
-
-    collector.preds
+    debug!("const_evaluatable_predicates_of(def_id={:?}) -> {:?}", def_id, &collector.anon_consts);
+    predicates.extend(collector.anon_consts.into_iter());
 }
 
 pub(super) fn trait_explicit_predicates_and_bounds(
