@@ -3,6 +3,7 @@
 //! [rustc dev guide]: https://rustc-dev-guide.rust-lang.org/traits/resolution.html
 
 pub mod auto_trait;
+pub mod auto_trait_rewrite;
 mod chalk_fulfill;
 mod coherence;
 pub mod const_evaluatable;

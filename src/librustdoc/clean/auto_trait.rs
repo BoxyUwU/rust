@@ -1,8 +1,11 @@
 use rustc_data_structures::fx::FxHashSet;
 use rustc_hir as hir;
 use rustc_hir::lang_items::LangItem;
-use rustc_middle::ty::{self, Region, RegionVid, TypeFoldable, TypeSuperFoldable};
-use rustc_trait_selection::traits::auto_trait::{self, AutoTraitResult};
+use rustc_middle::ty::{self, List, Predicate, Region, RegionVid, TypeFoldable, TypeSuperFoldable};
+use rustc_trait_selection::traits::{
+    auto_trait::{self, AutoTraitResult},
+    auto_trait_rewrite::self_ty_and_predicates_for_synthetic_auto_trait_impl,
+};
 use thin_vec::ThinVec;
 
 use std::fmt::Debug;
@@ -44,77 +47,92 @@ where
         discard_positive_impl: bool,
     ) -> Option<Item> {
         let tcx = self.cx.tcx;
+
+        let (ty, impl_preds) = self_ty_and_predicates_for_synthetic_auto_trait_impl(
+            tcx,
+            ty::EarlyBinder(ty),
+            trait_def_id,
+        )
+        .ok()?;
+
+        let new_generics = self.param_env_to_generics(
+            item_def_id,
+            impl_preds,
+            ThinVec::new(),
+            FxHashMap::default(),
+        );
+
         let trait_ref = ty::Binder::dummy(tcx.mk_trait_ref(trait_def_id, [ty]));
-        if !self.cx.generated_synthetics.insert((ty, trait_def_id)) {
-            debug!("get_auto_trait_impl_for({:?}): already generated, aborting", trait_ref);
-            return None;
-        }
+        // if !self.cx.generated_synthetics.insert((ty, trait_def_id)) {
+        //     debug!("get_auto_trait_impl_for({:?}): already generated, aborting", trait_ref);
+        //     return None;
+        // }
 
-        let result = f.find_auto_trait_generics(ty, param_env, trait_def_id, |info| {
-            let region_data = info.region_data;
+        // let result = f.find_auto_trait_generics(ty, param_env, trait_def_id, |info| {
+        //     let region_data = info.region_data;
 
-            let names_map = tcx
-                .generics_of(item_def_id)
-                .params
-                .iter()
-                .filter_map(|param| match param.kind {
-                    ty::GenericParamDefKind::Lifetime => Some(param.name),
-                    _ => None,
-                })
-                .map(|name| (name, Lifetime(name)))
-                .collect();
-            let lifetime_predicates = Self::handle_lifetimes(&region_data, &names_map);
-            let new_generics = self.param_env_to_generics(
-                item_def_id,
-                info.full_user_env,
-                lifetime_predicates,
-                info.vid_to_region,
-            );
+        //     let names_map = tcx
+        //         .generics_of(item_def_id)
+        //         .params
+        //         .iter()
+        //         .filter_map(|param| match param.kind {
+        //             ty::GenericParamDefKind::Lifetime => Some(param.name),
+        //             _ => None,
+        //         })
+        //         .map(|name| (name, Lifetime(name)))
+        //         .collect();
+        //     let lifetime_predicates = Self::handle_lifetimes(&region_data, &names_map);
+        //     let new_generics = self.param_env_to_generics(
+        //         item_def_id,
+        //         info.full_user_env,
+        //         lifetime_predicates,
+        //         info.vid_to_region,
+        //     );
 
-            debug!(
-                "find_auto_trait_generics(item_def_id={:?}, trait_def_id={:?}): \
-                    finished with {:?}",
-                item_def_id, trait_def_id, new_generics
-            );
+        //     debug!(
+        //         "find_auto_trait_generics(item_def_id={:?}, trait_def_id={:?}): \
+        //             finished with {:?}",
+        //         item_def_id, trait_def_id, new_generics
+        //     );
 
-            new_generics
-        });
+        //     new_generics
+        // });
 
-        let polarity;
-        let new_generics = match result {
-            AutoTraitResult::PositiveImpl(new_generics) => {
-                polarity = ty::ImplPolarity::Positive;
-                if discard_positive_impl {
-                    return None;
-                }
-                new_generics
-            }
-            AutoTraitResult::NegativeImpl => {
-                polarity = ty::ImplPolarity::Negative;
+        // let polarity;
+        // let new_generics = match result {
+        //     AutoTraitResult::PositiveImpl(new_generics) => {
+        //         polarity = ty::ImplPolarity::Positive;
+        //         if discard_positive_impl {
+        //             return None;
+        //         }
+        //         new_generics
+        //     }
+        //     AutoTraitResult::NegativeImpl => {
+        //         polarity = ty::ImplPolarity::Negative;
 
-                // For negative impls, we use the generic params, but *not* the predicates,
-                // from the original type. Otherwise, the displayed impl appears to be a
-                // conditional negative impl, when it's really unconditional.
-                //
-                // For example, consider the struct Foo<T: Copy>(*mut T). Using
-                // the original predicates in our impl would cause us to generate
-                // `impl !Send for Foo<T: Copy>`, which makes it appear that Foo
-                // implements Send where T is not copy.
-                //
-                // Instead, we generate `impl !Send for Foo<T>`, which better
-                // expresses the fact that `Foo<T>` never implements `Send`,
-                // regardless of the choice of `T`.
-                let raw_generics = clean_ty_generics(
-                    self.cx,
-                    tcx.generics_of(item_def_id),
-                    ty::GenericPredicates::default(),
-                );
-                let params = raw_generics.params;
+        //         // For negative impls, we use the generic params, but *not* the predicates,
+        //         // from the original type. Otherwise, the displayed impl appears to be a
+        //         // conditional negative impl, when it's really unconditional.
+        //         //
+        //         // For example, consider the struct Foo<T: Copy>(*mut T). Using
+        //         // the original predicates in our impl would cause us to generate
+        //         // `impl !Send for Foo<T: Copy>`, which makes it appear that Foo
+        //         // implements Send where T is not copy.
+        //         //
+        //         // Instead, we generate `impl !Send for Foo<T>`, which better
+        //         // expresses the fact that `Foo<T>` never implements `Send`,
+        //         // regardless of the choice of `T`.
+        //         let raw_generics = clean_ty_generics(
+        //             self.cx,
+        //             tcx.generics_of(item_def_id),
+        //             ty::GenericPredicates::default(),
+        //         );
+        //         let params = raw_generics.params;
 
-                Generics { params, where_predicates: ThinVec::new() }
-            }
-            AutoTraitResult::ExplicitImpl => return None,
-        };
+        //         Generics { params, where_predicates: ThinVec::new() }
+        //     }
+        //     AutoTraitResult::ExplicitImpl => return None,
+        // };
 
         Some(Item {
             name: None,
@@ -126,7 +144,7 @@ where
                 trait_: Some(clean_trait_ref_with_bindings(self.cx, trait_ref, ThinVec::new())),
                 for_: clean_middle_ty(ty::Binder::dummy(ty), self.cx, None),
                 items: Vec::new(),
-                polarity,
+                polarity: ty::ImplPolarity::Positive,
                 kind: ImplKind::Auto,
             }))),
             cfg: None,
@@ -424,14 +442,14 @@ where
     fn param_env_to_generics(
         &mut self,
         item_def_id: DefId,
-        param_env: ty::ParamEnv<'tcx>,
+        param_env_predicates: &'tcx List<Predicate<'tcx>>,
         mut existing_predicates: ThinVec<WherePredicate>,
         vid_to_region: FxHashMap<ty::RegionVid, ty::Region<'tcx>>,
     ) -> Generics {
         debug!(
-            "param_env_to_generics(item_def_id={:?}, param_env={:?}, \
+            "param_env_to_generics(item_def_id={:?}, param_env_predicates={:?}, \
              existing_predicates={:?})",
-            item_def_id, param_env, existing_predicates
+            item_def_id, param_env_predicates, existing_predicates
         );
 
         let tcx = self.cx.tcx;
@@ -443,8 +461,7 @@ where
         let mut replacer = RegionReplacer { vid_to_region: &vid_to_region, tcx };
 
         let orig_bounds: FxHashSet<_> = tcx.param_env(item_def_id).caller_bounds().iter().collect();
-        let clean_where_predicates = param_env
-            .caller_bounds()
+        let clean_where_predicates = param_env_predicates
             .iter()
             .filter(|p| {
                 !orig_bounds.contains(p)
