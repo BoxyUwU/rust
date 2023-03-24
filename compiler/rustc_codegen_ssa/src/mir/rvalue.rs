@@ -230,7 +230,9 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
             mir::Rvalue::Cast(ref kind, ref source, mir_cast_ty) => {
                 let operand = self.codegen_operand(bx, source);
                 debug!("cast operand is {:?}", operand);
+                debug!(?mir_cast_ty, ?kind);
                 let cast = bx.cx().layout_of(self.monomorphize(mir_cast_ty));
+                debug!(?cast);
 
                 let val = match *kind {
                     mir::CastKind::PointerExposeAddress => {

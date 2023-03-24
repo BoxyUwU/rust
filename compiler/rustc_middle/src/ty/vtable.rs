@@ -47,6 +47,7 @@ pub const COMMON_VTABLE_ENTRIES_ALIGN: usize = 2;
 
 /// Retrieves an allocation that represents the contents of a vtable.
 /// Since this is a query, allocations are cached and not duplicated.
+#[instrument(level = "debug", skip(tcx))]
 pub(super) fn vtable_allocation_provider<'tcx>(
     tcx: TyCtxt<'tcx>,
     key: (Ty<'tcx>, Option<ty::PolyExistentialTraitRef<'tcx>>),
@@ -83,6 +84,7 @@ pub(super) fn vtable_allocation_provider<'tcx>(
         let idx: u64 = u64::try_from(idx).unwrap();
         let scalar = match entry {
             VtblEntry::MetadataDropInPlace => {
+                debug!("metadata drop in place: ty={:?}", ty);
                 let instance = ty::Instance::resolve_drop_in_place(tcx, ty);
                 let fn_alloc_id = tcx.create_fn_alloc(instance);
                 let fn_ptr = Pointer::from(fn_alloc_id);
