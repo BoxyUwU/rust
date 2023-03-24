@@ -1,6 +1,8 @@
 use rustc_middle::mir;
 use rustc_middle::mir::NonDivergingIntrinsic;
+use rustc_middle::ty::layout::TyAndLayout;
 
+use super::operand::OperandRef;
 use super::FunctionCx;
 use super::LocalRef;
 use crate::traits::BuilderMethods;
@@ -20,7 +22,13 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                         }
                         LocalRef::PendingOperand => {
                             let operand = self.codegen_rvalue_operand(bx, rvalue);
-                            self.locals[index] = LocalRef::Operand(operand);
+                            self.locals[index] = LocalRef::Operand(OperandRef {
+                                val: operand.val,
+                                layout: TyAndLayout {
+                                    ty: self.monomorphized_place_ty(place.as_ref()),
+                                    layout: operand.layout.layout,
+                                },
+                            });
                             self.debug_introduce_local(bx, index);
                         }
                         LocalRef::Operand(op) => {

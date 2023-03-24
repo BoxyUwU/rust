@@ -63,7 +63,7 @@ pub struct OperandRef<'tcx, V> {
     pub layout: TyAndLayout<'tcx>,
 }
 
-impl<V: CodegenObject> fmt::Debug for OperandRef<'_, V> {
+impl<V: fmt::Debug> fmt::Debug for OperandRef<'_, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "OperandRef({:?} @ {:?})", self.val, self.layout)
     }
@@ -403,17 +403,17 @@ impl<'a, 'tcx, V: CodegenObject> OperandValue<V> {
 }
 
 impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
+    #[instrument(level = "debug", skip(self, bx), ret)]
     fn maybe_codegen_consume_direct(
         &mut self,
         bx: &mut Bx,
         place_ref: mir::PlaceRef<'tcx>,
     ) -> Option<OperandRef<'tcx, Bx::Value>> {
-        debug!("maybe_codegen_consume_direct(place_ref={:?})", place_ref);
-
         match self.locals[place_ref.local] {
             LocalRef::Operand(mut o) => {
                 // Moves out of scalar and scalar pair fields are trivial.
                 for elem in place_ref.projection.iter() {
+                    debug!(?elem);
                     match elem {
                         mir::ProjectionElem::Field(ref f, _) => {
                             o = o.extract_field(bx, f.index());
@@ -455,6 +455,7 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
         debug!("codegen_consume(place_ref={:?})", place_ref);
 
         let ty = self.monomorphized_place_ty(place_ref);
+        debug!("codegen_consume: ty={:?}", ty);
         let layout = bx.cx().layout_of(ty);
 
         // ZSTs don't require any actual memory access.
