@@ -206,37 +206,37 @@ pub(super) fn poly_project_and_unify_type<'cx, 'tcx>(
     let infcx = selcx.infcx;
     let r = infcx.commit_if_ok(|_snapshot| {
         let old_universe = infcx.universe();
-        let placeholder_predicate =
-            infcx.instantiate_binder_with_placeholders(obligation.predicate);
-        let new_universe = infcx.universe();
+        infcx.enter_forall_binder(obligation.predicate, |placeholder_predicate| {
+            let new_universe = infcx.universe();
 
-        let placeholder_obligation = obligation.with(infcx.tcx, placeholder_predicate);
-        match project_and_unify_type(selcx, &placeholder_obligation) {
-            ProjectAndUnifyResult::MismatchedProjectionTypes(e) => Err(e),
-            ProjectAndUnifyResult::Holds(obligations)
-                if old_universe != new_universe
-                    && selcx.tcx().features().generic_associated_types_extended =>
-            {
-                // If the `generic_associated_types_extended` feature is active, then we ignore any
-                // obligations references lifetimes from any universe greater than or equal to the
-                // universe just created. Otherwise, we can end up with something like `for<'a> I: 'a`,
-                // which isn't quite what we want. Ideally, we want either an implied
-                // `for<'a where I: 'a> I: 'a` or we want to "lazily" check these hold when we
-                // substitute concrete regions. There is design work to be done here; until then,
-                // however, this allows experimenting potential GAT features without running into
-                // well-formedness issues.
-                let new_obligations = obligations
-                    .into_iter()
-                    .filter(|obligation| {
-                        let mut visitor = MaxUniverse::new();
-                        obligation.predicate.visit_with(&mut visitor);
-                        visitor.max_universe() < new_universe
-                    })
-                    .collect();
-                Ok(ProjectAndUnifyResult::Holds(new_obligations))
+            let placeholder_obligation = obligation.with(infcx.tcx, placeholder_predicate);
+            match project_and_unify_type(selcx, &placeholder_obligation) {
+                ProjectAndUnifyResult::MismatchedProjectionTypes(e) => Err(e),
+                ProjectAndUnifyResult::Holds(obligations)
+                    if old_universe != new_universe
+                        && selcx.tcx().features().generic_associated_types_extended =>
+                {
+                    // If the `generic_associated_types_extended` feature is active, then we ignore any
+                    // obligations references lifetimes from any universe greater than or equal to the
+                    // universe just created. Otherwise, we can end up with something like `for<'a> I: 'a`,
+                    // which isn't quite what we want. Ideally, we want either an implied
+                    // `for<'a where I: 'a> I: 'a` or we want to "lazily" check these hold when we
+                    // substitute concrete regions. There is design work to be done here; until then,
+                    // however, this allows experimenting potential GAT features without running into
+                    // well-formedness issues.
+                    let new_obligations = obligations
+                        .into_iter()
+                        .filter(|obligation| {
+                            let mut visitor = MaxUniverse::new();
+                            obligation.predicate.visit_with(&mut visitor);
+                            visitor.max_universe() < new_universe
+                        })
+                        .collect();
+                    Ok(ProjectAndUnifyResult::Holds(new_obligations))
+                }
+                other => Ok(other),
             }
-            other => Ok(other),
-        }
+        })
     });
 
     match r {

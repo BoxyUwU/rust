@@ -2414,8 +2414,8 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                                 );
                                 // I guess we don't need to make a universe unless we need it,
                                 // but also we're on the error path, so it doesn't matter here.
-                                let universe = infcx.create_next_universe();
-                                infcx
+                                infcx.enter_new_universe(|universe| {
+                                    infcx
                                     .can_eq(
                                         ty::ParamEnv::empty(),
                                         impl_.self_ty(),
@@ -2431,6 +2431,7 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
                                             }, ty),
                                         })
                                     )
+                                })
                             })
                             && tcx.impl_polarity(impl_def_id) != ty::ImplPolarity::Negative
                         })

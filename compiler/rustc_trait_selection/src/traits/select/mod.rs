@@ -1647,59 +1647,59 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         obligation: &TraitObligation<'tcx>,
     ) -> smallvec::SmallVec<[(usize, ty::BoundConstness); 2]> {
         let poly_trait_predicate = self.infcx.resolve_vars_if_possible(obligation.predicate);
-        let placeholder_trait_predicate =
-            self.infcx.instantiate_binder_with_placeholders(poly_trait_predicate);
-        debug!(?placeholder_trait_predicate);
+        self.infcx.enter_forall_binder(poly_trait_predicate, |placeholder_trait_predicate| {
+            debug!(?placeholder_trait_predicate);
 
-        let tcx = self.infcx.tcx;
-        let (def_id, substs) = match *placeholder_trait_predicate.trait_ref.self_ty().kind() {
-            ty::Alias(_, ty::AliasTy { def_id, substs, .. }) => (def_id, substs),
-            _ => {
-                span_bug!(
-                    obligation.cause.span,
-                    "match_projection_obligation_against_definition_bounds() called \
-                     but self-ty is not a projection: {:?}",
-                    placeholder_trait_predicate.trait_ref.self_ty()
-                );
-            }
-        };
-        let bounds = tcx.item_bounds(def_id).subst(tcx, substs);
-
-        // The bounds returned by `item_bounds` may contain duplicates after
-        // normalization, so try to deduplicate when possible to avoid
-        // unnecessary ambiguity.
-        let mut distinct_normalized_bounds = FxHashSet::default();
-
-        bounds
-            .iter()
-            .enumerate()
-            .filter_map(|(idx, bound)| {
-                let bound_predicate = bound.kind();
-                if let ty::PredicateKind::Clause(ty::Clause::Trait(pred)) =
-                    bound_predicate.skip_binder()
-                {
-                    let bound = bound_predicate.rebind(pred.trait_ref);
-                    if self.infcx.probe(|_| {
-                        match self.match_normalize_trait_ref(
-                            obligation,
-                            bound,
-                            placeholder_trait_predicate.trait_ref,
-                        ) {
-                            Ok(None) => true,
-                            Ok(Some(normalized_trait))
-                                if distinct_normalized_bounds.insert(normalized_trait) =>
-                            {
-                                true
-                            }
-                            _ => false,
-                        }
-                    }) {
-                        return Some((idx, pred.constness));
-                    }
+            let tcx = self.infcx.tcx;
+            let (def_id, substs) = match *placeholder_trait_predicate.trait_ref.self_ty().kind() {
+                ty::Alias(_, ty::AliasTy { def_id, substs, .. }) => (def_id, substs),
+                _ => {
+                    span_bug!(
+                        obligation.cause.span,
+                        "match_projection_obligation_against_definition_bounds() called \
+                        but self-ty is not a projection: {:?}",
+                        placeholder_trait_predicate.trait_ref.self_ty()
+                    );
                 }
-                None
-            })
-            .collect()
+            };
+            let bounds = tcx.item_bounds(def_id).subst(tcx, substs);
+
+            // The bounds returned by `item_bounds` may contain duplicates after
+            // normalization, so try to deduplicate when possible to avoid
+            // unnecessary ambiguity.
+            let mut distinct_normalized_bounds = FxHashSet::default();
+
+            bounds
+                .iter()
+                .enumerate()
+                .filter_map(|(idx, bound)| {
+                    let bound_predicate = bound.kind();
+                    if let ty::PredicateKind::Clause(ty::Clause::Trait(pred)) =
+                        bound_predicate.skip_binder()
+                    {
+                        let bound = bound_predicate.rebind(pred.trait_ref);
+                        if self.infcx.probe(|_| {
+                            match self.match_normalize_trait_ref(
+                                obligation,
+                                bound,
+                                placeholder_trait_predicate.trait_ref,
+                            ) {
+                                Ok(None) => true,
+                                Ok(Some(normalized_trait))
+                                    if distinct_normalized_bounds.insert(normalized_trait) =>
+                                {
+                                    true
+                                }
+                                _ => false,
+                            }
+                        }) {
+                            return Some((idx, pred.constness));
+                        }
+                    }
+                    None
+                })
+                .collect()
+        })
     }
 
     /// Equates the trait in `obligation` with trait bound. If the two traits
@@ -2404,26 +2404,27 @@ impl<'tcx> SelectionContext<'_, 'tcx> {
             .flat_map(|ty| {
                 let ty: ty::Binder<'tcx, Ty<'tcx>> = types.rebind(*ty); // <----/
 
-                let placeholder_ty = self.infcx.instantiate_binder_with_placeholders(ty);
-                let Normalized { value: normalized_ty, mut obligations } =
-                    ensure_sufficient_stack(|| {
-                        project::normalize_with_depth(
-                            self,
-                            param_env,
-                            cause.clone(),
-                            recursion_depth,
-                            placeholder_ty,
-                        )
-                    });
+                self.infcx.enter_forall_binder(ty, |placeholder_ty| {
+                    let Normalized { value: normalized_ty, mut obligations } =
+                        ensure_sufficient_stack(|| {
+                            project::normalize_with_depth(
+                                self,
+                                param_env,
+                                cause.clone(),
+                                recursion_depth,
+                                placeholder_ty,
+                            )
+                        });
 
-                let obligation = Obligation::new(
-                    self.tcx(),
-                    cause.clone(),
-                    param_env,
-                    self.tcx().mk_trait_ref(trait_def_id, [normalized_ty]),
-                );
-                obligations.push(obligation);
-                obligations
+                    let obligation = Obligation::new(
+                        self.tcx(),
+                        cause.clone(),
+                        param_env,
+                        self.tcx().mk_trait_ref(trait_def_id, [normalized_ty]),
+                    );
+                    obligations.push(obligation);
+                    obligations
+                })
             })
             .collect()
     }
@@ -2481,55 +2482,55 @@ impl<'tcx> SelectionContext<'_, 'tcx> {
         impl_trait_ref: EarlyBinder<ty::TraitRef<'tcx>>,
         obligation: &TraitObligation<'tcx>,
     ) -> Result<Normalized<'tcx, SubstsRef<'tcx>>, ()> {
-        let placeholder_obligation =
-            self.infcx.instantiate_binder_with_placeholders(obligation.predicate);
-        let placeholder_obligation_trait_ref = placeholder_obligation.trait_ref;
+        self.infcx.enter_forall_binder(obligation.predicate, |placeholder_obligation| {
+            let placeholder_obligation_trait_ref = placeholder_obligation.trait_ref;
 
-        let impl_substs = self.infcx.fresh_substs_for_item(obligation.cause.span, impl_def_id);
+            let impl_substs = self.infcx.fresh_substs_for_item(obligation.cause.span, impl_def_id);
 
-        let impl_trait_ref = impl_trait_ref.subst(self.tcx(), impl_substs);
-        if impl_trait_ref.references_error() {
-            return Err(());
-        }
+            let impl_trait_ref = impl_trait_ref.subst(self.tcx(), impl_substs);
+            if impl_trait_ref.references_error() {
+                return Err(());
+            }
 
-        debug!(?impl_trait_ref);
+            debug!(?impl_trait_ref);
 
-        let Normalized { value: impl_trait_ref, obligations: mut nested_obligations } =
-            ensure_sufficient_stack(|| {
-                project::normalize_with_depth(
-                    self,
-                    obligation.param_env,
-                    obligation.cause.clone(),
-                    obligation.recursion_depth + 1,
-                    impl_trait_ref,
-                )
-            });
+            let Normalized { value: impl_trait_ref, obligations: mut nested_obligations } =
+                ensure_sufficient_stack(|| {
+                    project::normalize_with_depth(
+                        self,
+                        obligation.param_env,
+                        obligation.cause.clone(),
+                        obligation.recursion_depth + 1,
+                        impl_trait_ref,
+                    )
+                });
 
-        debug!(?impl_trait_ref, ?placeholder_obligation_trait_ref);
+            debug!(?impl_trait_ref, ?placeholder_obligation_trait_ref);
 
-        let cause = ObligationCause::new(
-            obligation.cause.span,
-            obligation.cause.body_id,
-            ObligationCauseCode::MatchImpl(obligation.cause.clone(), impl_def_id),
-        );
+            let cause = ObligationCause::new(
+                obligation.cause.span,
+                obligation.cause.body_id,
+                ObligationCauseCode::MatchImpl(obligation.cause.clone(), impl_def_id),
+            );
 
-        let InferOk { obligations, .. } = self
-            .infcx
-            .at(&cause, obligation.param_env)
-            .eq(DefineOpaqueTypes::No, placeholder_obligation_trait_ref, impl_trait_ref)
-            .map_err(|e| {
-                debug!("match_impl: failed eq_trait_refs due to `{}`", e.to_string(self.tcx()))
-            })?;
-        nested_obligations.extend(obligations);
+            let InferOk { obligations, .. } = self
+                .infcx
+                .at(&cause, obligation.param_env)
+                .eq(DefineOpaqueTypes::No, placeholder_obligation_trait_ref, impl_trait_ref)
+                .map_err(|e| {
+                    debug!("match_impl: failed eq_trait_refs due to `{}`", e.to_string(self.tcx()))
+                })?;
+            nested_obligations.extend(obligations);
 
-        if !self.is_intercrate()
-            && self.tcx().impl_polarity(impl_def_id) == ty::ImplPolarity::Reservation
-        {
-            debug!("reservation impls only apply in intercrate mode");
-            return Err(());
-        }
+            if !self.is_intercrate()
+                && self.tcx().impl_polarity(impl_def_id) == ty::ImplPolarity::Reservation
+            {
+                debug!("reservation impls only apply in intercrate mode");
+                return Err(());
+            }
 
-        Ok(Normalized { value: impl_substs, obligations: nested_obligations })
+            Ok(Normalized { value: impl_substs, obligations: nested_obligations })
+        })
     }
 
     /// Normalize `where_clause_trait_ref` and try to match it against

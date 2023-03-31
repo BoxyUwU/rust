@@ -352,11 +352,9 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
                 | ty::PredicateKind::Subtype(_)
                 | ty::PredicateKind::Coerce(_)
                 | ty::PredicateKind::ConstEvaluatable(..)
-                | ty::PredicateKind::ConstEquate(..) => {
-                    let pred =
-                        ty::Binder::dummy(infcx.instantiate_binder_with_placeholders(binder));
+                | ty::PredicateKind::ConstEquate(..) => infcx.enter_forall_binder(binder, |pred| {
                     ProcessResult::Changed(mk_pending(vec![obligation.with(infcx.tcx, pred)]))
-                }
+                }),
                 ty::PredicateKind::Ambiguous => ProcessResult::Unchanged,
                 ty::PredicateKind::TypeWellFormedFromEnv(..) => {
                     bug!("TypeWellFormedFromEnv is only used for Chalk")

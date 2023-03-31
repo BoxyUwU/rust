@@ -150,60 +150,62 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         let tcx = self.tcx();
 
         let trait_predicate = self.infcx.shallow_resolve(obligation.predicate);
-        let placeholder_trait_predicate =
-            self.infcx.instantiate_binder_with_placeholders(trait_predicate).trait_ref;
-        let placeholder_self_ty = placeholder_trait_predicate.self_ty();
-        let placeholder_trait_predicate = ty::Binder::dummy(placeholder_trait_predicate);
-        let (def_id, substs) = match *placeholder_self_ty.kind() {
-            ty::Alias(_, ty::AliasTy { def_id, substs, .. }) => (def_id, substs),
-            _ => bug!("projection candidate for unexpected type: {:?}", placeholder_self_ty),
-        };
+        self.infcx.enter_forall_binder(trait_predicate, |placeholder_trait_predicate| {
+            let placeholder_self_ty = placeholder_trait_predicate.self_ty();
+            let placeholder_trait_predicate =
+                ty::Binder::dummy(placeholder_trait_predicate.trait_ref);
+            let (def_id, substs) = match *placeholder_self_ty.kind() {
+                ty::Alias(_, ty::AliasTy { def_id, substs, .. }) => (def_id, substs),
+                _ => bug!("projection candidate for unexpected type: {:?}", placeholder_self_ty),
+            };
 
-        let candidate_predicate = tcx.item_bounds(def_id).map_bound(|i| i[idx]).subst(tcx, substs);
-        let candidate = candidate_predicate
-            .to_opt_poly_trait_pred()
-            .expect("projection candidate is not a trait predicate")
-            .map_bound(|t| t.trait_ref);
-        let mut obligations = Vec::new();
-        let candidate = normalize_with_depth_to(
-            self,
-            obligation.param_env,
-            obligation.cause.clone(),
-            obligation.recursion_depth + 1,
-            candidate,
-            &mut obligations,
-        );
+            let candidate_predicate =
+                tcx.item_bounds(def_id).map_bound(|i| i[idx]).subst(tcx, substs);
+            let candidate = candidate_predicate
+                .to_opt_poly_trait_pred()
+                .expect("projection candidate is not a trait predicate")
+                .map_bound(|t| t.trait_ref);
+            let mut obligations = Vec::new();
+            let candidate = normalize_with_depth_to(
+                self,
+                obligation.param_env,
+                obligation.cause.clone(),
+                obligation.recursion_depth + 1,
+                candidate,
+                &mut obligations,
+            );
 
-        obligations.extend(self.infcx.commit_if_ok(|_| {
-            self.infcx
-                .at(&obligation.cause, obligation.param_env)
-                .sup(DefineOpaqueTypes::No, placeholder_trait_predicate, candidate)
-                .map(|InferOk { obligations, .. }| obligations)
-                .map_err(|_| Unimplemented)
-        })?);
+            obligations.extend(self.infcx.commit_if_ok(|_| {
+                self.infcx
+                    .at(&obligation.cause, obligation.param_env)
+                    .sup(DefineOpaqueTypes::No, placeholder_trait_predicate, candidate)
+                    .map(|InferOk { obligations, .. }| obligations)
+                    .map_err(|_| Unimplemented)
+            })?);
 
-        if let ty::Alias(ty::Projection, ..) = placeholder_self_ty.kind() {
-            let predicates = tcx.predicates_of(def_id).instantiate_own(tcx, substs);
-            for (predicate, _) in predicates {
-                let normalized = normalize_with_depth_to(
-                    self,
-                    obligation.param_env,
-                    obligation.cause.clone(),
-                    obligation.recursion_depth + 1,
-                    predicate,
-                    &mut obligations,
-                );
-                obligations.push(Obligation::with_depth(
-                    self.tcx(),
-                    obligation.cause.clone(),
-                    obligation.recursion_depth + 1,
-                    obligation.param_env,
-                    normalized,
-                ));
+            if let ty::Alias(ty::Projection, ..) = placeholder_self_ty.kind() {
+                let predicates = tcx.predicates_of(def_id).instantiate_own(tcx, substs);
+                for (predicate, _) in predicates {
+                    let normalized = normalize_with_depth_to(
+                        self,
+                        obligation.param_env,
+                        obligation.cause.clone(),
+                        obligation.recursion_depth + 1,
+                        predicate,
+                        &mut obligations,
+                    );
+                    obligations.push(Obligation::with_depth(
+                        self.tcx(),
+                        obligation.cause.clone(),
+                        obligation.recursion_depth + 1,
+                        obligation.param_env,
+                        normalized,
+                    ));
+                }
             }
-        }
 
-        Ok(obligations)
+            Ok(obligations)
+        })
     }
 
     fn confirm_param_candidate(
@@ -334,31 +336,33 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             let cause = obligation.derived_cause(BuiltinDerivedObligation);
 
             let poly_trait_ref = obligation.predicate.to_poly_trait_ref();
-            let trait_ref = self.infcx.instantiate_binder_with_placeholders(poly_trait_ref);
-            let trait_obligations: Vec<PredicateObligation<'_>> = self.impl_or_trait_obligations(
-                &cause,
-                obligation.recursion_depth + 1,
-                obligation.param_env,
-                trait_def_id,
-                &trait_ref.substs,
-                obligation.predicate,
-            );
+            self.infcx.enter_forall_binder(poly_trait_ref, |trait_ref| {
+                let trait_obligations: Vec<PredicateObligation<'_>> = self
+                    .impl_or_trait_obligations(
+                        &cause,
+                        obligation.recursion_depth + 1,
+                        obligation.param_env,
+                        trait_def_id,
+                        &trait_ref.substs,
+                        obligation.predicate,
+                    );
 
-            let mut obligations = self.collect_predicates_for_types(
-                obligation.param_env,
-                cause,
-                obligation.recursion_depth + 1,
-                trait_def_id,
-                nested,
-            );
+                let mut obligations = self.collect_predicates_for_types(
+                    obligation.param_env,
+                    cause,
+                    obligation.recursion_depth + 1,
+                    trait_def_id,
+                    nested,
+                );
 
-            // Adds the predicates from the trait. Note that this contains a `Self: Trait`
-            // predicate as usual. It won't have any effect since auto traits are coinductive.
-            obligations.extend(trait_obligations);
+                // Adds the predicates from the trait. Note that this contains a `Self: Trait`
+                // predicate as usual. It won't have any effect since auto traits are coinductive.
+                obligations.extend(trait_obligations);
 
-            debug!(?obligations, "vtable_auto_impl");
+                debug!(?obligations, "vtable_auto_impl");
 
-            ImplSourceAutoImplData { trait_def_id, nested: obligations }
+                ImplSourceAutoImplData { trait_def_id, nested: obligations }
+            })
         })
     }
 
@@ -425,90 +429,90 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         let tcx = self.tcx();
         debug!(?obligation, ?index, "confirm_object_candidate");
 
-        let trait_predicate = self.infcx.instantiate_binder_with_placeholders(obligation.predicate);
-        let self_ty = self.infcx.shallow_resolve(trait_predicate.self_ty());
-        let obligation_trait_ref = ty::Binder::dummy(trait_predicate.trait_ref);
-        let ty::Dynamic(data, ..) = *self_ty.kind() else {
-            span_bug!(obligation.cause.span, "object candidate with non-object");
-        };
+        self.infcx.enter_forall_binder(obligation.predicate, |trait_predicate| {
+            let self_ty = self.infcx.shallow_resolve(trait_predicate.self_ty());
+            let obligation_trait_ref = ty::Binder::dummy(trait_predicate.trait_ref);
+            let ty::Dynamic(data, ..) = *self_ty.kind() else {
+                span_bug!(obligation.cause.span, "object candidate with non-object");
+            };
 
-        let object_trait_ref = data.principal().unwrap_or_else(|| {
-            span_bug!(obligation.cause.span, "object candidate with no principal")
-        });
-        let object_trait_ref = self.infcx.instantiate_binder_with_fresh_vars(
-            obligation.cause.span,
-            HigherRankedType,
-            object_trait_ref,
-        );
-        let object_trait_ref = object_trait_ref.with_self_ty(self.tcx(), self_ty);
+            let object_trait_ref = data.principal().unwrap_or_else(|| {
+                span_bug!(obligation.cause.span, "object candidate with no principal")
+            });
+            let object_trait_ref = self.infcx.instantiate_binder_with_fresh_vars(
+                obligation.cause.span,
+                HigherRankedType,
+                object_trait_ref,
+            );
+            let object_trait_ref = object_trait_ref.with_self_ty(self.tcx(), self_ty);
 
-        let mut nested = vec![];
+            let mut nested = vec![];
 
-        let mut supertraits = util::supertraits(tcx, ty::Binder::dummy(object_trait_ref));
-        let unnormalized_upcast_trait_ref =
-            supertraits.nth(index).expect("supertraits iterator no longer has as many elements");
+            let mut supertraits = util::supertraits(tcx, ty::Binder::dummy(object_trait_ref));
+            let unnormalized_upcast_trait_ref = supertraits
+                .nth(index)
+                .expect("supertraits iterator no longer has as many elements");
 
-        let upcast_trait_ref = normalize_with_depth_to(
-            self,
-            obligation.param_env,
-            obligation.cause.clone(),
-            obligation.recursion_depth + 1,
-            unnormalized_upcast_trait_ref,
-            &mut nested,
-        );
-
-        nested.extend(self.infcx.commit_if_ok(|_| {
-            self.infcx
-                .at(&obligation.cause, obligation.param_env)
-                .sup(DefineOpaqueTypes::No, obligation_trait_ref, upcast_trait_ref)
-                .map(|InferOk { obligations, .. }| obligations)
-                .map_err(|_| Unimplemented)
-        })?);
-
-        // Check supertraits hold. This is so that their associated type bounds
-        // will be checked in the code below.
-        for super_trait in tcx
-            .super_predicates_of(trait_predicate.def_id())
-            .instantiate(tcx, trait_predicate.trait_ref.substs)
-            .predicates
-            .into_iter()
-        {
-            let normalized_super_trait = normalize_with_depth_to(
+            let upcast_trait_ref = normalize_with_depth_to(
                 self,
                 obligation.param_env,
                 obligation.cause.clone(),
                 obligation.recursion_depth + 1,
-                super_trait,
+                unnormalized_upcast_trait_ref,
                 &mut nested,
             );
-            nested.push(obligation.with(tcx, normalized_super_trait));
-        }
 
-        let assoc_types: Vec<_> = tcx
-            .associated_items(trait_predicate.def_id())
-            .in_definition_order()
-            .filter_map(
-                |item| if item.kind == ty::AssocKind::Type { Some(item.def_id) } else { None },
-            )
-            .collect();
+            nested.extend(self.infcx.commit_if_ok(|_| {
+                self.infcx
+                    .at(&obligation.cause, obligation.param_env)
+                    .sup(DefineOpaqueTypes::No, obligation_trait_ref, upcast_trait_ref)
+                    .map(|InferOk { obligations, .. }| obligations)
+                    .map_err(|_| Unimplemented)
+            })?);
 
-        for assoc_type in assoc_types {
-            let defs: &ty::Generics = tcx.generics_of(assoc_type);
-
-            if !defs.params.is_empty() && !tcx.features().generic_associated_types_extended {
-                tcx.sess.delay_span_bug(
-                    obligation.cause.span,
-                    "GATs in trait object shouldn't have been considered",
+            // Check supertraits hold. This is so that their associated type bounds
+            // will be checked in the code below.
+            for super_trait in tcx
+                .super_predicates_of(trait_predicate.def_id())
+                .instantiate(tcx, trait_predicate.trait_ref.substs)
+                .predicates
+                .into_iter()
+            {
+                let normalized_super_trait = normalize_with_depth_to(
+                    self,
+                    obligation.param_env,
+                    obligation.cause.clone(),
+                    obligation.recursion_depth + 1,
+                    super_trait,
+                    &mut nested,
                 );
-                return Err(SelectionError::Unimplemented);
+                nested.push(obligation.with(tcx, normalized_super_trait));
             }
 
-            // This maybe belongs in wf, but that can't (doesn't) handle
-            // higher-ranked things.
-            // Prevent, e.g., `dyn Iterator<Item = str>`.
-            for bound in self.tcx().item_bounds(assoc_type).transpose_iter() {
-                let subst_bound =
-                    if defs.count() == 0 {
+            let assoc_types: Vec<_> = tcx
+                .associated_items(trait_predicate.def_id())
+                .in_definition_order()
+                .filter_map(
+                    |item| if item.kind == ty::AssocKind::Type { Some(item.def_id) } else { None },
+                )
+                .collect();
+
+            for assoc_type in assoc_types {
+                let defs: &ty::Generics = tcx.generics_of(assoc_type);
+
+                if !defs.params.is_empty() && !tcx.features().generic_associated_types_extended {
+                    tcx.sess.delay_span_bug(
+                        obligation.cause.span,
+                        "GATs in trait object shouldn't have been considered",
+                    );
+                    return Err(SelectionError::Unimplemented);
+                }
+
+                // This maybe belongs in wf, but that can't (doesn't) handle
+                // higher-ranked things.
+                // Prevent, e.g., `dyn Iterator<Item = str>`.
+                for bound in self.tcx().item_bounds(assoc_type).transpose_iter() {
+                    let subst_bound = if defs.count() == 0 {
                         bound.subst(tcx, trait_predicate.trait_ref.substs)
                     } else {
                         let mut substs = smallvec::SmallVec::with_capacity(defs.count());
@@ -568,26 +572,27 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                             bound.map_bound(|b| b.kind().skip_binder()).subst(tcx, assoc_ty_substs);
                         tcx.mk_predicate(ty::Binder::bind_with_vars(bound, bound_vars))
                     };
-                let normalized_bound = normalize_with_depth_to(
-                    self,
-                    obligation.param_env,
-                    obligation.cause.clone(),
-                    obligation.recursion_depth + 1,
-                    subst_bound,
-                    &mut nested,
-                );
-                nested.push(obligation.with(tcx, normalized_bound));
+                    let normalized_bound = normalize_with_depth_to(
+                        self,
+                        obligation.param_env,
+                        obligation.cause.clone(),
+                        obligation.recursion_depth + 1,
+                        subst_bound,
+                        &mut nested,
+                    );
+                    nested.push(obligation.with(tcx, normalized_bound));
+                }
             }
-        }
 
-        debug!(?nested, "object nested obligations");
+            debug!(?nested, "object nested obligations");
 
-        let vtable_base = vtable_trait_first_method_offset(
-            tcx,
-            (unnormalized_upcast_trait_ref, ty::Binder::dummy(object_trait_ref)),
-        );
+            let vtable_base = vtable_trait_first_method_offset(
+                tcx,
+                (unnormalized_upcast_trait_ref, ty::Binder::dummy(object_trait_ref)),
+            );
 
-        Ok(ImplSourceObjectData { upcast_trait_ref, vtable_base, nested })
+            Ok(ImplSourceObjectData { upcast_trait_ref, vtable_base, nested })
+        })
     }
 
     fn confirm_fn_pointer_candidate(
@@ -635,18 +640,20 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         }
 
         // Confirm the `type Output: Sized;` bound that is present on `FnOnce`
-        let output_ty = self.infcx.instantiate_binder_with_placeholders(sig.output());
-        let output_ty = normalize_with_depth_to(
-            self,
-            obligation.param_env,
-            cause.clone(),
-            obligation.recursion_depth,
-            output_ty,
-            &mut nested,
-        );
-        let tr =
-            ty::Binder::dummy(self.tcx().at(cause.span).mk_trait_ref(LangItem::Sized, [output_ty]));
-        nested.push(Obligation::new(self.infcx.tcx, cause, obligation.param_env, tr));
+        self.infcx.enter_forall_binder(sig.output(), |output_ty| {
+            let output_ty = normalize_with_depth_to(
+                self,
+                obligation.param_env,
+                cause.clone(),
+                obligation.recursion_depth,
+                output_ty,
+                &mut nested,
+            );
+            let tr = ty::Binder::dummy(
+                self.tcx().at(cause.span).mk_trait_ref(LangItem::Sized, [output_ty]),
+            );
+            nested.push(Obligation::new(self.infcx.tcx, cause, obligation.param_env, tr));
+        });
 
         Ok(ImplSourceFnPointerData { fn_ty: self_ty, nested })
     }
@@ -658,23 +665,24 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         debug!(?obligation, "confirm_trait_alias_candidate");
 
         let alias_def_id = obligation.predicate.def_id();
-        let predicate = self.infcx.instantiate_binder_with_placeholders(obligation.predicate);
-        let trait_ref = predicate.trait_ref;
-        let trait_def_id = trait_ref.def_id;
-        let substs = trait_ref.substs;
+        self.infcx.enter_forall_binder(obligation.predicate, |predicate| {
+            let trait_ref = predicate.trait_ref;
+            let trait_def_id = trait_ref.def_id;
+            let substs = trait_ref.substs;
 
-        let trait_obligations = self.impl_or_trait_obligations(
-            &obligation.cause,
-            obligation.recursion_depth,
-            obligation.param_env,
-            trait_def_id,
-            &substs,
-            obligation.predicate,
-        );
+            let trait_obligations = self.impl_or_trait_obligations(
+                &obligation.cause,
+                obligation.recursion_depth,
+                obligation.param_env,
+                trait_def_id,
+                &substs,
+                obligation.predicate,
+            );
 
-        debug!(?trait_def_id, ?trait_obligations, "trait alias obligations");
+            debug!(?trait_def_id, ?trait_obligations, "trait alias obligations");
 
-        ImplSourceTraitAliasData { alias_def_id, substs, nested: trait_obligations }
+            ImplSourceTraitAliasData { alias_def_id, substs, nested: trait_obligations }
+        })
     }
 
     fn confirm_generator_candidate(

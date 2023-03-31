@@ -4,6 +4,7 @@ use crate::traits::PredicateObligations;
 use super::combine::{CombineFields, ObligationEmittingRelation, RelationDir};
 use super::Subtype;
 
+use rustc_middle::ty::error::TypeError;
 use rustc_middle::ty::relate::{self, Relate, RelateResult, TypeRelation};
 use rustc_middle::ty::subst::SubstsRef;
 use rustc_middle::ty::TyVar;
@@ -133,12 +134,15 @@ impl<'tcx> TypeRelation<'tcx> for Equate<'_, '_, 'tcx> {
                 let a_types = infcx.tcx.anonymize_bound_vars(a_types);
                 let b_types = infcx.tcx.anonymize_bound_vars(b_types);
                 if a_types.bound_vars() == b_types.bound_vars() {
-                    let (a_types, b_types) = infcx.instantiate_binder_with_placeholders(
+                    infcx.enter_forall_binder(
                         a_types.map_bound(|a_types| (a_types, b_types.skip_binder())),
-                    );
-                    for (a, b) in std::iter::zip(a_types, b_types) {
-                        self.relate(a, b)?;
-                    }
+                        |(a_types, b_types)| -> Result<(), TypeError<'tcx>> {
+                            for (a, b) in std::iter::zip(a_types, b_types) {
+                                self.relate(a, b)?;
+                            }
+                            Ok(())
+                        },
+                    )?;
                 } else {
                     return Err(ty::error::TypeError::Sorts(ty::relate::expected_found(
                         self, a, b,

@@ -161,13 +161,15 @@ impl<'tcx> TypeRelation<'tcx> for Sub<'_, '_, 'tcx> {
                 let a_types = infcx.tcx.anonymize_bound_vars(a_types);
                 let b_types = infcx.tcx.anonymize_bound_vars(b_types);
                 if a_types.bound_vars() == b_types.bound_vars() {
-                    let (a_types, b_types) = infcx.instantiate_binder_with_placeholders(
+                    infcx.enter_forall_binder(
                         a_types.map_bound(|a_types| (a_types, b_types.skip_binder())),
-                    );
-                    for (a, b) in std::iter::zip(a_types, b_types) {
-                        self.relate(a, b)?;
-                    }
-                    Ok(a)
+                        |(a_types, b_types)| -> RelateResult<'tcx, Ty<'tcx>> {
+                            for (a, b) in std::iter::zip(a_types, b_types) {
+                                self.relate(a, b)?;
+                            }
+                            Ok(a)
+                        },
+                    )
                 } else {
                     Err(ty::error::TypeError::Sorts(ty::relate::expected_found(self, a, b)))
                 }

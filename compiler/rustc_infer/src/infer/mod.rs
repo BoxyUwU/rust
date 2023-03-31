@@ -974,13 +974,17 @@ impl<'tcx> InferCtxt<'tcx> {
         }
 
         Ok(self.commit_if_ok(|_snapshot| {
-            let ty::SubtypePredicate { a_is_expected, a, b } =
-                self.instantiate_binder_with_placeholders(predicate);
+            self.enter_forall_binder(predicate, |subtype_pred| {
+                let ty::SubtypePredicate { a_is_expected, a, b } = subtype_pred;
+                let ok = self.at(cause, param_env).sub_exp(
+                    DefineOpaqueTypes::No,
+                    a_is_expected,
+                    a,
+                    b,
+                )?;
 
-            let ok =
-                self.at(cause, param_env).sub_exp(DefineOpaqueTypes::No, a_is_expected, a, b)?;
-
-            Ok(ok.unit())
+                Ok(ok.unit())
+            })
         }))
     }
 
@@ -989,10 +993,12 @@ impl<'tcx> InferCtxt<'tcx> {
         cause: &traits::ObligationCause<'tcx>,
         predicate: ty::PolyRegionOutlivesPredicate<'tcx>,
     ) {
-        let ty::OutlivesPredicate(r_a, r_b) = self.instantiate_binder_with_placeholders(predicate);
-        let origin =
-            SubregionOrigin::from_obligation_cause(cause, || RelateRegionParamBound(cause.span));
-        self.sub_regions(origin, r_b, r_a); // `b : a` ==> `a <= b`
+        self.enter_forall_binder(predicate, |ty::OutlivesPredicate(r_a, r_b)| {
+            let origin = SubregionOrigin::from_obligation_cause(cause, || {
+                RelateRegionParamBound(cause.span)
+            });
+            self.sub_regions(origin, r_b, r_a); // `b : a` ==> `a <= b`
+        })
     }
 
     /// Number of type variables created so far.
@@ -1467,7 +1473,7 @@ impl<'tcx> InferCtxt<'tcx> {
     // Use this method if you'd like to find some substitution of the binder's
     // variables (e.g. during a method call). If there isn't a [`LateBoundRegionConversionTime`]
     // that corresponds to your use case, consider whether or not you should
-    // use [`InferCtxt::instantiate_binder_with_placeholders`] instead.
+    // use [`InferCtxt::enter_forall_binder`] instead.
     pub fn instantiate_binder_with_fresh_vars<T>(
         &self,
         span: Span,
@@ -1569,6 +1575,13 @@ impl<'tcx> InferCtxt<'tcx> {
 
     pub fn universe(&self) -> ty::UniverseIndex {
         self.universe.get()
+    }
+
+    /// Creates a universe, then calls `f` and kills the universe afterwards.
+    pub fn enter_new_universe<R>(&self, f: impl FnOnce(ty::UniverseIndex) -> R) -> R {
+        let u = self.universe.get().next_universe();
+        self.universe.set(u);
+        f(u)
     }
 
     /// Creates and return a fresh universe that extends all previous

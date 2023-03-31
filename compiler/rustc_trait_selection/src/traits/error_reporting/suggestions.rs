@@ -1067,46 +1067,47 @@ impl<'tcx> TypeErrCtxtExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
         trait_pred: ty::PolyTraitPredicate<'tcx>,
     ) -> bool {
         let self_ty = self.resolve_vars_if_possible(trait_pred.self_ty());
-        let ty = self.instantiate_binder_with_placeholders(self_ty);
-        let Some(generics) = self.tcx.hir().get_generics(obligation.cause.body_id) else { return false };
-        let ty::Ref(_, inner_ty, hir::Mutability::Not) = ty.kind() else { return false };
-        let ty::Param(param) = inner_ty.kind() else { return false };
-        let ObligationCauseCode::FunctionArgumentObligation { arg_hir_id, .. } = obligation.cause.code() else { return false };
-        let arg_node = self.tcx.hir().get(*arg_hir_id);
-        let Node::Expr(Expr { kind: hir::ExprKind::Path(_), ..}) = arg_node else { return false };
+        self.enter_forall_binder(self_ty, |ty| {
+            let Some(generics) = self.tcx.hir().get_generics(obligation.cause.body_id) else { return false };
+            let ty::Ref(_, inner_ty, hir::Mutability::Not) = ty.kind() else { return false };
+            let ty::Param(param) = inner_ty.kind() else { return false };
+            let ObligationCauseCode::FunctionArgumentObligation { arg_hir_id, .. } = obligation.cause.code() else { return false };
+            let arg_node = self.tcx.hir().get(*arg_hir_id);
+            let Node::Expr(Expr { kind: hir::ExprKind::Path(_), ..}) = arg_node else { return false };
 
-        let clone_trait = self.tcx.require_lang_item(LangItem::Clone, None);
-        let has_clone = |ty| {
-            self.type_implements_trait(clone_trait, [ty], obligation.param_env)
+            let clone_trait = self.tcx.require_lang_item(LangItem::Clone, None);
+            let has_clone = |ty| {
+                self.type_implements_trait(clone_trait, [ty], obligation.param_env)
                 .must_apply_modulo_regions()
-        };
+            };
 
-        let new_obligation = self.mk_trait_obligation_with_new_self_ty(
-            obligation.param_env,
-            trait_pred.map_bound(|trait_pred| (trait_pred, *inner_ty)),
-        );
+            let new_obligation = self.mk_trait_obligation_with_new_self_ty(
+                obligation.param_env,
+                trait_pred.map_bound(|trait_pred| (trait_pred, *inner_ty)),
+            );
 
-        if self.predicate_may_hold(&new_obligation) && has_clone(ty) {
-            if !has_clone(param.to_ty(self.tcx)) {
-                suggest_constraining_type_param(
-                    self.tcx,
-                    generics,
-                    err,
-                    param.name.as_str(),
-                    "Clone",
+            if self.predicate_may_hold(&new_obligation) && has_clone(ty) {
+                if !has_clone(param.to_ty(self.tcx)) {
+                    suggest_constraining_type_param(
+                        self.tcx,
+                        generics,
+                        err,
+                        param.name.as_str(),
+                        "Clone",
                     Some(clone_trait),
                     None,
                 );
+                }
+                err.span_suggestion_verbose(
+                    obligation.cause.span.shrink_to_hi(),
+                    "consider using clone here",
+                    ".clone()".to_string(),
+                    Applicability::MaybeIncorrect,
+                );
+                return true;
             }
-            err.span_suggestion_verbose(
-                obligation.cause.span.shrink_to_hi(),
-                "consider using clone here",
-                ".clone()".to_string(),
-                Applicability::MaybeIncorrect,
-            );
-            return true;
-        }
-        false
+            false
+        })
     }
 
     /// Extracts information about a callable type for diagnostics. This is a
@@ -3921,88 +3922,97 @@ fn hint_missing_borrow<'tcx>(
     err: &mut Diagnostic,
 ) {
     let found_args = match found.kind() {
-        ty::FnPtr(f) => infcx.instantiate_binder_with_placeholders(*f).inputs().iter(),
+        ty::FnPtr(f) => *f,
         kind => {
             span_bug!(span, "found was converted to a FnPtr above but is now {:?}", kind)
         }
     };
-    let expected_args = match expected.kind() {
-        ty::FnPtr(f) => infcx.instantiate_binder_with_placeholders(*f).inputs().iter(),
-        kind => {
-            span_bug!(span, "expected was converted to a FnPtr above but is now {:?}", kind)
-        }
-    };
-
-    // This could be a variant constructor, for example.
-    let Some(fn_decl) = found_node.fn_decl() else { return; };
-
-    let args = fn_decl.inputs.iter().map(|ty| ty);
-
-    fn get_deref_type_and_refs(mut ty: Ty<'_>) -> (Ty<'_>, Vec<hir::Mutability>) {
-        let mut refs = vec![];
-
-        while let ty::Ref(_, new_ty, mutbl) = ty.kind() {
-            ty = *new_ty;
-            refs.push(*mutbl);
-        }
-
-        (ty, refs)
-    }
-
-    let mut to_borrow = Vec::new();
-    let mut remove_borrow = Vec::new();
-
-    for ((found_arg, expected_arg), arg) in found_args.zip(expected_args).zip(args) {
-        let (found_ty, found_refs) = get_deref_type_and_refs(*found_arg);
-        let (expected_ty, expected_refs) = get_deref_type_and_refs(*expected_arg);
-
-        if infcx.can_eq(param_env, found_ty, expected_ty) {
-            // FIXME: This could handle more exotic cases like mutability mismatches too!
-            if found_refs.len() < expected_refs.len()
-                && found_refs[..] == expected_refs[expected_refs.len() - found_refs.len()..]
-            {
-                to_borrow.push((
-                    arg.span.shrink_to_lo(),
-                    expected_refs[..expected_refs.len() - found_refs.len()]
-                        .iter()
-                        .map(|mutbl| format!("&{}", mutbl.prefix_str()))
-                        .collect::<Vec<_>>()
-                        .join(""),
-                ));
-            } else if found_refs.len() > expected_refs.len() {
-                let mut span = arg.span.shrink_to_lo();
-                let mut left = found_refs.len() - expected_refs.len();
-                let mut ty = arg;
-                while let hir::TyKind::Ref(_, mut_ty) = &ty.kind && left > 0 {
-                    span = span.with_hi(mut_ty.ty.span.lo());
-                    ty = mut_ty.ty;
-                    left -= 1;
-                }
-                let sugg = if left == 0 {
-                    (span, String::new())
-                } else {
-                    (arg.span, expected_arg.to_string())
-                };
-                remove_borrow.push(sugg);
+    infcx.enter_forall_binder(found_args, |found_args| {
+        let found_args = found_args.inputs().iter();
+        let expected_args = match expected.kind() {
+            ty::FnPtr(f) => *f,
+            kind => {
+                span_bug!(span, "expected was converted to a FnPtr above but is now {:?}", kind)
             }
-        }
-    }
+        };
+        infcx.enter_forall_binder(expected_args, |expected_args| {
+            let expected_args = expected_args.inputs().iter();
 
-    if !to_borrow.is_empty() {
-        err.multipart_suggestion_verbose(
-            "consider borrowing the argument",
-            to_borrow,
-            Applicability::MaybeIncorrect,
-        );
-    }
+            // This could be a variant constructor, for example.
+            let fn_decl = match found_node.fn_decl() {
+                Some(fn_decl) => fn_decl,
+                None => return,
+            };
 
-    if !remove_borrow.is_empty() {
-        err.multipart_suggestion_verbose(
-            "do not borrow the argument",
-            remove_borrow,
-            Applicability::MaybeIncorrect,
-        );
-    }
+            let args = fn_decl.inputs.iter().map(|ty| ty);
+
+            fn get_deref_type_and_refs(mut ty: Ty<'_>) -> (Ty<'_>, Vec<hir::Mutability>) {
+                let mut refs = vec![];
+
+                while let ty::Ref(_, new_ty, mutbl) = ty.kind() {
+                    ty = *new_ty;
+                    refs.push(*mutbl);
+                }
+
+                (ty, refs)
+            }
+
+            let mut to_borrow = Vec::new();
+            let mut remove_borrow = Vec::new();
+
+            for ((found_arg, expected_arg), arg) in found_args.zip(expected_args).zip(args) {
+                let (found_ty, found_refs) = get_deref_type_and_refs(*found_arg);
+                let (expected_ty, expected_refs) = get_deref_type_and_refs(*expected_arg);
+
+                if infcx.can_eq(param_env, found_ty, expected_ty) {
+                    // FIXME: This could handle more exotic cases like mutability mismatches too!
+                    if found_refs.len() < expected_refs.len()
+                        && found_refs[..] == expected_refs[expected_refs.len() - found_refs.len()..]
+                    {
+                        to_borrow.push((
+                            arg.span.shrink_to_lo(),
+                            expected_refs[..expected_refs.len() - found_refs.len()]
+                                .iter()
+                                .map(|mutbl| format!("&{}", mutbl.prefix_str()))
+                                .collect::<Vec<_>>()
+                                .join(""),
+                        ));
+                    } else if found_refs.len() > expected_refs.len() {
+                        let mut span = arg.span.shrink_to_lo();
+                        let mut left = found_refs.len() - expected_refs.len();
+                        let mut ty = arg;
+                        while let hir::TyKind::Ref(_, mut_ty) = &ty.kind && left > 0 {
+                            span = span.with_hi(mut_ty.ty.span.lo());
+                            ty = mut_ty.ty;
+                            left -= 1;
+                        }
+                        let sugg = if left == 0 {
+                            (span, String::new())
+                        } else {
+                            (arg.span, expected_arg.to_string())
+                        };
+                        remove_borrow.push(sugg);
+                    }
+                }
+            }
+
+            if !to_borrow.is_empty() {
+                err.multipart_suggestion_verbose(
+                    "consider borrowing the argument",
+                    to_borrow,
+                    Applicability::MaybeIncorrect,
+                );
+            }
+
+            if !remove_borrow.is_empty() {
+                err.multipart_suggestion_verbose(
+                    "do not borrow the argument",
+                    remove_borrow,
+                    Applicability::MaybeIncorrect,
+                );
+            }
+        });
+    });
 }
 
 /// Collect all the returned expressions within the input expression.

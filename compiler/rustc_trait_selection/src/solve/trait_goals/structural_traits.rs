@@ -12,7 +12,7 @@ use crate::solve::EvalCtxt;
 pub(super) fn instantiate_constituent_tys_for_auto_trait<'tcx>(
     ecx: &EvalCtxt<'_, 'tcx>,
     ty: Ty<'tcx>,
-) -> Result<Vec<Ty<'tcx>>, NoSolution> {
+) -> Result<ty::Binder<'tcx, Vec<Ty<'tcx>>>, NoSolution> {
     let tcx = ecx.tcx();
     match *ty.kind() {
         ty::Uint(_)
@@ -24,10 +24,10 @@ pub(super) fn instantiate_constituent_tys_for_auto_trait<'tcx>(
         | ty::Error(_)
         | ty::Infer(ty::IntVar(_) | ty::FloatVar(_))
         | ty::Never
-        | ty::Char => Ok(vec![]),
+        | ty::Char => Ok(ty::Binder::dummy(vec![])),
 
         // Treat this like `struct str([u8]);`
-        ty::Str => Ok(vec![tcx.mk_slice(tcx.types.u8)]),
+        ty::Str => Ok(ty::Binder::dummy(vec![tcx.mk_slice(tcx.types.u8)])),
 
         ty::Dynamic(..)
         | ty::Param(..)
@@ -41,37 +41,46 @@ pub(super) fn instantiate_constituent_tys_for_auto_trait<'tcx>(
         }
 
         ty::RawPtr(ty::TypeAndMut { ty: element_ty, .. }) | ty::Ref(_, element_ty, _) => {
-            Ok(vec![element_ty])
+            Ok(ty::Binder::dummy(vec![element_ty]))
         }
 
-        ty::Array(element_ty, _) | ty::Slice(element_ty) => Ok(vec![element_ty]),
+        ty::Array(element_ty, _) | ty::Slice(element_ty) => Ok(ty::Binder::dummy(vec![element_ty])),
 
         ty::Tuple(ref tys) => {
             // (T1, ..., Tn) -- meets any bound that all of T1...Tn meet
-            Ok(tys.iter().collect())
+            Ok(ty::Binder::dummy(tys.iter().collect()))
         }
 
-        ty::Closure(_, ref substs) => Ok(vec![substs.as_closure().tupled_upvars_ty()]),
+        ty::Closure(_, ref substs) => {
+            Ok(ty::Binder::dummy(vec![substs.as_closure().tupled_upvars_ty()]))
+        }
 
         ty::Generator(_, ref substs, _) => {
             let generator_substs = substs.as_generator();
-            Ok(vec![generator_substs.tupled_upvars_ty(), generator_substs.witness()])
+            Ok(ty::Binder::dummy(vec![
+                generator_substs.tupled_upvars_ty(),
+                generator_substs.witness(),
+            ]))
         }
 
-        ty::GeneratorWitness(types) => Ok(ecx.instantiate_binder_with_placeholders(types).to_vec()),
+        ty::GeneratorWitness(types) => Ok(types.map_bound(|list| list.to_vec())),
 
         ty::GeneratorWitnessMIR(..) => todo!(),
 
         // For `PhantomData<T>`, we pass `T`.
-        ty::Adt(def, substs) if def.is_phantom_data() => Ok(vec![substs.type_at(0)]),
+        ty::Adt(def, substs) if def.is_phantom_data() => {
+            Ok(ty::Binder::dummy(vec![substs.type_at(0)]))
+        }
 
-        ty::Adt(def, substs) => Ok(def.all_fields().map(|f| f.ty(tcx, substs)).collect()),
+        ty::Adt(def, substs) => {
+            Ok(ty::Binder::dummy(def.all_fields().map(|f| f.ty(tcx, substs)).collect()))
+        }
 
         ty::Alias(ty::Opaque, ty::AliasTy { def_id, substs, .. }) => {
             // We can resolve the `impl Trait` to its concrete type,
             // which enforces a DAG between the functions requiring
             // the auto trait bounds in question.
-            Ok(vec![tcx.type_of(def_id).subst(tcx, substs)])
+            Ok(ty::Binder::dummy(vec![tcx.type_of(def_id).subst(tcx, substs)]))
         }
     }
 }
@@ -79,7 +88,7 @@ pub(super) fn instantiate_constituent_tys_for_auto_trait<'tcx>(
 pub(super) fn instantiate_constituent_tys_for_sized_trait<'tcx>(
     ecx: &EvalCtxt<'_, 'tcx>,
     ty: Ty<'tcx>,
-) -> Result<Vec<Ty<'tcx>>, NoSolution> {
+) -> Result<ty::Binder<'tcx, Vec<Ty<'tcx>>>, NoSolution> {
     match *ty.kind() {
         ty::Infer(ty::IntVar(_) | ty::FloatVar(_))
         | ty::Uint(_)
@@ -98,7 +107,7 @@ pub(super) fn instantiate_constituent_tys_for_sized_trait<'tcx>(
         | ty::Closure(..)
         | ty::Never
         | ty::Dynamic(_, _, ty::DynStar)
-        | ty::Error(_) => Ok(vec![]),
+        | ty::Error(_) => Ok(ty::Binder::dummy(vec![])),
 
         ty::Str
         | ty::Slice(_)
@@ -113,15 +122,17 @@ pub(super) fn instantiate_constituent_tys_for_sized_trait<'tcx>(
             bug!("unexpected type `{ty}`")
         }
 
-        ty::Tuple(tys) => Ok(tys.to_vec()),
+        ty::Tuple(tys) => Ok(ty::Binder::dummy(tys.to_vec())),
 
         ty::Adt(def, substs) => {
             let sized_crit = def.sized_constraint(ecx.tcx());
-            Ok(sized_crit
-                .0
-                .iter()
-                .map(|ty| sized_crit.rebind(*ty).subst(ecx.tcx(), substs))
-                .collect())
+            Ok(ty::Binder::dummy(
+                sized_crit
+                    .0
+                    .iter()
+                    .map(|ty| sized_crit.rebind(*ty).subst(ecx.tcx(), substs))
+                    .collect(),
+            ))
         }
     }
 }
@@ -129,12 +140,12 @@ pub(super) fn instantiate_constituent_tys_for_sized_trait<'tcx>(
 pub(super) fn instantiate_constituent_tys_for_copy_clone_trait<'tcx>(
     ecx: &EvalCtxt<'_, 'tcx>,
     ty: Ty<'tcx>,
-) -> Result<Vec<Ty<'tcx>>, NoSolution> {
+) -> Result<ty::Binder<'tcx, Vec<Ty<'tcx>>>, NoSolution> {
     match *ty.kind() {
         ty::Infer(ty::IntVar(_) | ty::FloatVar(_))
         | ty::FnDef(..)
         | ty::FnPtr(_)
-        | ty::Error(_) => Ok(vec![]),
+        | ty::Error(_) => Ok(ty::Binder::dummy(vec![])),
 
         // Implementations are provided in core
         ty::Uint(_)
@@ -163,20 +174,22 @@ pub(super) fn instantiate_constituent_tys_for_copy_clone_trait<'tcx>(
             bug!("unexpected type `{ty}`")
         }
 
-        ty::Tuple(tys) => Ok(tys.to_vec()),
+        ty::Tuple(tys) => Ok(ty::Binder::dummy(tys.to_vec())),
 
-        ty::Closure(_, substs) => Ok(vec![substs.as_closure().tupled_upvars_ty()]),
+        ty::Closure(_, substs) => {
+            Ok(ty::Binder::dummy(vec![substs.as_closure().tupled_upvars_ty()]))
+        }
 
         ty::Generator(_, substs, Movability::Movable) => {
             if ecx.tcx().features().generator_clone {
                 let generator = substs.as_generator();
-                Ok(vec![generator.tupled_upvars_ty(), generator.witness()])
+                Ok(ty::Binder::dummy(vec![generator.tupled_upvars_ty(), generator.witness()]))
             } else {
                 Err(NoSolution)
             }
         }
 
-        ty::GeneratorWitness(types) => Ok(ecx.instantiate_binder_with_placeholders(types).to_vec()),
+        ty::GeneratorWitness(types) => Ok(types.map_bound(|ty_list| ty_list.to_vec())),
 
         ty::GeneratorWitnessMIR(..) => todo!(),
     }

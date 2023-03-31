@@ -91,14 +91,12 @@ impl<'tcx> TypeRelatingDelegate<'tcx> for NllTypeRelatingDelegate<'_, '_, 'tcx> 
         self.type_checker.param_env
     }
 
-    fn create_next_universe(&mut self) -> ty::UniverseIndex {
-        let universe = self.type_checker.infcx.create_next_universe();
+    fn insert_cause_for_universe(&mut self, universe: ty::UniverseIndex) {
         self.type_checker
             .borrowck_context
             .constraints
             .universe_causes
             .insert(universe, self.universe_info.clone());
-        universe
     }
 
     #[instrument(skip(self), level = "debug")]

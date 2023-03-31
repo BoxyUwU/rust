@@ -689,9 +689,7 @@ impl<'tcx> TypeRelatingDelegate<'tcx> for QueryTypeRelatingDelegate<'_, 'tcx> {
         self.param_env
     }
 
-    fn create_next_universe(&mut self) -> ty::UniverseIndex {
-        self.infcx.create_next_universe()
-    }
+    fn insert_cause_for_universe(&mut self, _universe: ty::UniverseIndex) {}
 
     fn next_existential_region_var(
         &mut self,

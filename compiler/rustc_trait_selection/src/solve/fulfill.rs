@@ -79,36 +79,36 @@ impl<'tcx> TraitEngine<'tcx> for FulfillmentCtxt<'tcx> {
                                         MismatchedProjectionTypes { err: TypeError::Mismatch },
                                     )
                                 }
-                                ty::PredicateKind::Subtype(pred) => {
-                                    let (a, b) = infcx.instantiate_binder_with_placeholders(
-                                        goal.predicate.kind().rebind((pred.a, pred.b)),
-                                    );
-                                    let expected_found = ExpectedFound::new(true, a, b);
-                                    FulfillmentErrorCode::CodeSubtypeError(
-                                        expected_found,
-                                        TypeError::Sorts(expected_found),
-                                    )
-                                }
-                                ty::PredicateKind::Coerce(pred) => {
-                                    let (a, b) = infcx.instantiate_binder_with_placeholders(
-                                        goal.predicate.kind().rebind((pred.a, pred.b)),
-                                    );
-                                    let expected_found = ExpectedFound::new(false, a, b);
-                                    FulfillmentErrorCode::CodeSubtypeError(
-                                        expected_found,
-                                        TypeError::Sorts(expected_found),
-                                    )
-                                }
-                                ty::PredicateKind::ConstEquate(a, b) => {
-                                    let (a, b) = infcx.instantiate_binder_with_placeholders(
-                                        goal.predicate.kind().rebind((a, b)),
-                                    );
-                                    let expected_found = ExpectedFound::new(true, a, b);
-                                    FulfillmentErrorCode::CodeConstEquateError(
-                                        expected_found,
-                                        TypeError::ConstMismatch(expected_found),
-                                    )
-                                }
+                                ty::PredicateKind::Subtype(pred) => infcx.enter_forall_binder(
+                                    goal.predicate.kind().rebind((pred.a, pred.b)),
+                                    |(a, b)| {
+                                        let expected_found = ExpectedFound::new(true, a, b);
+                                        FulfillmentErrorCode::CodeSubtypeError(
+                                            expected_found,
+                                            TypeError::Sorts(expected_found),
+                                        )
+                                    },
+                                ),
+                                ty::PredicateKind::Coerce(pred) => infcx.enter_forall_binder(
+                                    goal.predicate.kind().rebind((pred.a, pred.b)),
+                                    |(a, b)| {
+                                        let expected_found = ExpectedFound::new(false, a, b);
+                                        FulfillmentErrorCode::CodeSubtypeError(
+                                            expected_found,
+                                            TypeError::Sorts(expected_found),
+                                        )
+                                    },
+                                ),
+                                ty::PredicateKind::ConstEquate(a, b) => infcx.enter_forall_binder(
+                                    goal.predicate.kind().rebind((a, b)),
+                                    |(a, b)| {
+                                        let expected_found = ExpectedFound::new(true, a, b);
+                                        FulfillmentErrorCode::CodeConstEquateError(
+                                            expected_found,
+                                            TypeError::ConstMismatch(expected_found),
+                                        )
+                                    },
+                                ),
                                 ty::PredicateKind::Clause(_)
                                 | ty::PredicateKind::WellFormed(_)
                                 | ty::PredicateKind::ObjectSafe(_)

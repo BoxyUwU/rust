@@ -286,10 +286,11 @@ impl<'a, 'tcx> EvalCtxt<'a, 'tcx> {
                     }),
             }
         } else {
-            let kind = self.infcx.instantiate_binder_with_placeholders(kind);
-            let goal = goal.with(self.tcx(), ty::Binder::dummy(kind));
-            self.add_goal(goal);
-            self.evaluate_added_goals_and_make_canonical_response(Certainty::Yes)
+            self.enter_forall_binder(kind, |this, kind| {
+                let goal = goal.with(this.tcx(), ty::Binder::dummy(kind));
+                this.add_goal(goal);
+                this.evaluate_added_goals_and_make_canonical_response(Certainty::Yes)
+            })
         }
     }
 
@@ -582,11 +583,12 @@ impl<'tcx> EvalCtxt<'_, 'tcx> {
         )
     }
 
-    pub(super) fn instantiate_binder_with_placeholders<T: TypeFoldable<TyCtxt<'tcx>> + Copy>(
-        &self,
+    pub(super) fn enter_forall_binder<T: TypeFoldable<TyCtxt<'tcx>>, R>(
+        &mut self,
         value: ty::Binder<'tcx, T>,
-    ) -> T {
-        self.infcx.instantiate_binder_with_placeholders(value)
+        f: impl FnOnce(&mut Self, T) -> R,
+    ) -> R {
+        self.infcx.enter_forall_binder(value, |value| f(self, value))
     }
 
     pub(super) fn resolve_vars_if_possible<T>(&self, value: T) -> T

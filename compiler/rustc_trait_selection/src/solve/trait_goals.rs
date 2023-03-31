@@ -568,19 +568,27 @@ impl<'tcx> EvalCtxt<'_, 'tcx> {
     fn probe_and_evaluate_goal_for_constituent_tys(
         &mut self,
         goal: Goal<'tcx, TraitPredicate<'tcx>>,
-        constituent_tys: impl Fn(&EvalCtxt<'_, 'tcx>, Ty<'tcx>) -> Result<Vec<Ty<'tcx>>, NoSolution>,
+        constituent_tys: impl Fn(
+            &EvalCtxt<'_, 'tcx>,
+            Ty<'tcx>,
+        ) -> Result<ty::Binder<'tcx, Vec<Ty<'tcx>>>, NoSolution>,
     ) -> QueryResult<'tcx> {
         self.probe(|ecx| {
-            ecx.add_goals(
-                constituent_tys(ecx, goal.predicate.self_ty())?
-                    .into_iter()
-                    .map(|ty| {
-                        goal.with(
-                            ecx.tcx(),
-                            ty::Binder::dummy(goal.predicate.with_self_ty(ecx.tcx(), ty)),
-                        )
-                    })
-                    .collect::<Vec<_>>(),
+            ecx.enter_forall_binder(
+                constituent_tys(ecx, goal.predicate.self_ty())?,
+                |ecx, constituent_tys| {
+                    ecx.add_goals(
+                        constituent_tys
+                            .into_iter()
+                            .map(|ty| {
+                                goal.with(
+                                    ecx.tcx(),
+                                    ty::Binder::dummy(goal.predicate.with_self_ty(ecx.tcx(), ty)),
+                                )
+                            })
+                            .collect::<Vec<_>>(),
+                    );
+                },
             );
             ecx.evaluate_added_goals_and_make_canonical_response(Certainty::Yes)
         })
