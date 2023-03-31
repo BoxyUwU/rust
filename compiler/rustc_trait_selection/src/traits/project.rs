@@ -568,6 +568,7 @@ impl<'a, 'b, 'tcx> TypeFolder<TyCtxt<'tcx>> for AssocTypeNormalizer<'a, 'b, 'tcx
             }
 
             ty::Projection => {
+                bug!("{:?}", data);
                 // If there are escaping bound vars, we temporarily replace the
                 // bound vars with placeholders. Note though, that in the case
                 // that we still can't project for whatever reason (e.g. self
