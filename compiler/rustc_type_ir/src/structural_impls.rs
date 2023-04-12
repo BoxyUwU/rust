@@ -70,6 +70,12 @@ impl<I: Interner, A: TypeVisitable<I>, B: TypeVisitable<I>, C: TypeVisitable<I>>
     }
 }
 
+impl<'tcx, T: TypeVisitable<I>, I: Interner> TypeVisitable<I> for &'tcx T {
+    fn visit_with<V: TypeVisitor<I>>(&self, visitor: &mut V) -> ControlFlow<V::BreakTy> {
+        T::visit_with(self, visitor)
+    }
+}
+
 EnumTypeTraversalImpl! {
     impl<I, T> TypeFoldable<I> for Option<T> {
         (Some)(a),

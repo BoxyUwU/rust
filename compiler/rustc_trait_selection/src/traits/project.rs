@@ -457,10 +457,8 @@ impl<'a, 'b, 'tcx> TypeFolder<TyCtxt<'tcx>> for AssocTypeNormalizer<'a, 'b, 'tcx
         &mut self,
         t: ty::Binder<'tcx, T>,
     ) -> ty::Binder<'tcx, T> {
-        self.universes.push(None);
-        let t = t.super_fold_with(self);
-        self.universes.pop();
-        t
+        let t = self.selcx.infcx.instantiate_binder_with_placeholders(t);
+        ty::Binder::dummy(self.fold(t))
     }
 
     fn fold_ty(&mut self, ty: Ty<'tcx>) -> Ty<'tcx> {

@@ -72,10 +72,10 @@ impl<'tcx> InferCtxt<'tcx> {
     #[instrument(level = "debug", skip(self), ret)]
     pub fn instantiate_binder_with_placeholders<T>(&self, binder: ty::Binder<'tcx, T>) -> T
     where
-        T: TypeFoldable<TyCtxt<'tcx>> + Copy,
+        T: TypeFoldable<TyCtxt<'tcx>>,
     {
-        if let Some(inner) = binder.no_bound_vars() {
-            return inner;
+        if let Some(_) = binder.as_ref().no_bound_vars() {
+            return binder.no_bound_vars().unwrap();
         }
 
         let next_universe = self.create_next_universe();

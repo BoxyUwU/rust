@@ -12,6 +12,7 @@ use crate::ty::{self, AliasTy, InferConst, Lift, Term, TermKind, Ty, TyCtxt};
 use rustc_hir::def::Namespace;
 use rustc_index::vec::{Idx, IndexVec};
 use rustc_target::abi::TyAndLayout;
+use rustc_type_ir::Interner;
 
 use std::fmt;
 use std::ops::ControlFlow;
