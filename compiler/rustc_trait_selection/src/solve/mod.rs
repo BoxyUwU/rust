@@ -24,6 +24,7 @@ mod assembly;
 mod canonicalize;
 mod eval_ctxt;
 mod fulfill;
+pub mod inspect;
 mod project_goals;
 mod search_graph;
 mod trait_goals;
