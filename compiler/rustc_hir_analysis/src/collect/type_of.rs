@@ -31,16 +31,16 @@ fn anon_const_type_of<'tcx>(tcx: TyCtxt<'tcx>, def_id: LocalDefId) -> Ty<'tcx> {
         | Node::Expr(&Expr { kind: ExprKind::Repeat(_, ref constant), .. })
             if constant.hir_id() == hir_id =>
         {
-            return tcx.types.usize
+            return tcx.types.usize;
         }
         Node::Ty(&Ty { kind: TyKind::Typeof(ref e), .. }) if e.hir_id == hir_id => {
-            return tcx.typeck(def_id).node_type(e.hir_id)
+            return tcx.typeck(def_id).node_type(e.hir_id);
         }
         Node::Expr(&Expr { kind: ExprKind::ConstBlock(ref anon_const), .. })
             if anon_const.hir_id == hir_id =>
         {
             let substs = InternalSubsts::identity_for_item(tcx, def_id.to_def_id());
-            return substs.as_inline_const().ty()
+            return substs.as_inline_const().ty();
         }
         Node::Expr(&Expr { kind: ExprKind::InlineAsm(asm), .. })
         | Node::Item(&Item { kind: ItemKind::GlobalAsm(asm), .. })
@@ -50,45 +50,20 @@ fn anon_const_type_of<'tcx>(tcx: TyCtxt<'tcx>, def_id: LocalDefId) -> Ty<'tcx> {
                 _ => false,
             }) =>
         {
-            return tcx.typeck(def_id).node_type(hir_id)
+            return tcx.typeck(def_id).node_type(hir_id);
         }
         Node::Variant(Variant { disr_expr: Some(ref e), .. }) if e.hir_id == hir_id => {
-            return tcx
-                .adt_def(tcx.hir().get_parent_item(hir_id))
-                .repr()
-                .discr_type()
-                .to_ty(tcx)
+            return tcx.adt_def(tcx.hir().get_parent_item(hir_id)).repr().discr_type().to_ty(tcx);
         }
         Node::GenericParam(&GenericParam {
             def_id: param_def_id,
             kind: GenericParamKind::Const { default: Some(ct), .. },
             ..
         }) if ct.hir_id == hir_id => {
-            return tcx.type_of(param_def_id)
+            return tcx
+                .type_of(param_def_id)
                 .no_bound_vars()
-                .expect("const parameter types cannot be generic")
-        }
-
-        Node::TypeBinding(binding @ &TypeBinding { hir_id: binding_id, ..  })
-            if let Node::TraitRef(trait_ref) = tcx.hir().get(
-                tcx.hir().parent_id(binding_id)
-            ) =>
-        {
-            let Some(trait_def_id) = trait_ref.trait_def_id() else {
-                return tcx.ty_error_with_message(tcx.def_span(def_id), "Could not find trait");
-            };
-            let assoc_items = tcx.associated_items(trait_def_id);
-            let assoc_item = assoc_items.find_by_name_and_kind(
-                tcx, binding.ident, ty::AssocKind::Const, def_id.to_def_id(),
-            );
-            return if let Some(assoc_item) = assoc_item {
-                tcx.type_of(assoc_item.def_id)
-                    .no_bound_vars()
-                    .expect("const parameter types cannot be generic")
-            } else {
-                // FIXME(associated_const_equality): add a useful error message here.
-                tcx.ty_error_with_message(tcx.def_span(def_id), "Could not find associated const on trait")
-            }
+                .expect("const parameter types cannot be generic");
         }
 
         // This match arm is for when the def_id appears in a GAT whose
@@ -251,10 +226,12 @@ fn anon_const_type_of<'tcx>(tcx: TyCtxt<'tcx>, def_id: LocalDefId) -> Ty<'tcx> {
             (generics, arg_index)
         }
 
-        _ => return tcx.ty_error_with_message(
-            tcx.def_span(def_id),
-            &format!("unexpected const parent in type_of(): {parent_node:?}"),
-        ),
+        _ => {
+            return tcx.ty_error_with_message(
+                tcx.def_span(def_id),
+                &format!("unexpected const parent in type_of(): {parent_node:?}"),
+            );
+        }
     };
 
     debug!(?parent_node);
