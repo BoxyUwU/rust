@@ -381,6 +381,7 @@ fn const_evaluatable_predicates_of(
 
     if let Some(fn_sig) = tcx.hir().fn_sig_by_hir_id(hir_id) {
         debug!("const_evaluatable_predicates_of({:?}): visit_fn_decl", def_id);
+        debug!(?fn_sig);
         collector.visit_fn_decl(fn_sig.decl);
     }
     debug!("const_evaluatable_predicates_of({:?}) = {:?}", def_id, collector.preds);
