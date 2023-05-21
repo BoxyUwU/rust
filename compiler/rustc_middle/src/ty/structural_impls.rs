@@ -224,7 +224,7 @@ impl<'tcx> fmt::Debug for ty::ConstKind<'tcx> {
                 f.debug_tuple("Unevaluated").field(&uv.substs).field(&uv.def).finish()
             }
             Value(valtree) => write!(f, "{valtree:?}"),
-            Error(_) => write!(f, "[const error]"),
+            Error(_) => write!(f, "const error"),
             Expr(expr) => write!(f, "{expr:?}"),
         }
     }
