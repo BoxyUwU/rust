@@ -320,10 +320,9 @@ impl<'f, 'tcx> Coerce<'f, 'tcx> {
         // yield.
 
         let (r_a, mt_a) = match *a.kind() {
-            ty::Ref(r_a, ty, mutbl) => {
-                let mt_a = ty::RawPtr { ty, mutbl };
-                coerce_mutbls(mt_a.mutbl, mutbl_b)?;
-                (r_a, mt_a)
+            ty::Ref(r_a, _, mutbl) => {
+                coerce_mutbls(mutbl, mutbl_b)?;
+                (r_a, mutbl)
             }
             _ => return self.unify_and(a, b, identity),
         };
@@ -454,7 +453,7 @@ impl<'f, 'tcx> Coerce<'f, 'tcx> {
             return Err(err);
         };
 
-        if ty == a && mt_a.mutbl.is_not() && autoderef.step_count() == 1 {
+        if ty == a && mt_a.is_not() && autoderef.step_count() == 1 {
             // As a special case, if we would produce `&'a *x`, that's
             // a total no-op. We end up with the type `&'a T` just as
             // we started with. In that case, just skip it

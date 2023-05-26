@@ -315,35 +315,35 @@ pub fn coerce_unsized_info<'tcx>(tcx: TyCtxt<'tcx>, impl_did: LocalDefId) -> Coe
 
     let infcx = tcx.infer_ctxt().build();
     let cause = ObligationCause::misc(span, impl_did);
-    let check_mutbl =
-        |mt_a: ty::RawPtr<'tcx>, mt_b: ty::RawPtr<'tcx>, mk_ptr: &dyn Fn(Ty<'tcx>) -> Ty<'tcx>| {
-            if mt_a.mutbl < mt_b.mutbl {
-                infcx
-                    .err_ctxt()
-                    .report_mismatched_types(
-                        &cause,
-                        mk_ptr(mt_b.ty),
-                        target,
-                        ty::error::TypeError::Mutability,
-                    )
-                    .emit();
-            }
-            (mt_a.ty, mt_b.ty, unsize_trait, None)
-        };
+    let check_mutbl = |(ty_a, mt_a): (Ty<'tcx>, ty::Mutability),
+                       (ty_b, mt_b): (Ty<'tcx>, ty::Mutability),
+                       mk_ptr: &dyn Fn(Ty<'tcx>) -> Ty<'tcx>| {
+        if mt_a < mt_b {
+            infcx
+                .err_ctxt()
+                .report_mismatched_types(
+                    &cause,
+                    mk_ptr(ty_b),
+                    target,
+                    ty::error::TypeError::Mutability,
+                )
+                .emit();
+        }
+        (ty_a, ty_b, unsize_trait, None)
+    };
     let (source, target, trait_def_id, kind) = match (source.kind(), target.kind()) {
         (&ty::Ref(r_a, ty_a, mutbl_a), &ty::Ref(r_b, ty_b, mutbl_b)) => {
             infcx.sub_regions(infer::RelateObjectBound(span), r_b, r_a);
-            let mt_a = ty::RawPtr { ty: ty_a, mutbl: mutbl_a };
-            let mt_b = ty::RawPtr { ty: ty_b, mutbl: mutbl_b };
-            check_mutbl(mt_a, mt_b, &|ty| tcx.mk_imm_ref(r_b, ty))
+            check_mutbl((ty_a, mutbl_a), (ty_b, mutbl_b), &|ty| tcx.mk_imm_ref(r_b, ty))
         }
 
         (&ty::Ref(_, ty_a, mutbl_a), &ty::RawPtr(mt_b)) => {
-            let mt_a = ty::RawPtr { ty: ty_a, mutbl: mutbl_a };
-            check_mutbl(mt_a, mt_b, &|ty| tcx.mk_imm_ptr(ty))
+            check_mutbl((ty_a, mutbl_a), (mt_b.ty, mt_b.mutbl), &|ty| tcx.mk_imm_ptr(ty))
         }
 
-        (&ty::RawPtr(mt_a), &ty::RawPtr(mt_b)) => check_mutbl(mt_a, mt_b, &|ty| tcx.mk_imm_ptr(ty)),
+        (&ty::RawPtr(mt_a), &ty::RawPtr(mt_b)) => {
+            check_mutbl((mt_a.ty, mt_a.mutbl), (mt_b.ty, mt_b.mutbl), &|ty| tcx.mk_imm_ptr(ty))
+        }
 
         (&ty::Adt(def_a, substs_a), &ty::Adt(def_b, substs_b))
             if def_a.is_struct() && def_b.is_struct() =>
