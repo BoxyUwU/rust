@@ -361,7 +361,8 @@ impl<'a, 'tcx> Visitor<'tcx> for InteriorVisitor<'a, 'tcx> {
                                 // Use `ReErased` as `resolve_interior` is going to replace all the
                                 // regions anyway.
                                 tcx.lifetimes.re_erased,
-                                ty::TypeAndMut { ty, mutbl: hir::Mutability::Not },
+                                ty,
+                                hir::Mutability::Not,
                             );
                             self.interior_visitor.record(
                                 ty,

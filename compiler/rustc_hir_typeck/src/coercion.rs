@@ -55,7 +55,7 @@ use rustc_middle::ty::error::TypeError;
 use rustc_middle::ty::relate::RelateResult;
 use rustc_middle::ty::subst::SubstsRef;
 use rustc_middle::ty::visit::TypeVisitableExt;
-use rustc_middle::ty::{self, Ty, TypeAndMut};
+use rustc_middle::ty::{self, Ty};
 use rustc_session::parse::feature_err;
 use rustc_span::symbol::sym;
 use rustc_span::{self, BytePos, DesugaringKind, Span};
@@ -321,7 +321,7 @@ impl<'f, 'tcx> Coerce<'f, 'tcx> {
 
         let (r_a, mt_a) = match *a.kind() {
             ty::Ref(r_a, ty, mutbl) => {
-                let mt_a = ty::TypeAndMut { ty, mutbl };
+                let mt_a = ty::RawPtr { ty, mutbl };
                 coerce_mutbls(mt_a.mutbl, mutbl_b)?;
                 (r_a, mt_a)
             }
@@ -427,10 +427,8 @@ impl<'f, 'tcx> Coerce<'f, 'tcx> {
             };
             let derefd_ty_a = self.tcx.mk_ref(
                 r,
-                TypeAndMut {
-                    ty: referent_ty,
-                    mutbl: mutbl_b, // [1] above
-                },
+                referent_ty,
+                mutbl_b, // [1] above
             );
             match self.unify(derefd_ty_a, b) {
                 Ok(ok) => {
@@ -543,20 +541,18 @@ impl<'f, 'tcx> Coerce<'f, 'tcx> {
                     Adjustment { kind: Adjust::Deref(None), target: ty_a },
                     Adjustment {
                         kind: Adjust::Borrow(AutoBorrow::Ref(r_borrow, mutbl)),
-                        target: self
-                            .tcx
-                            .mk_ref(r_borrow, ty::TypeAndMut { mutbl: mutbl_b, ty: ty_a }),
+                        target: self.tcx.mk_ref(r_borrow, ty_a, mutbl_b),
                     },
                 ))
             }
-            (&ty::Ref(_, ty_a, mt_a), &ty::RawPtr(ty::TypeAndMut { mutbl: mt_b, .. })) => {
+            (&ty::Ref(_, ty_a, mt_a), &ty::RawPtr(ty::RawPtr { mutbl: mt_b, .. })) => {
                 coerce_mutbls(mt_a, mt_b)?;
 
                 Some((
                     Adjustment { kind: Adjust::Deref(None), target: ty_a },
                     Adjustment {
                         kind: Adjust::Borrow(AutoBorrow::RawPtr(mt_b)),
-                        target: self.tcx.mk_ptr(ty::TypeAndMut { mutbl: mt_b, ty: ty_a }),
+                        target: self.tcx.mk_ptr(ty::RawPtr { mutbl: mt_b, ty: ty_a }),
                     },
                 ))
             }
@@ -949,14 +945,14 @@ impl<'f, 'tcx> Coerce<'f, 'tcx> {
         debug!("coerce_unsafe_ptr(a={:?}, b={:?})", a, b);
 
         let (is_ref, mt_a) = match *a.kind() {
-            ty::Ref(_, ty, mutbl) => (true, ty::TypeAndMut { ty, mutbl }),
+            ty::Ref(_, ty, mutbl) => (true, ty::RawPtr { ty, mutbl }),
             ty::RawPtr(mt) => (false, mt),
             _ => return self.unify_and(a, b, identity),
         };
         coerce_mutbls(mt_a.mutbl, mutbl_b)?;
 
         // Check that the types which they point at are compatible.
-        let a_unsafe = self.tcx.mk_ptr(ty::TypeAndMut { mutbl: mutbl_b, ty: mt_a.ty });
+        let a_unsafe = self.tcx.mk_ptr(ty::RawPtr { mutbl: mutbl_b, ty: mt_a.ty });
         // Although references and unsafe ptrs have the same
         // representation, we still register an Adjust::DerefRef so that
         // regionck knows that the region for `a` must be valid here.

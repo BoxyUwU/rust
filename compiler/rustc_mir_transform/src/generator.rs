@@ -413,8 +413,7 @@ impl<'tcx> MutVisitor<'tcx> for TransformVisitor<'tcx> {
 fn make_generator_state_argument_indirect<'tcx>(tcx: TyCtxt<'tcx>, body: &mut Body<'tcx>) {
     let gen_ty = body.local_decls.raw[1].ty;
 
-    let ref_gen_ty =
-        tcx.mk_ref(tcx.lifetimes.re_erased, ty::TypeAndMut { ty: gen_ty, mutbl: Mutability::Mut });
+    let ref_gen_ty = tcx.mk_ref(tcx.lifetimes.re_erased, gen_ty, Mutability::Mut);
 
     // Replace the by value generator argument
     body.local_decls.raw[1].ty = ref_gen_ty;
@@ -1116,7 +1115,7 @@ fn create_generator_drop_shim<'tcx>(
 
     // Change the generator argument from &mut to *mut
     body.local_decls[SELF_ARG] = LocalDecl::with_source_info(
-        tcx.mk_ptr(ty::TypeAndMut { ty: gen_ty, mutbl: hir::Mutability::Mut }),
+        tcx.mk_ptr(ty::RawPtr { ty: gen_ty, mutbl: hir::Mutability::Mut }),
         source_info,
     );
 

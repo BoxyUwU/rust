@@ -451,7 +451,7 @@ impl<'tcx> LowerInto<'tcx, Ty<'tcx>> for &chalk_ir::Ty<RustInterner<'tcx>> {
                 ty::Tuple(substitution.lower_into(interner).into_type_list(interner.tcx))
             }
             TyKind::Slice(ty) => ty::Slice(ty.lower_into(interner)),
-            TyKind::Raw(mutbl, ty) => ty::RawPtr(ty::TypeAndMut {
+            TyKind::Raw(mutbl, ty) => ty::RawPtr(ty::RawPtr {
                 ty: ty.lower_into(interner),
                 mutbl: mutbl.lower_into(interner),
             }),

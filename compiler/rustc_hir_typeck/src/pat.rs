@@ -2018,8 +2018,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     /// Create a reference type with a fresh region variable.
     fn new_ref_ty(&self, span: Span, mutbl: hir::Mutability, ty: Ty<'tcx>) -> Ty<'tcx> {
         let region = self.next_region_var(infer::PatternRegion(span));
-        let mt = ty::TypeAndMut { ty, mutbl };
-        self.tcx.mk_ref(region, mt)
+        self.tcx.mk_ref(region, ty, mutbl)
     }
 
     /// Type check a slice pattern.

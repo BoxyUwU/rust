@@ -467,7 +467,7 @@ fn emit_newtype_suggestion_for_raw_ptr(
     full_impl_span: Span,
     self_ty: Ty<'_>,
     self_ty_span: Span,
-    ptr_ty: &ty::TypeAndMut<'_>,
+    ptr_ty: &ty::RawPtr<'_>,
     diag: &mut Diagnostic,
 ) {
     if !self_ty.has_param() {

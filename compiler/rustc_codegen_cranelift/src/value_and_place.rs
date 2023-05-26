@@ -5,6 +5,8 @@ use crate::prelude::*;
 use cranelift_codegen::entity::EntityRef;
 use cranelift_codegen::ir::immediates::Offset32;
 
+use rustc_middle::ty::RawPtr;
+
 fn codegen_field<'tcx>(
     fx: &mut FunctionCx<'_, '_, 'tcx>,
     base: Pointer,
@@ -779,14 +781,11 @@ pub(crate) fn assert_assignable<'tcx>(
     }
     match (from_ty.kind(), to_ty.kind()) {
         (ty::Ref(_, a, _), ty::Ref(_, b, _))
-        | (
-            ty::RawPtr(TypeAndMut { ty: a, mutbl: _ }),
-            ty::RawPtr(TypeAndMut { ty: b, mutbl: _ }),
-        ) => {
+        | (ty::RawPtr(RawPtr { ty: a, mutbl: _ }), ty::RawPtr(RawPtr { ty: b, mutbl: _ })) => {
             assert_assignable(fx, *a, *b, limit - 1);
         }
-        (ty::Ref(_, a, _), ty::RawPtr(TypeAndMut { ty: b, mutbl: _ }))
-        | (ty::RawPtr(TypeAndMut { ty: a, mutbl: _ }), ty::Ref(_, b, _)) => {
+        (ty::Ref(_, a, _), ty::RawPtr(RawPtr { ty: b, mutbl: _ }))
+        | (ty::RawPtr(RawPtr { ty: a, mutbl: _ }), ty::Ref(_, b, _)) => {
             assert_assignable(fx, *a, *b, limit - 1);
         }
         (ty::FnPtr(_), ty::FnPtr(_)) => {

@@ -6,7 +6,7 @@ use rustc_middle::mir::interpret::{InterpResult, PointerArithmetic, Scalar};
 use rustc_middle::mir::CastKind;
 use rustc_middle::ty::adjustment::PointerCast;
 use rustc_middle::ty::layout::{IntegerExt, LayoutOf, TyAndLayout};
-use rustc_middle::ty::{self, FloatTy, Ty, TypeAndMut};
+use rustc_middle::ty::{self, FloatTy, RawPtr, Ty};
 use rustc_target::abi::Integer;
 use rustc_type_ir::sty::TyKind::*;
 
@@ -398,8 +398,8 @@ impl<'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> InterpCx<'mir, 'tcx, M> {
     ) -> InterpResult<'tcx> {
         trace!("Unsizing {:?} of type {} into {:?}", *src, src.layout.ty, cast_ty.ty);
         match (&src.layout.ty.kind(), &cast_ty.ty.kind()) {
-            (&ty::Ref(_, s, _), &ty::Ref(_, c, _) | &ty::RawPtr(TypeAndMut { ty: c, .. }))
-            | (&ty::RawPtr(TypeAndMut { ty: s, .. }), &ty::RawPtr(TypeAndMut { ty: c, .. })) => {
+            (&ty::Ref(_, s, _), &ty::Ref(_, c, _) | &ty::RawPtr(RawPtr { ty: c, .. }))
+            | (&ty::RawPtr(RawPtr { ty: s, .. }), &ty::RawPtr(RawPtr { ty: c, .. })) => {
                 self.unsize_into_ptr(src, dest, *s, *c)
             }
             (&ty::Adt(def_a, _), &ty::Adt(def_b, _)) => {

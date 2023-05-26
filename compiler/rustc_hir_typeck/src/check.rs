@@ -322,9 +322,9 @@ fn check_lang_start_fn<'tcx>(
 
         if !argv_is_okay {
             let inner_ptr_ty =
-                tcx.mk_ptr(ty::TypeAndMut { mutbl: hir::Mutability::Not, ty: tcx.types.u8 });
+                tcx.mk_ptr(ty::RawPtr { mutbl: hir::Mutability::Not, ty: tcx.types.u8 });
             let expected_ty =
-                tcx.mk_ptr(ty::TypeAndMut { mutbl: hir::Mutability::Not, ty: inner_ptr_ty });
+                tcx.mk_ptr(ty::RawPtr { mutbl: hir::Mutability::Not, ty: inner_ptr_ty });
             tcx.sess.emit_err(LangStartIncorrectParam {
                 param_span: decl.inputs[2].span,
                 param_num: 3,

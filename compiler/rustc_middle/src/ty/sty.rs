@@ -43,7 +43,7 @@ pub type RegionKind<'tcx> = IrRegionKind<TyCtxt<'tcx>>;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, TyEncodable, TyDecodable)]
 #[derive(HashStable, TypeFoldable, TypeVisitable, Lift)]
-pub struct TypeAndMut<'tcx> {
+pub struct RawPtr<'tcx> {
     pub ty: Ty<'tcx>,
     pub mutbl: hir::Mutability,
 }
@@ -1861,7 +1861,7 @@ impl<'tcx> Ty<'tcx> {
     pub fn is_array_slice(self) -> bool {
         match self.kind() {
             Slice(_) => true,
-            RawPtr(TypeAndMut { ty, .. }) | Ref(_, ty, _) => matches!(ty.kind(), Slice(_)),
+            RawPtr(RawPtr { ty, .. }) | Ref(_, ty, _) => matches!(ty.kind(), Slice(_)),
             _ => false,
         }
     }
@@ -1917,8 +1917,7 @@ impl<'tcx> Ty<'tcx> {
     pub fn is_mutable_ptr(self) -> bool {
         matches!(
             self.kind(),
-            RawPtr(TypeAndMut { mutbl: hir::Mutability::Mut, .. })
-                | Ref(_, _, hir::Mutability::Mut)
+            RawPtr(RawPtr { mutbl: hir::Mutability::Mut, .. }) | Ref(_, _, hir::Mutability::Mut)
         )
     }
 
@@ -2096,12 +2095,12 @@ impl<'tcx> Ty<'tcx> {
     ///
     /// The parameter `explicit` indicates if this is an *explicit* dereference.
     /// Some types -- notably unsafe ptrs -- can only be dereferenced explicitly.
-    pub fn builtin_deref(self, explicit: bool) -> Option<TypeAndMut<'tcx>> {
+    pub fn builtin_deref(self, explicit: bool) -> Option<RawPtr<'tcx>> {
         match self.kind() {
             Adt(def, _) if def.is_box() => {
-                Some(TypeAndMut { ty: self.boxed_ty(), mutbl: hir::Mutability::Not })
+                Some(RawPtr { ty: self.boxed_ty(), mutbl: hir::Mutability::Not })
             }
-            Ref(_, ty, mutbl) => Some(TypeAndMut { ty: *ty, mutbl: *mutbl }),
+            Ref(_, ty, mutbl) => Some(RawPtr { ty: *ty, mutbl: *mutbl }),
             RawPtr(mt) if explicit => Some(*mt),
             _ => None,
         }

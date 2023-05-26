@@ -226,7 +226,7 @@ impl<'a, 'tcx> ConstraintContext<'a, 'tcx> {
 
             ty::Ref(region, ty, mutbl) => {
                 self.add_constraints_from_region(current, region, variance);
-                self.add_constraints_from_mt(current, &ty::TypeAndMut { ty, mutbl }, variance);
+                self.add_constraints_from_mt(current, &ty::RawPtr { ty, mutbl }, variance);
             }
 
             ty::Array(typ, len) => {
@@ -428,7 +428,7 @@ impl<'a, 'tcx> ConstraintContext<'a, 'tcx> {
     fn add_constraints_from_mt(
         &mut self,
         current: &CurrentItem,
-        mt: &ty::TypeAndMut<'tcx>,
+        mt: &ty::RawPtr<'tcx>,
         variance: VarianceTermPtr<'a>,
     ) {
         match mt.mutbl {

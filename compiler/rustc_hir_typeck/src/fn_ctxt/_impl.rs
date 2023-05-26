@@ -606,7 +606,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     pub(in super::super) fn make_overloaded_place_return_type(
         &self,
         method: MethodCallee<'tcx>,
-    ) -> ty::TypeAndMut<'tcx> {
+    ) -> ty::RawPtr<'tcx> {
         // extract method return type, which will be &T;
         let ret_ty = method.sig.output();
 

@@ -4,7 +4,7 @@ use clippy_utils::ty::is_c_void;
 use rustc_hir::Expr;
 use rustc_lint::LateContext;
 use rustc_middle::ty::SubstsRef;
-use rustc_middle::ty::{self, IntTy, Ty, TypeAndMut, UintTy};
+use rustc_middle::ty::{self, IntTy, Ty, RawPtr, UintTy};
 
 #[expect(clippy::too_many_lines)]
 pub(super) fn check<'tcx>(
@@ -199,8 +199,8 @@ fn reduce_refs<'tcx>(cx: &LateContext<'tcx>, mut from_ty: Ty<'tcx>, mut to_ty: T
     let (from_fat_ptr, to_fat_ptr) = loop {
         break match (from_ty.kind(), to_ty.kind()) {
             (
-                &(ty::Ref(_, from_sub_ty, _) | ty::RawPtr(TypeAndMut { ty: from_sub_ty, .. })),
-                &(ty::Ref(_, to_sub_ty, _) | ty::RawPtr(TypeAndMut { ty: to_sub_ty, .. })),
+                &(ty::Ref(_, from_sub_ty, _) | ty::RawPtr(RawPtr { ty: from_sub_ty, .. })),
+                &(ty::Ref(_, to_sub_ty, _) | ty::RawPtr(RawPtr { ty: to_sub_ty, .. })),
             ) => {
                 from_raw_ptr = matches!(*from_ty.kind(), ty::RawPtr(_));
                 from_ty = from_sub_ty;
@@ -208,12 +208,12 @@ fn reduce_refs<'tcx>(cx: &LateContext<'tcx>, mut from_ty: Ty<'tcx>, mut to_ty: T
                 to_ty = to_sub_ty;
                 continue;
             },
-            (&(ty::Ref(_, unsized_ty, _) | ty::RawPtr(TypeAndMut { ty: unsized_ty, .. })), _)
+            (&(ty::Ref(_, unsized_ty, _) | ty::RawPtr(RawPtr { ty: unsized_ty, .. })), _)
                 if !unsized_ty.is_sized(cx.tcx, cx.param_env) =>
             {
                 (true, false)
             },
-            (_, &(ty::Ref(_, unsized_ty, _) | ty::RawPtr(TypeAndMut { ty: unsized_ty, .. })))
+            (_, &(ty::Ref(_, unsized_ty, _) | ty::RawPtr(RawPtr { ty: unsized_ty, .. })))
                 if !unsized_ty.is_sized(cx.tcx, cx.param_env) =>
             {
                 (false, true)

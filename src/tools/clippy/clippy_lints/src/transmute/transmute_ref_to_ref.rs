@@ -58,11 +58,11 @@ pub(super) fn check<'tcx>(
                         e.span,
                         "transmute from a reference to a reference",
                         |diag| if let Some(arg) = sugg::Sugg::hir_opt(cx, arg) {
-                            let ty_from_and_mut = ty::TypeAndMut {
+                            let ty_from_and_mut = ty::RawPtr {
                                 ty: *ty_from,
                                 mutbl: *from_mutbl
                             };
-                            let ty_to_and_mut = ty::TypeAndMut { ty: *ty_to, mutbl: *to_mutbl };
+                            let ty_to_and_mut = ty::RawPtr { ty: *ty_to, mutbl: *to_mutbl };
                             let sugg_paren = arg
                                 .as_ty(cx.tcx.mk_ptr(ty_from_and_mut))
                                 .as_ty(cx.tcx.mk_ptr(ty_to_and_mut));

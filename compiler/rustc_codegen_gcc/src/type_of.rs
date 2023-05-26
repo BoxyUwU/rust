@@ -191,7 +191,7 @@ impl<'tcx> LayoutGccExt<'tcx> for TyAndLayout<'tcx> {
             }
             let ty =
                 match *self.ty.kind() {
-                    ty::Ref(_, ty, _) | ty::RawPtr(ty::TypeAndMut { ty, .. }) => {
+                    ty::Ref(_, ty, _) | ty::RawPtr(ty::RawPtr { ty, .. }) => {
                         cx.type_ptr_to(cx.layout_of(ty).gcc_type(cx))
                     }
                     ty::Adt(def, _) if def.is_box() => {

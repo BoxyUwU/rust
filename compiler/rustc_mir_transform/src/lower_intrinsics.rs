@@ -234,7 +234,7 @@ impl<'tcx> MirPass<'tcx> for LowerIntrinsics {
                     }
                     sym::option_payload_ptr => {
                         if let (Some(target), Some(arg)) = (*target, args[0].place()) {
-                            let ty::RawPtr(ty::TypeAndMut { ty: dest_ty, .. }) =
+                            let ty::RawPtr(ty::RawPtr { ty: dest_ty, .. }) =
                                 destination.ty(local_decls, tcx).ty.kind()
                             else { bug!(); };
 

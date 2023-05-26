@@ -1,6 +1,7 @@
 //! Various operations on integer and floating-point numbers
 
 use crate::prelude::*;
+use rustc_middle::ty::RawPtr;
 
 pub(crate) fn bin_op_to_intcc(bin_op: BinOp, signed: bool) -> Option<IntCC> {
     use BinOp::*;
@@ -368,7 +369,7 @@ pub(crate) fn codegen_ptr_binop<'tcx>(
         .layout()
         .ty
         .builtin_deref(true)
-        .map(|TypeAndMut { ty, mutbl: _ }| !has_ptr_meta(fx.tcx, ty))
+        .map(|RawPtr { ty, mutbl: _ }| !has_ptr_meta(fx.tcx, ty))
         .unwrap_or(true);
 
     if is_thin_ptr {

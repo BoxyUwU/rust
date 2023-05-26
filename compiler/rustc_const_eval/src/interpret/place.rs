@@ -775,10 +775,7 @@ where
         let meta = Scalar::from_target_usize(u64::try_from(str.len()).unwrap(), self);
         let mplace = MemPlace { ptr: ptr.into(), meta: MemPlaceMeta::Meta(meta) };
 
-        let ty = self.tcx.mk_ref(
-            self.tcx.lifetimes.re_static,
-            ty::TypeAndMut { ty: self.tcx.types.str_, mutbl },
-        );
+        let ty = self.tcx.mk_ref(self.tcx.lifetimes.re_static, self.tcx.types.str_, mutbl);
         let layout = self.layout_of(ty).unwrap();
         Ok(MPlaceTy { mplace, layout, align: layout.align.abi })
     }

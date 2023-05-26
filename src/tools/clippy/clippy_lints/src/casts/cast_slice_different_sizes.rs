@@ -4,7 +4,7 @@ use if_chain::if_chain;
 use rustc_ast::Mutability;
 use rustc_hir::{Expr, ExprKind, Node};
 use rustc_lint::LateContext;
-use rustc_middle::ty::{self, layout::LayoutOf, Ty, TypeAndMut};
+use rustc_middle::ty::{self, layout::LayoutOf, Ty, RawPtr};
 
 use super::CAST_SLICE_DIFFERENT_SIZES;
 
@@ -47,7 +47,7 @@ pub(super) fn check<'tcx>(cx: &LateContext<'tcx>, expr: &Expr<'tcx>, msrv: &Msrv
                         };
                         let sugg = format!(
                             "core::ptr::slice_from_raw_parts{mutbl_fn_str}({ptr_snippet} as *{mutbl_ptr_str} {}, ..)",
-                            // get just the ty from the TypeAndMut so that the printed type isn't something like `mut
+                            // get just the ty from the RawPtr so that the printed type isn't something like `mut
                             // T`, extract just the `T`
                             end_ty.ty
                         );
@@ -92,10 +92,10 @@ fn is_child_of_cast(cx: &LateContext<'_>, expr: &Expr<'_>) -> bool {
 
 /// Returns the type T of the pointed to *const [T] or *mut [T] and the mutability of the slice if
 /// the type is one of those slices
-fn get_raw_slice_ty_mut(ty: Ty<'_>) -> Option<TypeAndMut<'_>> {
+fn get_raw_slice_ty_mut(ty: Ty<'_>) -> Option<RawPtr<'_>> {
     match ty.kind() {
-        ty::RawPtr(TypeAndMut { ty: slice_ty, mutbl }) => match slice_ty.kind() {
-            ty::Slice(ty) => Some(TypeAndMut { ty: *ty, mutbl: *mutbl }),
+        ty::RawPtr(RawPtr { ty: slice_ty, mutbl }) => match slice_ty.kind() {
+            ty::Slice(ty) => Some(RawPtr { ty: *ty, mutbl: *mutbl }),
             _ => None,
         },
         _ => None,
@@ -107,9 +107,9 @@ struct CastChainInfo<'tcx> {
     /// Used for diagnostics
     left_cast: &'tcx Expr<'tcx>,
     /// The starting type of the cast chain
-    start_ty: TypeAndMut<'tcx>,
+    start_ty: RawPtr<'tcx>,
     /// The final type of the cast chain
-    end_ty: TypeAndMut<'tcx>,
+    end_ty: RawPtr<'tcx>,
 }
 
 /// Returns a `CastChainInfo` with the left-most cast in the chain and the original ptr T and final

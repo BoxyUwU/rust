@@ -46,7 +46,7 @@ pub trait Interner: Sized {
     type Const: Clone + Debug + Hash + Ord;
     type Region: Clone + Debug + Hash + Ord;
     type Predicate;
-    type TypeAndMut: Clone + Debug + Hash + Ord;
+    type RawPtrTy: Clone + Debug + Hash + Ord;
     type Mutability: Clone + Debug + Hash + Ord;
     type Movability: Clone + Debug + Hash + Ord;
     type PolyFnSig: Clone + Debug + Hash + Ord;

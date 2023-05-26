@@ -162,10 +162,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 if let ty::Ref(region, _, hir::Mutability::Not) = method.sig.inputs()[0].kind() {
                     adjustments.push(Adjustment {
                         kind: Adjust::Borrow(AutoBorrow::Ref(*region, AutoBorrowMutability::Not)),
-                        target: self.tcx.mk_ref(
-                            *region,
-                            ty::TypeAndMut { mutbl: hir::Mutability::Not, ty: adjusted_ty },
-                        ),
+                        target: self.tcx.mk_ref(*region, adjusted_ty, hir::Mutability::Not),
                     });
                 } else {
                     span_bug!(expr.span, "input to index is not a ref?");
@@ -427,9 +424,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         allow_two_phase_borrow: AllowTwoPhase::No,
                     };
                     adjustment.kind = Adjust::Borrow(AutoBorrow::Ref(*region, mutbl));
-                    adjustment.target = self
-                        .tcx
-                        .mk_ref(*region, ty::TypeAndMut { ty: source, mutbl: mutbl.into() });
+                    adjustment.target = self.tcx.mk_ref(*region, source, mutbl.into());
                 }
                 source = adjustment.target;
             }

@@ -738,7 +738,7 @@ fn get_nullable_type<'tcx>(cx: &LateContext<'tcx>, ty: Ty<'tcx>) -> Option<Ty<'t
         ty::RawPtr(ty_mut) => tcx.mk_ptr(ty_mut),
         // As these types are always non-null, the nullable equivalent of
         // Option<T> of these types are their raw pointer counterparts.
-        ty::Ref(_region, ty, mutbl) => tcx.mk_ptr(ty::TypeAndMut { ty, mutbl }),
+        ty::Ref(_region, ty, mutbl) => tcx.mk_ptr(ty::RawPtr { ty, mutbl }),
         ty::FnPtr(..) => {
             // There is no nullable equivalent for Rust's function pointers -- you
             // must use an Option<fn(..) -> _> to represent it.
@@ -1054,7 +1054,7 @@ impl<'a, 'tcx> ImproperCTypesVisitor<'a, 'tcx> {
                 help: Some(fluent::lint_improper_ctypes_tuple_help),
             },
 
-            ty::RawPtr(ty::TypeAndMut { ty, .. }) | ty::Ref(_, ty, _)
+            ty::RawPtr(ty::RawPtr { ty, .. }) | ty::Ref(_, ty, _)
                 if {
                     matches!(self.mode, CItemKind::Definition)
                         && ty.is_sized(self.cx.tcx, self.cx.param_env)
@@ -1063,7 +1063,7 @@ impl<'a, 'tcx> ImproperCTypesVisitor<'a, 'tcx> {
                 FfiSafe
             }
 
-            ty::RawPtr(ty::TypeAndMut { ty, .. })
+            ty::RawPtr(ty::RawPtr { ty, .. })
                 if match ty.kind() {
                     ty::Tuple(tuple) => tuple.is_empty(),
                     _ => false,
@@ -1072,7 +1072,7 @@ impl<'a, 'tcx> ImproperCTypesVisitor<'a, 'tcx> {
                 FfiSafe
             }
 
-            ty::RawPtr(ty::TypeAndMut { ty, .. }) | ty::Ref(_, ty, _) => {
+            ty::RawPtr(ty::RawPtr { ty, .. }) | ty::Ref(_, ty, _) => {
                 self.check_type_for_ffi(cache, ty)
             }
 
