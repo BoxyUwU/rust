@@ -269,6 +269,7 @@ TrivialTypeTraversalAndLiftImpls! {
     ::rustc_hir::HirId,
     ::rustc_hir::MatchSource,
     ::rustc_hir::Mutability,
+    ::rustc_type_ir::Mutability,
     ::rustc_hir::Unsafety,
     ::rustc_target::asm::InlineAsmRegOrRegClass,
     ::rustc_target::spec::abi::Abi,

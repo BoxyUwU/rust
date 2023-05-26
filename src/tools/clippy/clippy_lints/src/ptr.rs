@@ -168,7 +168,7 @@ impl<'tcx> LateLintPass<'tcx> for Ptr {
                 sig.decl.inputs,
                 &[],
             )
-            .filter(|arg| arg.mutability() == Mutability::Not)
+            .filter(|arg| arg.mutability() == ty::Mutability::Not)
             {
                 span_lint_hir_and_then(cx, PTR_ARG, arg.emission_id, arg.span, &arg.build_msg(), |diag| {
                     diag.span_suggestion(
@@ -219,7 +219,7 @@ impl<'tcx> LateLintPass<'tcx> for Ptr {
         let decl = sig.decl;
         let sig = cx.tcx.fn_sig(item_id).subst_identity().skip_binder();
         let lint_args: Vec<_> = check_fn_args(cx, sig.inputs(), decl.inputs, body.params)
-            .filter(|arg| !is_trait_item || arg.mutability() == Mutability::Not)
+            .filter(|arg| !is_trait_item || arg.mutability() == ty::Mutability::Not)
             .collect();
         let results = check_ptr_arg_usage(cx, body, &lint_args);
 
@@ -337,14 +337,14 @@ impl PtrArg<'_> {
         )
     }
 
-    fn mutability(&self) -> Mutability {
+    fn mutability(&self) -> ty::Mutability {
         self.ref_prefix.mutability
     }
 }
 
 struct RefPrefix {
     lt: Lifetime,
-    mutability: Mutability,
+    mutability: ty::Mutability,
 }
 impl fmt::Display for RefPrefix {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -453,7 +453,7 @@ fn check_fn_args<'cx, 'tcx: 'cx>(
                             [("clone", ".to_path_buf()"), ("as_path", "")].as_slice(),
                             DerefTy::Path,
                         ),
-                        Some(sym::Cow) if mutability == Mutability::Not => {
+                        Some(sym::Cow) if mutability == ty::Mutability::Not => {
                             let ty_name = name.args
                                 .and_then(|args| {
                                     args.args.iter().find_map(|a| match a {

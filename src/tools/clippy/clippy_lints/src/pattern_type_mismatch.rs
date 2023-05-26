@@ -1,8 +1,8 @@
 use clippy_utils::diagnostics::span_lint_and_help;
-use rustc_hir::{intravisit, Body, Expr, ExprKind, FnDecl, Let, LocalSource, Mutability, Pat, PatKind, Stmt, StmtKind};
+use rustc_hir::{intravisit, Body, Expr, ExprKind, FnDecl, Let, LocalSource, Pat, PatKind, Stmt, StmtKind};
 use rustc_lint::{LateContext, LateLintPass, LintContext};
 use rustc_middle::lint::in_external_macro;
-use rustc_middle::ty;
+use rustc_middle::ty::{self, Mutability};
 use rustc_session::{declare_lint_pass, declare_tool_lint};
 use rustc_span::def_id::LocalDefId;
 use rustc_span::source_map::Span;

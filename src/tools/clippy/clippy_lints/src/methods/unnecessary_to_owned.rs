@@ -7,7 +7,7 @@ use clippy_utils::ty::{get_iterator_item_ty, implements_trait, is_copy, peel_mid
 use clippy_utils::visitors::find_all_ret_expressions;
 use clippy_utils::{fn_def_id, get_parent_expr, is_diag_item_method, is_diag_trait_item, return_ty};
 use rustc_errors::Applicability;
-use rustc_hir::{def_id::DefId, BorrowKind, Expr, ExprKind, ItemKind, Node};
+use rustc_hir::{self as hir, def_id::DefId, BorrowKind, Expr, ExprKind, ItemKind, Node};
 use rustc_hir_typeck::{FnCtxt, Inherited};
 use rustc_infer::infer::TyCtxtInferExt;
 use rustc_lint::LateContext;
@@ -63,7 +63,7 @@ fn check_addr_of_expr(
 ) -> bool {
     if_chain! {
         if let Some(parent) = get_parent_expr(cx, expr);
-        if let ExprKind::AddrOf(BorrowKind::Ref, Mutability::Not, _) = parent.kind;
+        if let ExprKind::AddrOf(BorrowKind::Ref, hir::Mutability::Not, _) = parent.kind;
         let adjustments = cx.typeck_results().expr_adjustments(parent).iter().collect::<Vec<_>>();
         if let
             // For matching uses of `Cow::from`
@@ -298,7 +298,7 @@ fn skip_addr_of_ancestors<'tcx>(
     mut expr: &'tcx Expr<'tcx>,
 ) -> Option<(&'tcx Expr<'tcx>, &'tcx Expr<'tcx>)> {
     while let Some(parent) = get_parent_expr(cx, expr) {
-        if let ExprKind::AddrOf(BorrowKind::Ref, Mutability::Not, _) = parent.kind {
+        if let ExprKind::AddrOf(BorrowKind::Ref, hir::Mutability::Not, _) = parent.kind {
             expr = parent;
         } else {
             return Some((parent, expr));

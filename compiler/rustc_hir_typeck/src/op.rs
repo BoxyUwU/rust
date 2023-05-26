@@ -928,7 +928,7 @@ enum Op {
 /// Dereferences a single level of immutable referencing.
 fn deref_ty_if_possible(ty: Ty<'_>) -> Ty<'_> {
     match ty.kind() {
-        ty::Ref(_, ty, hir::Mutability::Not) => *ty,
+        ty::Ref(_, ty, ty::Mutability::Not) => *ty,
         _ => ty,
     }
 }

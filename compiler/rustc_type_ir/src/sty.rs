@@ -3,7 +3,6 @@
 use std::cmp::Ordering;
 use std::{fmt, hash};
 
-use crate::DebruijnIndex;
 use crate::FloatTy;
 use crate::HashStableContext;
 use crate::IntTy;
@@ -11,6 +10,7 @@ use crate::Interner;
 use crate::TyDecoder;
 use crate::TyEncoder;
 use crate::UintTy;
+use crate::{DebruijnIndex, Mutability};
 
 use self::RegionKind::*;
 use self::TyKind::*;
@@ -89,7 +89,7 @@ pub enum TyKind<I: Interner> {
 
     /// A reference; a pointer with an associated lifetime. Written as
     /// `&'a mut T` or `&'a T`.
-    Ref(I::Region, I::Ty, I::Mutability),
+    Ref(I::Region, I::Ty, Mutability),
 
     /// The anonymous type of a function declaration/definition. Each
     /// function has a unique type.
@@ -541,7 +541,6 @@ where
     I::Const: Encodable<E>,
     I::Region: Encodable<E>,
     I::RawPtrTy: Encodable<E>,
-    I::Mutability: Encodable<E>,
     I::Movability: Encodable<E>,
     I::PolyFnSig: Encodable<E>,
     I::ListBinderExistentialPredicate: Encodable<E>,
@@ -659,7 +658,6 @@ where
     I::Const: Decodable<D>,
     I::Region: Decodable<D>,
     I::RawPtrTy: Decodable<D>,
-    I::Mutability: Decodable<D>,
     I::Movability: Decodable<D>,
     I::PolyFnSig: Decodable<D>,
     I::ListBinderExistentialPredicate: Decodable<D>,
@@ -728,7 +726,6 @@ where
     I::ListBinderExistentialPredicate: HashStable<CTX>,
     I::Region: HashStable<CTX>,
     I::Movability: HashStable<CTX>,
-    I::Mutability: HashStable<CTX>,
     I::BinderListTy: HashStable<CTX>,
     I::ListTy: HashStable<CTX>,
     I::AliasTy: HashStable<CTX>,

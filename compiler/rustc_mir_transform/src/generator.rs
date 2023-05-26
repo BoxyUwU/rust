@@ -1115,7 +1115,7 @@ fn create_generator_drop_shim<'tcx>(
 
     // Change the generator argument from &mut to *mut
     body.local_decls[SELF_ARG] = LocalDecl::with_source_info(
-        tcx.mk_ptr(ty::RawPtr { ty: gen_ty, mutbl: hir::Mutability::Mut }),
+        tcx.mk_ptr(ty::RawPtr { ty: gen_ty, mutbl: ty::Mutability::Mut }),
         source_info,
     );
 

@@ -176,7 +176,7 @@ pub enum AutorefOrPtrAdjustment {
     /// Receiver has type `T`, add `&` or `&mut` (it `T` is `mut`), and maybe also "unsize" it.
     /// Unsizing is used to convert a `[T; N]` to `[T]`, which only makes sense when autorefing.
     Autoref {
-        mutbl: hir::Mutability,
+        mutbl: ty::Mutability,
 
         /// Indicates that the source expression should be "unsized" to a target type.
         /// This is special-cased for just arrays unsizing to slices.
@@ -1147,14 +1147,14 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                         self.pick_autorefd_method(
                             step,
                             self_ty,
-                            hir::Mutability::Not,
+                            ty::Mutability::Not,
                             unstable_candidates.as_deref_mut(),
                         )
                         .or_else(|| {
                             self.pick_autorefd_method(
                                 step,
                                 self_ty,
-                                hir::Mutability::Mut,
+                                ty::Mutability::Mut,
                                 unstable_candidates.as_deref_mut(),
                             )
                         })
@@ -1207,7 +1207,7 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
         &self,
         step: &CandidateStep<'tcx>,
         self_ty: Ty<'tcx>,
-        mutbl: hir::Mutability,
+        mutbl: ty::Mutability,
         unstable_candidates: Option<&mut Vec<(Candidate<'tcx>, Symbol)>>,
     ) -> Option<PickResult<'tcx>> {
         let tcx = self.tcx;
@@ -1240,11 +1240,11 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
             return None;
         }
 
-        let &ty::RawPtr(ty::RawPtr { ty, mutbl: hir::Mutability::Mut }) = self_ty.kind() else {
+        let &ty::RawPtr(ty::RawPtr { ty, mutbl: ty::Mutability::Mut }) = self_ty.kind() else {
             return None;
         };
 
-        let const_self_ty = ty::RawPtr { ty, mutbl: hir::Mutability::Not };
+        let const_self_ty = ty::RawPtr { ty, mutbl: ty::Mutability::Not };
         let const_ptr_ty = self.tcx.mk_ptr(const_self_ty);
         self.pick_method(const_ptr_ty, unstable_candidates).map(|r| {
             r.map(|mut pick| {

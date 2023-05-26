@@ -8,9 +8,10 @@ use clippy_utils::{
 use rustc_ast::util::parser::PREC_POSTFIX;
 use rustc_errors::Applicability;
 use rustc_hir::LangItem::{OptionNone, OptionSome};
-use rustc_hir::{def::Res, BindingAnnotation, Expr, ExprKind, HirId, Mutability, Pat, PatKind, Path, QPath};
+use rustc_hir::{def::Res, BindingAnnotation, Expr, ExprKind, HirId, Pat, PatKind, Path, QPath};
 use rustc_lint::LateContext;
 use rustc_span::{sym, SyntaxContext};
+use rustc_middle::ty::Mutability;
 
 #[expect(clippy::too_many_arguments)]
 #[expect(clippy::too_many_lines)]
@@ -77,7 +78,10 @@ where
     }
 
     // Determine which binding mode to use.
-    let explicit_ref = some_pat.contains_explicit_ref_binding();
+    let explicit_ref = some_pat.contains_explicit_ref_binding().map(|mutability| match mutability {
+        rustc_ast::Mutability::Not => Mutability::Not,
+        rustc_ast::Mutability::Mut => Mutability::Mut,
+    });
     let binding_ref = explicit_ref.or_else(|| (ty_ref_count != pat_ref_count).then_some(ty_mutability));
 
     let as_ref_str = match binding_ref {

@@ -3245,14 +3245,15 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
 
         let result_ty = match &ast_ty.kind {
             hir::TyKind::Slice(ty) => tcx.mk_slice(self.ast_ty_to_ty(ty)),
-            hir::TyKind::Ptr(mt) => {
-                tcx.mk_ptr(ty::RawPtr { ty: self.ast_ty_to_ty(mt.ty), mutbl: mt.mutbl })
-            }
+            hir::TyKind::Ptr(mt) => tcx.mk_ptr(ty::RawPtr {
+                ty: self.ast_ty_to_ty(mt.ty),
+                mutbl: self.ast_mutability_to_mutability(mt.mutbl),
+            }),
             hir::TyKind::Ref(region, mt) => {
                 let r = self.ast_region_to_region(region, None);
                 debug!(?r);
                 let t = self.ast_ty_to_ty_inner(mt.ty, true, false);
-                tcx.mk_ref(r, t, mt.mutbl)
+                tcx.mk_ref(r, t, self.ast_mutability_to_mutability(mt.mutbl))
             }
             hir::TyKind::Never => tcx.types.never,
             hir::TyKind::Tup(fields) => {
@@ -3361,6 +3362,13 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
 
         self.record_ty(ast_ty.hir_id, result_ty, ast_ty.span);
         result_ty
+    }
+
+    fn ast_mutability_to_mutability(&self, mutability: hir::Mutability) -> ty::Mutability {
+        match mutability {
+            hir::Mutability::Not => ty::Mutability::Not,
+            hir::Mutability::Mut => ty::Mutability::Mut,
+        }
     }
 
     #[instrument(level = "debug", skip(self), ret)]

@@ -5,9 +5,9 @@ use clippy_utils::msrvs::{self, Msrv};
 use clippy_utils::sugg::Sugg;
 use if_chain::if_chain;
 use rustc_errors::Applicability;
-use rustc_hir::{Expr, ExprKind, Mutability, TyKind};
+use rustc_hir::{Expr, ExprKind, TyKind};
 use rustc_lint::LateContext;
-use rustc_middle::ty::{self, RawPtr};
+use rustc_middle::ty::{self, RawPtr, Mutability};
 
 use super::PTR_AS_PTR;
 

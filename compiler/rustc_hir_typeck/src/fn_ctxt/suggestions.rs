@@ -971,7 +971,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         expr_ty: Ty<'tcx>,
         expected_ty: Ty<'tcx>,
     ) -> bool {
-        if let ty::Ref(_, inner_ty, hir::Mutability::Not) = expr_ty.kind()
+        if let ty::Ref(_, inner_ty, ty::Mutability::Not) = expr_ty.kind()
             && let Some(clone_trait_def) = self.tcx.lang_items().clone_trait()
             && expected_ty == *inner_ty
             && self
@@ -1015,7 +1015,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         let mut suggest_copied_or_cloned = || {
             let expr_inner_ty = substs.type_at(0);
             let expected_inner_ty = expected_substs.type_at(0);
-            if let &ty::Ref(_, ty, hir::Mutability::Not) = expr_inner_ty.kind()
+            if let &ty::Ref(_, ty, ty::Mutability::Not) = expr_inner_ty.kind()
                 && self.can_eq(self.param_env, ty, expected_inner_ty)
             {
                 let def_path = self.tcx.def_path_str(adt_def.did());
@@ -1301,8 +1301,8 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
         // We need to find a null pointer symbol to suggest
         let null_sym = match mutbl {
-            hir::Mutability::Not => sym::ptr_null,
-            hir::Mutability::Mut => sym::ptr_null_mut,
+            ty::Mutability::Not => sym::ptr_null,
+            ty::Mutability::Mut => sym::ptr_null_mut,
         };
         let Some(null_did) = self.tcx.get_diagnostic_item(null_sym) else {
             return false;

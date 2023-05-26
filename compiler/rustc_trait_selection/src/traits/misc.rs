@@ -53,7 +53,7 @@ pub fn type_allowed_to_implement_copy<'tcx>(
         | ty::Char
         | ty::RawPtr(..)
         | ty::Never
-        | ty::Ref(_, _, hir::Mutability::Not)
+        | ty::Ref(_, _, ty::Mutability::Not)
         | ty::Array(..) => return Ok(()),
 
         &ty::Adt(adt, substs) => (adt, substs),
@@ -100,7 +100,7 @@ pub fn type_allowed_to_implement_const_param_ty<'tcx>(
         | ty::Str
         | ty::Array(..)
         | ty::Slice(_)
-        | ty::Ref(.., hir::Mutability::Not) => return Ok(()),
+        | ty::Ref(.., ty::Mutability::Not) => return Ok(()),
 
         &ty::Adt(adt, substs) => (adt, substs),
 

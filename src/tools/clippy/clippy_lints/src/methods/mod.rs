@@ -116,7 +116,7 @@ use rustc_hir::{Expr, ExprKind, Node, Stmt, StmtKind, TraitItem, TraitItemKind};
 use rustc_hir_analysis::hir_ty_to_ty;
 use rustc_lint::{LateContext, LateLintPass, LintContext};
 use rustc_middle::lint::in_external_macro;
-use rustc_middle::ty::{self, TraitRef, Ty};
+use rustc_middle::ty::{self, TraitRef, Ty, Mutability};
 use rustc_session::{declare_tool_lint, impl_lint_pass};
 use rustc_span::{sym, Span};
 
@@ -3999,14 +3999,14 @@ impl SelfKind {
             }
         }
 
-        fn matches_ref<'a>(cx: &LateContext<'a>, mutability: hir::Mutability, parent_ty: Ty<'a>, ty: Ty<'a>) -> bool {
+        fn matches_ref<'a>(cx: &LateContext<'a>, mutability: Mutability, parent_ty: Ty<'a>, ty: Ty<'a>) -> bool {
             if let ty::Ref(_, t, m) = *ty.kind() {
                 return m == mutability && t == parent_ty;
             }
 
             let trait_sym = match mutability {
-                hir::Mutability::Not => sym::AsRef,
-                hir::Mutability::Mut => sym::AsMut,
+                Mutability::Not => sym::AsRef,
+                Mutability::Mut => sym::AsMut,
             };
 
             let Some(trait_def_id) = cx.tcx.get_diagnostic_item(trait_sym) else {
@@ -4017,14 +4017,14 @@ impl SelfKind {
 
         fn matches_none<'a>(cx: &LateContext<'a>, parent_ty: Ty<'a>, ty: Ty<'a>) -> bool {
             !matches_value(cx, parent_ty, ty)
-                && !matches_ref(cx, hir::Mutability::Not, parent_ty, ty)
-                && !matches_ref(cx, hir::Mutability::Mut, parent_ty, ty)
+                && !matches_ref(cx, Mutability::Not, parent_ty, ty)
+                && !matches_ref(cx, Mutability::Mut, parent_ty, ty)
         }
 
         match self {
             Self::Value => matches_value(cx, parent_ty, ty),
-            Self::Ref => matches_ref(cx, hir::Mutability::Not, parent_ty, ty) || ty == parent_ty && is_copy(cx, ty),
-            Self::RefMut => matches_ref(cx, hir::Mutability::Mut, parent_ty, ty),
+            Self::Ref => matches_ref(cx, Mutability::Not, parent_ty, ty) || ty == parent_ty && is_copy(cx, ty),
+            Self::RefMut => matches_ref(cx, Mutability::Mut, parent_ty, ty),
             Self::No => matches_none(cx, parent_ty, ty),
         }
     }

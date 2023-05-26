@@ -12,7 +12,6 @@ use std::ptr;
 
 use either::{Left, Right};
 
-use rustc_ast::Mutability;
 use rustc_data_structures::intern::Interned;
 use rustc_span::DUMMY_SP;
 use rustc_target::abi::{Align, HasDataLayout, Size};
@@ -22,7 +21,7 @@ use super::{
     ResourceExhaustionInfo, Scalar, ScalarSizeMismatch, UndefinedBehaviorInfo, UninitBytesAccess,
     UnsupportedOpInfo,
 };
-use crate::ty;
+use crate::ty::{self, Mutability};
 use init_mask::*;
 use provenance_map::*;
 

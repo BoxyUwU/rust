@@ -642,8 +642,15 @@ impl<'tcx> TyCtxt<'tcx> {
     }
 
     #[inline]
-    pub fn static_mutability(self, def_id: DefId) -> Option<hir::Mutability> {
-        if let DefKind::Static(mt) = self.def_kind(def_id) { Some(mt) } else { None }
+    pub fn static_mutability(self, def_id: DefId) -> Option<ty::Mutability> {
+        if let DefKind::Static(mt) = self.def_kind(def_id) {
+            Some(match mt {
+                hir::Mutability::Not => ty::Mutability::Not,
+                hir::Mutability::Mut => ty::Mutability::Mut,
+            })
+        } else {
+            None
+        }
     }
 
     /// Returns `true` if this is a `static` item with the `#[thread_local]` attribute.
@@ -654,7 +661,7 @@ impl<'tcx> TyCtxt<'tcx> {
     /// Returns `true` if the node pointed to by `def_id` is a mutable `static` item.
     #[inline]
     pub fn is_mutable_static(self, def_id: DefId) -> bool {
-        self.static_mutability(def_id) == Some(hir::Mutability::Mut)
+        self.static_mutability(def_id) == Some(ty::Mutability::Mut)
     }
 
     /// Returns `true` if the item pointed to by `def_id` is a thread local which needs a
@@ -1294,8 +1301,8 @@ impl<'tcx> Ty<'tcx> {
 
 pub enum ExplicitSelf<'tcx> {
     ByValue,
-    ByReference(ty::Region<'tcx>, hir::Mutability),
-    ByRawPointer(hir::Mutability),
+    ByReference(ty::Region<'tcx>, rustc_type_ir::Mutability),
+    ByRawPointer(rustc_type_ir::Mutability),
     ByBox,
     Other,
 }

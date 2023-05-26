@@ -2193,7 +2193,7 @@ impl<'tcx> SelectionContext<'_, 'tcx> {
             | ty::Char
             | ty::RawPtr(..)
             | ty::Never
-            | ty::Ref(_, _, hir::Mutability::Not)
+            | ty::Ref(_, _, ty::Mutability::Not)
             | ty::Array(..) => {
                 // Implementations provided in libcore
                 None
@@ -2204,7 +2204,7 @@ impl<'tcx> SelectionContext<'_, 'tcx> {
             | ty::Slice(..)
             | ty::Generator(_, _, hir::Movability::Static)
             | ty::Foreign(..)
-            | ty::Ref(_, _, hir::Mutability::Mut) => None,
+            | ty::Ref(_, _, ty::Mutability::Mut) => None,
 
             ty::Tuple(tys) => {
                 // (*) binder moved here

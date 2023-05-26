@@ -350,7 +350,7 @@ impl<'mir, 'tcx> Checker<'mir, 'tcx> {
             };
 
             match *ty.kind() {
-                ty::Ref(_, _, hir::Mutability::Mut) => self.check_op(ops::ty::MutRef(kind)),
+                ty::Ref(_, _, ty::Mutability::Mut) => self.check_op(ops::ty::MutRef(kind)),
                 _ => {}
             }
         }

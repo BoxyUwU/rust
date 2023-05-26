@@ -15,10 +15,10 @@ use rustc_data_structures::fx::FxHashSet;
 use rustc_data_structures::stable_hasher::{Hash64, HashStable, StableHasher};
 use rustc_hir::def_id::DefId;
 use rustc_hir::definitions::{DefPathData, DefPathDataName, DisambiguatedDefPathData};
-use rustc_hir::{AsyncGeneratorKind, GeneratorKind, Mutability};
+use rustc_hir::{AsyncGeneratorKind, GeneratorKind};
 use rustc_middle::ty::layout::{IntegerExt, TyAndLayout};
 use rustc_middle::ty::subst::{GenericArgKind, SubstsRef};
-use rustc_middle::ty::{self, ExistentialProjection, ParamEnv, Ty, TyCtxt};
+use rustc_middle::ty::{self, ExistentialProjection, Mutability, ParamEnv, Ty, TyCtxt};
 use rustc_target::abi::Integer;
 use smallvec::SmallVec;
 

@@ -1063,8 +1063,8 @@ fn fmt_type<'cx>(
         },
         clean::RawPointer(m, ref t) => {
             let m = match m {
-                hir::Mutability::Mut => "mut",
-                hir::Mutability::Not => "const",
+                ty::Mutability::Mut => "mut",
+                ty::Mutability::Not => "const",
             };
 
             if matches!(**t, clean::Generic(_)) || t.is_assoc_ty() {
@@ -1571,11 +1571,11 @@ impl PrintWithSpace for hir::IsAsync {
     }
 }
 
-impl PrintWithSpace for hir::Mutability {
+impl PrintWithSpace for ty::Mutability {
     fn print_with_space(&self) -> &str {
         match self {
-            hir::Mutability::Not => "",
-            hir::Mutability::Mut => "mut ",
+            ty::Mutability::Not => "",
+            ty::Mutability::Mut => "mut ",
         }
     }
 }

@@ -4,11 +4,10 @@
 
 use either::{Either, Left, Right};
 
-use rustc_ast::Mutability;
 use rustc_index::IndexSlice;
 use rustc_middle::mir;
-use rustc_middle::ty;
 use rustc_middle::ty::layout::{LayoutOf, TyAndLayout};
+use rustc_middle::ty::{self, Mutability};
 use rustc_target::abi::{self, Abi, Align, FieldIdx, HasDataLayout, Size, FIRST_VARIANT};
 
 use super::{

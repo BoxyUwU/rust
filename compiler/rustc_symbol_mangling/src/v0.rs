@@ -395,8 +395,8 @@ impl<'tcx> Printer<'tcx> for &mut SymbolMangler<'tcx> {
 
             ty::Ref(r, ty, mutbl) => {
                 self.push(match mutbl {
-                    hir::Mutability::Not => "R",
-                    hir::Mutability::Mut => "Q",
+                    ty::Mutability::Not => "R",
+                    ty::Mutability::Mut => "Q",
                 });
                 if !r.is_erased() {
                     self = r.print(self)?;
@@ -406,8 +406,8 @@ impl<'tcx> Printer<'tcx> for &mut SymbolMangler<'tcx> {
 
             ty::RawPtr(mt) => {
                 self.push(match mt.mutbl {
-                    hir::Mutability::Not => "P",
-                    hir::Mutability::Mut => "O",
+                    ty::Mutability::Not => "P",
+                    ty::Mutability::Mut => "O",
                 });
                 self = mt.ty.print(self)?;
             }
@@ -612,8 +612,8 @@ impl<'tcx> Printer<'tcx> for &mut SymbolMangler<'tcx> {
             // here and fully support unsized constants.
             ty::Ref(_, inner_ty, mutbl) => {
                 self.push(match mutbl {
-                    hir::Mutability::Not => "R",
-                    hir::Mutability::Mut => "Q",
+                    ty::Mutability::Not => "R",
+                    ty::Mutability::Mut => "Q",
                 });
 
                 match inner_ty.kind() {

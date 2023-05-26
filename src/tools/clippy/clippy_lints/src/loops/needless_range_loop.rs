@@ -9,10 +9,10 @@ use rustc_ast::ast;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_hir::def::{DefKind, Res};
 use rustc_hir::intravisit::{walk_expr, Visitor};
-use rustc_hir::{BinOpKind, BorrowKind, Closure, Expr, ExprKind, HirId, Mutability, Pat, PatKind, QPath};
+use rustc_hir::{self as hir, BinOpKind, BorrowKind, Closure, Expr, ExprKind, HirId, Pat, PatKind, QPath};
 use rustc_lint::LateContext;
 use rustc_middle::middle::region;
-use rustc_middle::ty::{self, Ty};
+use rustc_middle::ty::{self, Ty, Mutability};
 use rustc_span::symbol::{sym, Symbol};
 use std::iter::{self, Iterator};
 use std::mem;
@@ -349,7 +349,7 @@ impl<'a, 'tcx> Visitor<'tcx> for VarVisitor<'a, 'tcx> {
                 self.visit_expr(rhs);
             },
             ExprKind::AddrOf(BorrowKind::Ref, mutbl, expr) => {
-                if mutbl == Mutability::Mut {
+                if mutbl == hir::Mutability::Mut {
                     self.prefer_mutable = true;
                 }
                 self.visit_expr(expr);

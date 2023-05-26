@@ -1073,7 +1073,7 @@ impl<'tcx> TypeErrCtxtExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
         let self_ty = self.resolve_vars_if_possible(trait_pred.self_ty());
         let ty = self.instantiate_binder_with_placeholders(self_ty);
         let Some(generics) = self.tcx.hir().get_generics(obligation.cause.body_id) else { return false };
-        let ty::Ref(_, inner_ty, hir::Mutability::Not) = ty.kind() else { return false };
+        let ty::Ref(_, inner_ty, ty::Mutability::Not) = ty.kind() else { return false };
         let ty::Param(param) = inner_ty.kind() else { return false };
         let ObligationCauseCode::FunctionArgumentObligation { arg_hir_id, .. } = obligation.cause.code() else { return false };
         let arg_node = self.tcx.hir().get(*arg_hir_id);
@@ -1443,7 +1443,7 @@ impl<'tcx> TypeErrCtxtExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
         self_ty: Ty<'tcx>,
         target_ty: Ty<'tcx>,
     ) {
-        let ty::Ref(_, object_ty, hir::Mutability::Not) = target_ty.kind() else { return; };
+        let ty::Ref(_, object_ty, ty::Mutability::Not) = target_ty.kind() else { return; };
         let ty::Dynamic(predicates, _, ty::Dyn) = object_ty.kind() else { return; };
         let self_ref_ty = self.tcx.mk_imm_ref(self.tcx.lifetimes.re_erased, self_ty);
 
@@ -1686,8 +1686,8 @@ impl<'tcx> TypeErrCtxtExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
             if let ty::Ref(region, t_type, mutability) = *trait_pred.skip_binder().self_ty().kind()
             {
                 let suggested_ty = match mutability {
-                    hir::Mutability::Mut => self.tcx.mk_imm_ref(region, t_type),
-                    hir::Mutability::Not => self.tcx.mk_mut_ref(region, t_type),
+                    ty::Mutability::Mut => self.tcx.mk_imm_ref(region, t_type),
+                    ty::Mutability::Not => self.tcx.mk_mut_ref(region, t_type),
                 };
 
                 // Remapping bound vars here
@@ -3781,7 +3781,7 @@ impl<'tcx> TypeErrCtxtExt<'tcx> for TypeErrCtxt<'_, 'tcx> {
             if let Ok(snippet) = self.tcx.sess.source_map().span_to_snippet(span) {
                 let mut suggestions = vec![];
                 if snippet.starts_with('&') {
-                } else if let Some(hir::Mutability::Mut) = mutability {
+                } else if let Some(ty::Mutability::Mut) = mutability {
                     suggestions.push((span.shrink_to_lo(), "&mut ".into()));
                 } else {
                     suggestions.push((span.shrink_to_lo(), "&".into()));
@@ -3823,7 +3823,7 @@ fn hint_missing_borrow<'tcx>(
 
     let args = fn_decl.inputs.iter();
 
-    fn get_deref_type_and_refs(mut ty: Ty<'_>) -> (Ty<'_>, Vec<hir::Mutability>) {
+    fn get_deref_type_and_refs(mut ty: Ty<'_>) -> (Ty<'_>, Vec<ty::Mutability>) {
         let mut refs = vec![];
 
         while let ty::Ref(_, new_ty, mutbl) = ty.kind() {

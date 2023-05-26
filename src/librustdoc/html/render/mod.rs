@@ -52,9 +52,8 @@ use rustc_attr::{ConstStability, Deprecation, StabilityLevel};
 use rustc_data_structures::captures::Captures;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_hir::def_id::{DefId, DefIdSet};
-use rustc_hir::Mutability;
 use rustc_middle::middle::stability;
-use rustc_middle::ty::TyCtxt;
+use rustc_middle::ty::{Mutability, TyCtxt};
 use rustc_span::{
     symbol::{sym, Symbol},
     BytePos, FileName, RealFileName,

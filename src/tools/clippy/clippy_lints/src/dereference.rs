@@ -542,7 +542,7 @@ impl<'tcx> LateLintPass<'tcx> for Dereferencing<'tcx> {
                 if !pat.span.from_expansion();
                 if let ty::Ref(_, tam, _) = *cx.typeck_results().pat_ty(pat).kind();
                 // only lint immutable refs, because borrowed `&mut T` cannot be moved out
-                if let ty::Ref(_, _, Mutability::Not) = *tam.kind();
+                if let ty::Ref(_, _, ty::Mutability::Not) = *tam.kind();
                 then {
                     let mut app = Applicability::MachineApplicable;
                     let snip = snippet_with_context(cx, name.span, pat.span.ctxt(), "..", &mut app).0;
@@ -1192,7 +1192,7 @@ fn needless_borrow_impl_arg_position<'tcx>(
         }
 
         // https://github.com/rust-lang/rust-clippy/pull/9136#pullrequestreview-1037379321
-        if trait_with_ref_mut_self_method && !matches!(referent_ty.kind(), ty::Ref(_, _, Mutability::Mut)) {
+        if trait_with_ref_mut_self_method && !matches!(referent_ty.kind(), ty::Ref(_, _, ty::Mutability::Mut)) {
             return false;
         }
 
@@ -1249,7 +1249,7 @@ fn has_ref_mut_self_method(cx: &LateContext<'_>, trait_def_id: DefId) -> bool {
         .any(|assoc_item| {
             if assoc_item.fn_has_self_parameter {
                 let self_ty = cx.tcx.fn_sig(assoc_item.def_id).subst_identity().skip_binder().inputs()[0];
-                matches!(self_ty.kind(), ty::Ref(_, _, Mutability::Mut))
+                matches!(self_ty.kind(), ty::Ref(_, _, ty::Mutability::Mut))
             } else {
                 false
             }
@@ -1492,7 +1492,7 @@ fn report<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'_>, state: State, data
             };
             let addr_of_str = if ty_changed_count < ref_count {
                 // Check if a reborrow from &mut T -> &T is required.
-                if target_mut == Mutability::Not && matches!(ty.kind(), ty::Ref(_, _, Mutability::Mut)) {
+                if target_mut == Mutability::Not && matches!(ty.kind(), ty::Ref(_, _, ty::Mutability::Mut)) {
                     "&*"
                 } else {
                     ""

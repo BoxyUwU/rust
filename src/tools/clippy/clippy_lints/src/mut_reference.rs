@@ -78,11 +78,10 @@ fn check_arguments<'tcx>(
             let parameters = type_definition.fn_sig(cx.tcx).skip_binder().inputs();
             for (argument, parameter) in iter::zip(arguments, parameters) {
                 match parameter.kind() {
-                    ty::Ref(_, _, Mutability::Not)
-                    | ty::RawPtr(ty::RawPtr {
-                        mutbl: Mutability::Not, ..
-                    }) => {
-                        if let ExprKind::AddrOf(BorrowKind::Ref, Mutability::Mut, _) = argument.kind {
+                    ty::Ref(_, _, ty::Mutability::Not)
+                    | ty::RawPtr(ty::RawPtr { mutbl: ty::Mutability::Not, .. }) => {
+                        if let ExprKind::AddrOf(BorrowKind::Ref, Mutability::Mut, _) = argument.kind
+                        {
                             span_lint(
                                 cx,
                                 UNNECESSARY_MUT_PASSED,

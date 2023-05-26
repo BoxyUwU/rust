@@ -8,11 +8,12 @@ use clippy_utils::{
 use if_chain::if_chain;
 use rustc_errors::Applicability;
 use rustc_hir::intravisit::{walk_expr, Visitor};
-use rustc_hir::{def::Res, Closure, Expr, ExprKind, HirId, LangItem, Local, Mutability, PatKind, UnOp};
+use rustc_hir::{def::Res, Closure, Expr, ExprKind, HirId, LangItem, Local, PatKind, UnOp};
 use rustc_lint::LateContext;
 use rustc_middle::hir::nested_filter::OnlyBodies;
 use rustc_middle::ty::adjustment::Adjust;
 use rustc_span::{symbol::sym, Symbol};
+use rustc_middle::ty::Mutability;
 
 pub(super) fn check<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'_>) {
     let (scrutinee_expr, iter_expr_struct, iter_expr, some_pat, loop_expr) = if_chain! {

@@ -4,7 +4,6 @@
 // differ from the time of `rustc` even if the name stays the same.
 
 use crate::msrvs::Msrv;
-use rustc_hir as hir;
 use rustc_hir::def_id::DefId;
 use rustc_middle::mir::{
     Body, CastKind, NonDivergingIntrinsic, NullOp, Operand, Place, ProjectionElem, Rvalue, Statement, StatementKind,
@@ -81,7 +80,7 @@ fn check_ty<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>, span: Span) -> McfResult {
         };
 
         match ty.kind() {
-            ty::Ref(_, _, hir::Mutability::Mut) => {
+            ty::Ref(_, _, ty::Mutability::Mut) => {
                 return Err((span, "mutable references in const fn are unstable".into()));
             },
             ty::Alias(ty::Opaque, ..) => return Err((span, "`impl Trait` in const fn is unstable".into())),

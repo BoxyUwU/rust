@@ -268,6 +268,11 @@ impl<'a, 'tcx> ExprUseVisitor<'a, 'tcx> {
             }
 
             hir::ExprKind::AddrOf(_, m, ref base) => {
+                let m = match m {
+                    hir::Mutability::Not => ty::Mutability::Not,
+                    hir::Mutability::Mut => ty::Mutability::Mut,
+                };
+
                 // &base
                 // make sure that the thing we are pointing out stays valid
                 // for the lifetime `scope_r` of the resulting ptr:

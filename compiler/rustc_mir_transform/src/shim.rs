@@ -482,7 +482,7 @@ impl<'tcx> CloneShimBuilder<'tcx> {
 
         let ref_loc = self.make_place(
             Mutability::Not,
-            tcx.mk_ref(tcx.lifetimes.re_erased, ty, hir::Mutability::Not),
+            tcx.mk_ref(tcx.lifetimes.re_erased, ty, ty::Mutability::Not),
         );
 
         // `let ref_loc: &ty = &src;`
@@ -700,7 +700,7 @@ fn build_call_shim<'tcx>(
             // let rcvr = &mut rcvr;
             let ref_rcvr = local_decls.push(
                 LocalDecl::new(
-                    tcx.mk_ref(tcx.lifetimes.re_erased, sig.inputs()[0], hir::Mutability::Mut),
+                    tcx.mk_ref(tcx.lifetimes.re_erased, sig.inputs()[0], ty::Mutability::Mut),
                     span,
                 )
                 .immutable(),

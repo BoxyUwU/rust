@@ -4,7 +4,6 @@ use crate::query::TyCtxtAt;
 use crate::ty::normalize_erasing_regions::NormalizationError;
 use crate::ty::{self, ReprOptions, Ty, TyCtxt, TypeVisitableExt};
 use rustc_errors::{DiagnosticBuilder, Handler, IntoDiagnostic};
-use rustc_hir as hir;
 use rustc_hir::def_id::DefId;
 use rustc_index::IndexVec;
 use rustc_session::config::OptLevel;
@@ -982,10 +981,10 @@ where
                 // attributes in LLVM have compile-time cost even in unoptimized builds).
                 let optimize = tcx.sess.opts.optimize != OptLevel::No;
                 let kind = match mt {
-                    hir::Mutability::Not => PointerKind::SharedRef {
+                    rustc_type_ir::Mutability::Not => PointerKind::SharedRef {
                         frozen: optimize && ty.is_freeze(tcx, cx.param_env()),
                     },
-                    hir::Mutability::Mut => PointerKind::MutableRef {
+                    rustc_type_ir::Mutability::Mut => PointerKind::MutableRef {
                         unpin: optimize && ty.is_unpin(tcx, cx.param_env()),
                     },
                 };

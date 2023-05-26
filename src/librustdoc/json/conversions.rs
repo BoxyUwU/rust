@@ -6,7 +6,6 @@
 
 use std::fmt;
 
-use rustc_ast::ast;
 use rustc_hir::{def::CtorKind, def::DefKind, def_id::DefId};
 use rustc_middle::ty::{self, TyCtxt};
 use rustc_span::symbol::sym;
@@ -562,12 +561,12 @@ impl FromWithTcx<clean::Type> for Type {
             ImplTrait(g) => Type::ImplTrait(g.into_tcx(tcx)),
             Infer => Type::Infer,
             RawPointer(mutability, type_) => Type::RawPointer {
-                mutable: mutability == ast::Mutability::Mut,
+                mutable: mutability == ty::Mutability::Mut,
                 type_: Box::new((*type_).into_tcx(tcx)),
             },
             BorrowedRef { lifetime, mutability, type_ } => Type::BorrowedRef {
                 lifetime: lifetime.map(convert_lifetime),
-                mutable: mutability == ast::Mutability::Mut,
+                mutable: mutability == ty::Mutability::Mut,
                 type_: Box::new((*type_).into_tcx(tcx)),
             },
             QPath(box clean::QPathData { assoc, self_type, trait_, .. }) => Type::QualifiedPath {
@@ -802,7 +801,7 @@ impl FromWithTcx<clean::Static> for Static {
     fn from_tcx(stat: clean::Static, tcx: TyCtxt<'_>) -> Self {
         Static {
             type_: stat.type_.into_tcx(tcx),
-            mutable: stat.mutability == ast::Mutability::Mut,
+            mutable: stat.mutability == ty::Mutability::Mut,
             expr: stat.expr.map(|e| print_const_expr(tcx, e)).unwrap_or_default(),
         }
     }
