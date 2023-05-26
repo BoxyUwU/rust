@@ -294,7 +294,7 @@ impl<I: Interner> Clone for TyKind<I> {
             Str => Str,
             Array(t, c) => Array(t.clone(), c.clone()),
             Slice(t) => Slice(t.clone()),
-            RawPtr(t) => RawPtr(t.clone()),
+            RawPtr(p) => RawPtr(p.clone()),
             Ref(r, t, m) => Ref(r.clone(), t.clone(), m.clone()),
             FnDef(d, s) => FnDef(d.clone(), s.clone()),
             FnPtr(s) => FnPtr(s.clone()),
@@ -333,7 +333,7 @@ impl<I: Interner> PartialEq for TyKind<I> {
             (Foreign(a_d), Foreign(b_d)) => a_d == b_d,
             (Array(a_t, a_c), Array(b_t, b_c)) => a_t == b_t && a_c == b_c,
             (Slice(a_t), Slice(b_t)) => a_t == b_t,
-            (RawPtr(a_t), RawPtr(b_t)) => a_t == b_t,
+            (RawPtr(a_ptr), RawPtr(b_ptr)) => a_ptr == b_ptr,
             (Ref(a_r, a_t, a_m), Ref(b_r, b_t, b_m)) => a_r == b_r && a_t == b_t && a_m == b_m,
             (FnDef(a_d, a_s), FnDef(b_d, b_s)) => a_d == b_d && a_s == b_s,
             (FnPtr(a_s), FnPtr(b_s)) => a_s == b_s,
@@ -391,7 +391,7 @@ impl<I: Interner> Ord for TyKind<I> {
                 (Foreign(a_d), Foreign(b_d)) => a_d.cmp(b_d),
                 (Array(a_t, a_c), Array(b_t, b_c)) => a_t.cmp(b_t).then_with(|| a_c.cmp(b_c)),
                 (Slice(a_t), Slice(b_t)) => a_t.cmp(b_t),
-                (RawPtr(a_t), RawPtr(b_t)) => a_t.cmp(b_t),
+                (RawPtr(a_ptr), RawPtr(b_ptr)) => a_ptr.cmp(b_ptr),
                 (Ref(a_r, a_t, a_m), Ref(b_r, b_t, b_m)) => {
                     a_r.cmp(b_r).then_with(|| a_t.cmp(b_t).then_with(|| a_m.cmp(b_m)))
                 }
@@ -499,33 +499,53 @@ impl<I: Interner> hash::Hash for TyKind<I> {
 impl<I: Interner> fmt::Debug for TyKind<I> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Bool => f.write_str("Bool"),
-            Char => f.write_str("Char"),
-            Int(i) => f.debug_tuple_field1_finish("Int", i),
-            Uint(u) => f.debug_tuple_field1_finish("Uint", u),
-            Float(float) => f.debug_tuple_field1_finish("Float", float),
+            Bool => write!(f, "bool"),
+            Char => write!(f, "char"),
+            Int(i) => write!(f, "{i:?}"),
+            Uint(u) => write!(f, "{u:?}"),
+            Float(float) => write!(f, "{float:?}"),
             Adt(d, s) => f.debug_tuple_field2_finish("Adt", d, s),
             Foreign(d) => f.debug_tuple_field1_finish("Foreign", d),
-            Str => f.write_str("Str"),
-            Array(t, c) => f.debug_tuple_field2_finish("Array", t, c),
-            Slice(t) => f.debug_tuple_field1_finish("Slice", t),
-            RawPtr(t) => f.debug_tuple_field1_finish("RawPtr", t),
-            Ref(r, t, m) => f.debug_tuple_field3_finish("Ref", r, t, m),
+            Str => write!(f, "str"),
+            Array(t, c) => write!(f, "[{t:?}; {c:?}]"),
+            Slice(t) => write!(f, "[{t:?}]"),
+            RawPtr(p) => write!(f, "{p:?}"),
+            Ref(r, t, m) => match m {
+                Mutability::Not => write!(f, "&{r:?} {t:?}"),
+                Mutability::Mut => write!(f, "&{r:?} mut {t:?}"),
+            },
             FnDef(d, s) => f.debug_tuple_field2_finish("FnDef", d, s),
-            FnPtr(s) => f.debug_tuple_field1_finish("FnPtr", s),
-            Dynamic(p, r, repr) => f.debug_tuple_field3_finish("Dynamic", p, r, repr),
+            FnPtr(s) => write!(f, "{s:?}"),
+            Dynamic(p, r, repr) => match repr {
+                DynKind::Dyn => write!(f, "dyn {p:?} + {r:?}"),
+                DynKind::DynStar => write!(f, "dyn* {p:?} + {r:?}"),
+            },
             Closure(d, s) => f.debug_tuple_field2_finish("Closure", d, s),
             Generator(d, s, m) => f.debug_tuple_field3_finish("Generator", d, s, m),
             GeneratorWitness(g) => f.debug_tuple_field1_finish("GeneratorWitness", g),
             GeneratorWitnessMIR(d, s) => f.debug_tuple_field2_finish("GeneratorWitnessMIR", d, s),
-            Never => f.write_str("Never"),
-            Tuple(t) => f.debug_tuple_field1_finish("Tuple", t),
+            Never => write!(f, "!"),
+            Tuple(t) => {
+                let mut iter = t.clone().into_iter();
+
+                write!(f, "(")?;
+
+                match iter.next() {
+                    None => return write!(f, ")"),
+                    Some(ty) => write!(f, "{ty:?}")?,
+                };
+
+                for ty in iter {
+                    write!(f, ", {:?}", ty)?;
+                }
+                write!(f, ")")
+            }
             Alias(i, a) => f.debug_tuple_field2_finish("Alias", i, a),
-            Param(p) => f.debug_tuple_field1_finish("Param", p),
-            Bound(d, b) => f.debug_tuple_field2_finish("Bound", d, b),
-            Placeholder(p) => f.debug_tuple_field1_finish("Placeholder", p),
-            Infer(t) => f.debug_tuple_field1_finish("Infer", t),
-            TyKind::Error(e) => f.debug_tuple_field1_finish("Error", e),
+            Param(p) => write!(f, "{p:?}"),
+            Bound(d, b) => crate::debug_bound_var(f, *d, b),
+            Placeholder(p) => write!(f, "{p:?}"),
+            Infer(t) => write!(f, "{t:?}"),
+            TyKind::Error(_) => write!(f, "type error"),
         }
     }
 }

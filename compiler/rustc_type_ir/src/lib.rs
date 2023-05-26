@@ -47,12 +47,11 @@ pub trait Interner: Sized {
     type Region: Clone + Debug + Hash + Ord;
     type Predicate;
     type RawPtrTy: Clone + Debug + Hash + Ord;
-    type Mutability: Clone + Debug + Hash + Ord;
     type Movability: Clone + Debug + Hash + Ord;
     type PolyFnSig: Clone + Debug + Hash + Ord;
     type ListBinderExistentialPredicate: Clone + Debug + Hash + Ord;
     type BinderListTy: Clone + Debug + Hash + Ord;
-    type ListTy: Clone + Debug + Hash + Ord;
+    type ListTy: Clone + Debug + Hash + Ord + IntoIterator<Item = Self::Ty>;
     type AliasTy: Clone + Debug + Hash + Ord;
     type ParamTy: Clone + Debug + Hash + Ord;
     type BoundTy: Clone + Debug + Hash + Ord;
@@ -390,7 +389,19 @@ impl DebruijnIndex {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub fn debug_bound_var<T: std::fmt::Write>(
+    fmt: &mut T,
+    debruijn: DebruijnIndex,
+    var: impl std::fmt::Debug,
+) -> Result<(), std::fmt::Error> {
+    if debruijn == INNERMOST {
+        write!(fmt, "^{:?}", var)
+    } else {
+        write!(fmt, "^{}_{:?}", debruijn.index(), var)
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(Encodable, Decodable, HashStable_Generic)]
 pub enum IntTy {
     Isize,
@@ -448,7 +459,7 @@ impl IntTy {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Debug)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Copy)]
 #[derive(Encodable, Decodable, HashStable_Generic)]
 pub enum UintTy {
     Usize,
@@ -506,7 +517,7 @@ impl UintTy {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(Encodable, Decodable, HashStable_Generic)]
 pub enum FloatTy {
     F32,
