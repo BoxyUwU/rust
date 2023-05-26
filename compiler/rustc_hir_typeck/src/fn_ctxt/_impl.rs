@@ -1029,7 +1029,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                         && inputs
                             .get(0)
                             .and_then(|self_ty| self_ty.ref_mutability())
-                            .map_or(false, rustc_ast::Mutability::is_mut)
+                            .map_or(false, ty::Mutability::is_mut)
                 })
                 .unwrap_or(false)
         };

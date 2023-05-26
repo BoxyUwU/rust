@@ -4,9 +4,9 @@ use clippy_utils::msrvs::{self, Msrv};
 use clippy_utils::source::snippet_with_applicability;
 use clippy_utils::sugg;
 use rustc_errors::Applicability;
-use rustc_hir::{self as hir, Expr, GenericArg, Mutability, Path, TyKind};
+use rustc_hir::{self as hir, Expr, GenericArg, Path, TyKind};
 use rustc_lint::LateContext;
-use rustc_middle::ty::{self, Ty, TypeVisitableExt};
+use rustc_middle::ty::{self, Ty, TypeVisitableExt, Mutability};
 
 /// Checks for `transmute_ptr_to_ref` lint.
 /// Returns `true` if it's triggered, otherwise returns `false`.

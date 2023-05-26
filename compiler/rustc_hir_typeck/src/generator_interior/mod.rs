@@ -362,7 +362,7 @@ impl<'a, 'tcx> Visitor<'tcx> for InteriorVisitor<'a, 'tcx> {
                                 // regions anyway.
                                 tcx.lifetimes.re_erased,
                                 ty,
-                                hir::Mutability::Not,
+                                ty::Mutability::Not,
                             );
                             self.interior_visitor.record(
                                 ty,

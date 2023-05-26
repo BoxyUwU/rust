@@ -88,10 +88,11 @@ use rustc_hir::hir_id::{HirIdMap, HirIdSet};
 use rustc_hir::intravisit::{walk_expr, FnKind, Visitor};
 use rustc_hir::LangItem::{OptionNone, ResultErr, ResultOk};
 use rustc_hir::{
-    self as hir, def, Arm, ArrayLen, BindingAnnotation, Block, BlockCheckMode, Body, Closure, Destination, Expr,
-    ExprKind, FnDecl, HirId, Impl, ImplItem, ImplItemKind, ImplItemRef, IsAsync, Item, ItemKind, LangItem, Local,
-    MatchSource, Mutability, Node, OwnerId, Param, Pat, PatKind, Path, PathSegment, PrimTy, QPath, Stmt, StmtKind,
-    TraitItem, TraitItemRef, TraitRef, TyKind, UnOp,
+    self as hir, def, Arm, ArrayLen, BindingAnnotation, Block, BlockCheckMode, Body, Closure,
+    Destination, Expr, ExprKind, FnDecl, HirId, Impl, ImplItem, ImplItemKind, ImplItemRef, IsAsync,
+    Item, ItemKind, LangItem, Local, MatchSource, Node, OwnerId, Param, Pat, PatKind,
+    Path, PathSegment, PrimTy, QPath, Stmt, StmtKind, TraitItem, TraitItemRef, TraitRef, TyKind,
+    UnOp,
 };
 use rustc_lexer::{tokenize, TokenKind};
 use rustc_lint::{LateContext, Level, Lint, LintContext};
@@ -105,7 +106,7 @@ use rustc_middle::ty::fast_reject::SimplifiedType::{
     PtrSimplifiedType, SliceSimplifiedType, StrSimplifiedType, UintSimplifiedType,
 };
 use rustc_middle::ty::{
-    layout::IntegerExt, BorrowKind, ClosureKind, Ty, TyCtxt, RawPtr, TypeVisitableExt, UpvarCapture,
+    Mutability, layout::IntegerExt, BorrowKind, ClosureKind, RawPtr, Ty, TyCtxt, TypeVisitableExt, UpvarCapture,
 };
 use rustc_middle::ty::{FloatTy, IntTy, UintTy};
 use rustc_span::hygiene::{ExpnKind, MacroKind};
@@ -1029,7 +1030,10 @@ pub fn capture_local_usage(cx: &LateContext<'_>, e: &Expr<'_>) -> CaptureKind {
 
         match parent {
             Node::Expr(e) => match e.kind {
-                ExprKind::AddrOf(_, mutability, _) => return CaptureKind::Ref(mutability),
+                ExprKind::AddrOf(_, mutability, _) => return CaptureKind::Ref(match mutability {
+                    rustc_ast::Mutability::Not => Mutability::Not,
+                    rustc_ast::Mutability::Mut => Mutability::Mut,
+                }),
                 ExprKind::Index(..) | ExprKind::Unary(UnOp::Deref, _) => capture = CaptureKind::Ref(Mutability::Not),
                 ExprKind::Assign(lhs, ..) | ExprKind::AssignOp(_, lhs, _) if lhs.hir_id == child_id => {
                     return CaptureKind::Ref(Mutability::Mut);

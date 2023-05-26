@@ -11,8 +11,6 @@ use rustc_middle::ty::{self, AssocKind, Ty, TyCtxt, TypeFoldable, TypeSuperFolda
 use rustc_middle::ty::{InternalSubsts, SubstsRef};
 use rustc_target::abi::{Integer, IntegerType};
 
-use rustc_ast::ast;
-
 use rustc_hir::def_id::DefId;
 
 use rustc_span::symbol::sym;
@@ -416,18 +414,18 @@ impl<'tcx> chalk_solve::RustIrDatabase<RustInterner<'tcx>> for RustIrDatabase<'t
                 (&ty::Slice(..), Slice(..)) => true,
                 (&ty::RawPtr(type_and_mut), Raw(mutability, _)) => {
                     match (type_and_mut.mutbl, mutability) {
-                        (ast::Mutability::Mut, chalk_ir::Mutability::Mut) => true,
-                        (ast::Mutability::Mut, chalk_ir::Mutability::Not) => false,
-                        (ast::Mutability::Not, chalk_ir::Mutability::Mut) => false,
-                        (ast::Mutability::Not, chalk_ir::Mutability::Not) => true,
+                        (ty::Mutability::Mut, chalk_ir::Mutability::Mut) => true,
+                        (ty::Mutability::Mut, chalk_ir::Mutability::Not) => false,
+                        (ty::Mutability::Not, chalk_ir::Mutability::Mut) => false,
+                        (ty::Mutability::Not, chalk_ir::Mutability::Not) => true,
                     }
                 }
                 (&ty::Ref(.., mutability1), Ref(mutability2, ..)) => {
                     match (mutability1, mutability2) {
-                        (ast::Mutability::Mut, chalk_ir::Mutability::Mut) => true,
-                        (ast::Mutability::Mut, chalk_ir::Mutability::Not) => false,
-                        (ast::Mutability::Not, chalk_ir::Mutability::Mut) => false,
-                        (ast::Mutability::Not, chalk_ir::Mutability::Not) => true,
+                        (ty::Mutability::Mut, chalk_ir::Mutability::Mut) => true,
+                        (ty::Mutability::Mut, chalk_ir::Mutability::Not) => false,
+                        (ty::Mutability::Not, chalk_ir::Mutability::Mut) => false,
+                        (ty::Mutability::Not, chalk_ir::Mutability::Not) => true,
                     }
                 }
                 (

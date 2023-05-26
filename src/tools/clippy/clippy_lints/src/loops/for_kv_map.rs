@@ -4,9 +4,9 @@ use clippy_utils::source::snippet;
 use clippy_utils::sugg;
 use clippy_utils::ty::is_type_diagnostic_item;
 use clippy_utils::visitors::is_local_used;
-use rustc_hir::{BorrowKind, Expr, ExprKind, Mutability, Pat, PatKind};
+use rustc_hir::{BorrowKind, Expr, ExprKind, Pat, PatKind};
 use rustc_lint::LateContext;
-use rustc_middle::ty;
+use rustc_middle::ty::{self, Mutability};
 use rustc_span::sym;
 
 /// Checks for the `FOR_KV_MAP` lint.

@@ -5,10 +5,9 @@ use crate::interpret::{
     intern_const_alloc_recursive, ConstValue, InternKind, InterpCx, InterpResult, MemPlaceMeta,
     Scalar,
 };
-use rustc_hir::Mutability;
 use rustc_middle::mir;
 use rustc_middle::mir::interpret::{EvalToValTreeResult, GlobalId};
-use rustc_middle::ty::{self, TyCtxt};
+use rustc_middle::ty::{self, Mutability, TyCtxt};
 use rustc_span::{source_map::DUMMY_SP, symbol::Symbol};
 
 mod error;

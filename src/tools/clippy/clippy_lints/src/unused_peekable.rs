@@ -8,6 +8,7 @@ use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::hir::nested_filter::OnlyBodies;
 use rustc_session::{declare_lint_pass, declare_tool_lint};
 use rustc_span::sym;
+use rustc_middle::ty;
 
 declare_clippy_lint! {
     /// ### What it does
@@ -61,7 +62,7 @@ impl<'tcx> LateLintPass<'tcx> for UnusedPeekable {
                 && let Some(init) = local.init
                 && !init.span.from_expansion()
                 && let Some(ty) = cx.typeck_results().expr_ty_opt(init)
-                && let (ty, _, Mutability::Mut) = peel_mid_ty_refs_is_mutable(ty)
+                && let (ty, _, ty::Mutability::Mut) = peel_mid_ty_refs_is_mutable(ty)
                 && match_type(cx, ty, &paths::PEEKABLE)
             {
                 let mut vis = PeekableVisitor::new(cx, binding);
@@ -221,7 +222,7 @@ impl<'tcx> Visitor<'tcx> for PeekableVisitor<'_, 'tcx> {
 
 fn arg_is_mut_peekable(cx: &LateContext<'_>, arg: &Expr<'_>) -> bool {
     if let Some(ty) = cx.typeck_results().expr_ty_opt(arg)
-        && let (ty, _, Mutability::Mut) = peel_mid_ty_refs_is_mutable(ty)
+        && let (ty, _, ty::Mutability::Mut) = peel_mid_ty_refs_is_mutable(ty)
         && match_type(cx, ty, &paths::PEEKABLE)
     {
         true

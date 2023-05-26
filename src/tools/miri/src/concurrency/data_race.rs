@@ -46,12 +46,12 @@ use std::{
     mem,
 };
 
-use rustc_ast::Mutability;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_index::{Idx, IndexVec};
 use rustc_middle::mir;
 use rustc_span::Span;
 use rustc_target::abi::{Align, Size};
+use rustc_middle::ty::Mutability;
 
 use crate::diagnostics::RacingOp;
 use crate::*;

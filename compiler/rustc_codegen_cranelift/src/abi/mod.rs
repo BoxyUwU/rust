@@ -670,7 +670,7 @@ pub(crate) fn codegen_drop<'tcx>(
                     fx.layout_of(fx.tcx.mk_ref(
                         fx.tcx.lifetimes.re_erased,
                         ty,
-                        crate::rustc_hir::Mutability::Mut,
+                        ty::Mutability::Mut,
                     )),
                 );
                 let arg_value = adjust_arg_for_abi(fx, arg_value, &fn_abi.args[0], true);

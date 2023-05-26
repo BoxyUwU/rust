@@ -113,18 +113,18 @@ pub trait Relate<'tcx>: TypeFoldable<TyCtxt<'tcx>> + PartialEq + Copy {
 
 pub fn relate_type_and_mut<'tcx, R: TypeRelation<'tcx>>(
     relation: &mut R,
-    (a_ty, a_mutbl): (Ty<'tcx>, hir::Mutability),
-    (b_ty, b_mutbl): (Ty<'tcx>, hir::Mutability),
+    (a_ty, a_mutbl): (Ty<'tcx>, rustc_type_ir::Mutability),
+    (b_ty, b_mutbl): (Ty<'tcx>, rustc_type_ir::Mutability),
     base_ty: Ty<'tcx>,
-) -> RelateResult<'tcx, (Ty<'tcx>, hir::Mutability)> {
+) -> RelateResult<'tcx, (Ty<'tcx>, rustc_type_ir::Mutability)> {
     debug!("{}.mts({:?}, {:?})", relation.tag(), (a_ty, a_mutbl), (b_ty, b_mutbl));
     if a_mutbl != b_mutbl {
         Err(TypeError::Mutability)
     } else {
         let mutbl = a_mutbl;
         let (variance, info) = match mutbl {
-            hir::Mutability::Not => (ty::Covariant, ty::VarianceDiagInfo::None),
-            hir::Mutability::Mut => {
+            rustc_type_ir::Mutability::Not => (ty::Covariant, ty::VarianceDiagInfo::None),
+            rustc_type_ir::Mutability::Mut => {
                 (ty::Invariant, ty::VarianceDiagInfo::Invariant { ty: base_ty, param_index: 0 })
             }
         };

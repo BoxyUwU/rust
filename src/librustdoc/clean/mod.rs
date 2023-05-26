@@ -1662,10 +1662,23 @@ pub(crate) fn clean_ty<'tcx>(ty: &hir::Ty<'tcx>, cx: &mut DocContext<'tcx>) -> T
 
     match ty.kind {
         TyKind::Never => Primitive(PrimitiveType::Never),
-        TyKind::Ptr(ref m) => RawPointer(m.mutbl, Box::new(clean_ty(m.ty, cx))),
+        TyKind::Ptr(ref m) => RawPointer(
+            match m.mutbl {
+                Mutability::Not => ty::Mutability::Not,
+                Mutability::Mut => ty::Mutability::Mut,
+            },
+            Box::new(clean_ty(m.ty, cx)),
+        ),
         TyKind::Ref(ref l, ref m) => {
             let lifetime = if l.is_anonymous() { None } else { Some(clean_lifetime(*l, cx)) };
-            BorrowedRef { lifetime, mutability: m.mutbl, type_: Box::new(clean_ty(m.ty, cx)) }
+            BorrowedRef {
+                lifetime,
+                mutability: match m.mutbl {
+                    Mutability::Not => ty::Mutability::Not,
+                    Mutability::Mut => ty::Mutability::Mut,
+                },
+                type_: Box::new(clean_ty(m.ty, cx)),
+            }
         }
         TyKind::Slice(ty) => Slice(Box::new(clean_ty(ty, cx))),
         TyKind::Array(ty, ref length) => {
@@ -2303,6 +2316,10 @@ fn clean_maybe_renamed_item<'tcx>(
     cx.with_param_env(def_id, |cx| {
         let kind = match item.kind {
             ItemKind::Static(ty, mutability, body_id) => {
+                let mutability = match mutability {
+                    ast::Mutability::Not => ty::Mutability::Not,
+                    ast::Mutability::Mut => ty::Mutability::Mut,
+                };
                 StaticItem(Static { type_: clean_ty(ty, cx), mutability, expr: Some(body_id) })
             }
             ItemKind::Const(ty, body_id) => ConstantItem(Constant {
@@ -2641,6 +2658,10 @@ fn clean_maybe_renamed_foreign_item<'tcx>(
                 ForeignFunctionItem(Box::new(Function { decl, generics }))
             }
             hir::ForeignItemKind::Static(ty, mutability) => {
+                let mutability = match mutability {
+                    ast::Mutability::Not => ty::Mutability::Not,
+                    ast::Mutability::Mut => ty::Mutability::Mut,
+                };
                 ForeignStaticItem(Static { type_: clean_ty(ty, cx), mutability, expr: None })
             }
             hir::ForeignItemKind::Type => ForeignTypeItem,

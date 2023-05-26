@@ -10,7 +10,6 @@ use rustc_data_structures::fx::FxHashSet;
 use rustc_hir as hir;
 use rustc_hir::def::{DefKind, Res};
 use rustc_hir::def_id::{DefId, DefIdSet, LocalDefId};
-use rustc_hir::Mutability;
 use rustc_metadata::creader::{CStore, LoadedMacro};
 use rustc_middle::ty::{self, TyCtxt};
 use rustc_span::hygiene::MacroKind;
@@ -642,7 +641,7 @@ fn build_static(cx: &mut DocContext<'_>, did: DefId, mutable: bool) -> clean::St
             cx,
             Some(did),
         ),
-        mutability: if mutable { Mutability::Mut } else { Mutability::Not },
+        mutability: if mutable { ty::Mutability::Mut } else { ty::Mutability::Not },
         expr: None,
     }
 }

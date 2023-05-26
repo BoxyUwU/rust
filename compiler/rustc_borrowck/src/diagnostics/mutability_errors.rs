@@ -70,7 +70,7 @@ impl<'a, 'tcx> MirBorrowckCtxt<'a, 'tcx> {
                     .place
                     .place
                     .deref_tys()
-                    .any(|ty| matches!(ty.kind(), ty::Ref(.., hir::Mutability::Not)));
+                    .any(|ty| matches!(ty.kind(), ty::Ref(.., ty::Mutability::Not)));
 
                 // If the place is immutable then:
                 //
@@ -1148,7 +1148,7 @@ pub fn mut_borrow_of_mutable_ref(local_decl: &LocalDecl<'_>, local_name: Option<
         LocalInfo::User(mir::BindingForm::Var(mir::VarBindingForm {
             binding_mode: ty::BindingMode::BindByValue(Mutability::Not),
             ..
-        })) => matches!(local_decl.ty.kind(), ty::Ref(_, _, hir::Mutability::Mut)),
+        })) => matches!(local_decl.ty.kind(), ty::Ref(_, _, ty::Mutability::Mut)),
         LocalInfo::User(mir::BindingForm::ImplicitSelf(kind)) => {
             // Check if the user variable is a `&mut self` and we can therefore
             // suggest removing the `&mut`.
@@ -1161,7 +1161,7 @@ pub fn mut_borrow_of_mutable_ref(local_decl: &LocalDecl<'_>, local_name: Option<
             // Otherwise, check if the name is the `self` keyword - in which case
             // we have an explicit self. Do the same thing in this case and check
             // for a `self: &mut Self` to suggest removing the `&mut`.
-            matches!(local_decl.ty.kind(), ty::Ref(_, _, hir::Mutability::Mut))
+            matches!(local_decl.ty.kind(), ty::Ref(_, _, ty::Mutability::Mut))
         }
         _ => false,
     }
@@ -1273,7 +1273,7 @@ fn suggest_ampmut<'tcx>(
         // otherwise, suggest that the user annotates the binding; we provide the
         // type of the local.
         let ty_mut = decl_ty.builtin_deref(true).unwrap();
-        assert_eq!(ty_mut.mutbl, hir::Mutability::Not);
+        assert_eq!(ty_mut.mutbl, ty::Mutability::Not);
 
         (
             false,

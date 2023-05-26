@@ -406,6 +406,10 @@ impl<'tcx> Cx<'tcx> {
             }
 
             hir::ExprKind::AddrOf(hir::BorrowKind::Raw, mutability, ref arg) => {
+                let mutability = match mutability {
+                    hir::Mutability::Not => ty::Mutability::Not,
+                    hir::Mutability::Mut => ty::Mutability::Mut,
+                };
                 ExprKind::AddressOf { mutability, arg: self.mirror_expr(arg) }
             }
 
@@ -1144,6 +1148,15 @@ impl ToBorrowKind for hir::Mutability {
         match *self {
             hir::Mutability::Mut => BorrowKind::Mut { allow_two_phase_borrow: false },
             hir::Mutability::Not => BorrowKind::Shared,
+        }
+    }
+}
+
+impl ToBorrowKind for ty::Mutability {
+    fn to_borrow_kind(&self) -> BorrowKind {
+        match *self {
+            ty::Mutability::Mut => BorrowKind::Mut { allow_two_phase_borrow: false },
+            ty::Mutability::Not => BorrowKind::Shared,
         }
     }
 }

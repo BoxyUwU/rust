@@ -201,7 +201,7 @@ impl<'a, 'tcx> ConfirmContext<'a, 'tcx> {
                 target = match target.kind() {
                     &ty::RawPtr(ty::RawPtr { ty, mutbl }) => {
                         assert!(mutbl.is_mut());
-                        self.tcx.mk_ptr(ty::RawPtr { mutbl: hir::Mutability::Not, ty })
+                        self.tcx.mk_ptr(ty::RawPtr { mutbl: ty::Mutability::Not, ty })
                     }
                     other => panic!("Cannot adjust receiver type {:?} to const ptr", other),
                 };

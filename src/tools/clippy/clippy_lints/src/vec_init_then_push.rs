@@ -7,12 +7,13 @@ use core::ops::ControlFlow;
 use rustc_errors::Applicability;
 use rustc_hir::def::Res;
 use rustc_hir::{
-    BindingAnnotation, Block, Expr, ExprKind, HirId, Local, Mutability, PatKind, QPath, Stmt, StmtKind, UnOp,
+    self as hir, BindingAnnotation, Block, Expr, ExprKind, HirId, Local, PatKind, QPath, Stmt, StmtKind, UnOp,
 };
 use rustc_lint::{LateContext, LateLintPass, LintContext};
 use rustc_middle::lint::in_external_macro;
 use rustc_session::{declare_tool_lint, impl_lint_pass};
 use rustc_span::{Span, Symbol};
+use rustc_middle::ty::Mutability;
 
 declare_clippy_lint! {
     /// ### What it does
@@ -80,7 +81,7 @@ impl VecPushSearcher {
             let adjusted_mut = adjusted_ty.ref_mutability().unwrap_or(Mutability::Not);
             needs_mut |= adjusted_mut == Mutability::Mut;
             match parent.kind {
-                ExprKind::AddrOf(_, Mutability::Mut, _) => {
+                ExprKind::AddrOf(_, hir::Mutability::Mut, _) => {
                     needs_mut = true;
                     return ControlFlow::Break(true);
                 },
@@ -98,7 +99,7 @@ impl VecPushSearcher {
                     needs_mut |= cx.typeck_results().expr_ty_adjusted(last_place).ref_mutability()
                         == Some(Mutability::Mut)
                         || get_parent_expr(cx, last_place)
-                            .map_or(false, |e| matches!(e.kind, ExprKind::AddrOf(_, Mutability::Mut, _)));
+                            .map_or(false, |e| matches!(e.kind, ExprKind::AddrOf(_, hir::Mutability::Mut, _)));
                 },
                 ExprKind::MethodCall(_, recv, ..)
                     if recv.hir_id == e.hir_id

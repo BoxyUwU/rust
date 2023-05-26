@@ -1,8 +1,8 @@
 use rustc_data_structures::fx::FxHashMap;
-use rustc_hir::{def_id::DefId, Movability, Mutability};
+use rustc_hir::{def_id::DefId, Movability};
 use rustc_infer::traits::query::NoSolution;
 use rustc_middle::ty::{
-    self, Ty, TyCtxt, TypeFoldable, TypeFolder, TypeSuperFoldable, TypeVisitableExt,
+    self, Mutability, Ty, TyCtxt, TypeFoldable, TypeFolder, TypeSuperFoldable, TypeVisitableExt,
 };
 
 use crate::solve::EvalCtxt;

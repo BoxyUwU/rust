@@ -7,11 +7,11 @@ use rustc_errors::Applicability;
 use rustc_hir::def_id::DefIdSet;
 use rustc_hir::{
     def::Res, def_id::DefId, lang_items::LangItem, AssocItemKind, BinOpKind, Expr, ExprKind, FnRetTy, GenericArg,
-    GenericBound, ImplItem, ImplItemKind, ImplicitSelfKind, Item, ItemKind, Mutability, Node, PathSegment, PrimTy,
+    GenericBound, ImplItem, ImplItemKind, ImplicitSelfKind, Item, ItemKind, Node, PathSegment, PrimTy,
     QPath, TraitItemRef, TyKind, TypeBindingKind,
 };
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{self, AssocKind, FnSig, Ty};
+use rustc_middle::ty::{self, AssocKind, FnSig, Ty, Mutability};
 use rustc_session::{declare_lint_pass, declare_tool_lint};
 use rustc_span::{
     source_map::{Span, Spanned, Symbol},

@@ -1759,28 +1759,28 @@ impl<'tcx> TyCtxt<'tcx> {
     }
 
     #[inline]
-    pub fn mk_ref(self, r: Region<'tcx>, t: Ty<'tcx>, m: hir::Mutability) -> Ty<'tcx> {
+    pub fn mk_ref(self, r: Region<'tcx>, t: Ty<'tcx>, m: rustc_type_ir::Mutability) -> Ty<'tcx> {
         self.mk_ty_from_kind(Ref(r, t, m))
     }
 
     #[inline]
     pub fn mk_mut_ref(self, r: Region<'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
-        self.mk_ref(r, ty, hir::Mutability::Mut)
+        self.mk_ref(r, ty, rustc_type_ir::Mutability::Mut)
     }
 
     #[inline]
     pub fn mk_imm_ref(self, r: Region<'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
-        self.mk_ref(r, ty, hir::Mutability::Not)
+        self.mk_ref(r, ty, rustc_type_ir::Mutability::Not)
     }
 
     #[inline]
     pub fn mk_mut_ptr(self, ty: Ty<'tcx>) -> Ty<'tcx> {
-        self.mk_ptr(ty::RawPtr { ty, mutbl: hir::Mutability::Mut })
+        self.mk_ptr(ty::RawPtr { ty, mutbl: rustc_type_ir::Mutability::Mut })
     }
 
     #[inline]
     pub fn mk_imm_ptr(self, ty: Ty<'tcx>) -> Ty<'tcx> {
-        self.mk_ptr(ty::RawPtr { ty, mutbl: hir::Mutability::Not })
+        self.mk_ptr(ty::RawPtr { ty, mutbl: rustc_type_ir::Mutability::Not })
     }
 
     #[inline]

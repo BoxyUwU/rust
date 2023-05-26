@@ -1990,7 +1990,7 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
                     CastKind::Pointer(PointerCast::MutToConstPointer) => {
                         let ty::RawPtr(ty::RawPtr {
                             ty: ty_from,
-                            mutbl: hir::Mutability::Mut,
+                            mutbl: ty::Mutability::Mut,
                         }) = op.ty(body, tcx).kind() else {
                             span_mirbug!(
                                 self,
@@ -2002,7 +2002,7 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
                         };
                         let ty::RawPtr(ty::RawPtr {
                             ty: ty_to,
-                            mutbl: hir::Mutability::Not,
+                            mutbl: ty::Mutability::Not,
                         }) = ty.kind() else {
                             span_mirbug!(
                                 self,
@@ -2489,13 +2489,13 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
                             });
 
                             match mutbl {
-                                hir::Mutability::Not => {
+                                ty::Mutability::Not => {
                                     // Immutable reference. We don't need the base
                                     // to be valid for the entire lifetime of
                                     // the borrow.
                                     break;
                                 }
-                                hir::Mutability::Mut => {
+                                ty::Mutability::Mut => {
                                     // Mutable reference. We *do* need the base
                                     // to be valid, because after the base becomes
                                     // invalid, someone else can use our mutable deref.

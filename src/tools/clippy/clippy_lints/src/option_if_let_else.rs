@@ -13,6 +13,7 @@ use rustc_hir::{
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_session::{declare_lint_pass, declare_tool_lint};
 use rustc_span::SyntaxContext;
+use rustc_middle::ty;
 
 declare_clippy_lint! {
     /// ### What it does
@@ -155,9 +156,9 @@ fn try_get_option_occurrence<'tcx>(
                     match some_captures.get(local_id)
                         .or_else(|| (method_sugg == "map_or_else").then_some(()).and_then(|_| none_captures.get(local_id)))
                     {
-                        Some(CaptureKind::Value | CaptureKind::Ref(Mutability::Mut)) => return None,
-                        Some(CaptureKind::Ref(Mutability::Not)) if as_mut => return None,
-                        Some(CaptureKind::Ref(Mutability::Not)) | None => (),
+                        Some(CaptureKind::Value | CaptureKind::Ref(ty::Mutability::Mut)) => return None,
+                        Some(CaptureKind::Ref(ty::Mutability::Not)) if as_mut => return None,
+                        Some(CaptureKind::Ref(ty::Mutability::Not)) | None => (),
                     }
                 }
             }

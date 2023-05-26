@@ -26,7 +26,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
         let ok = self.try_overloaded_deref(expr.span, oprnd_ty)?;
         let method = self.register_infer_ok_obligations(ok);
-        if let ty::Ref(region, _, hir::Mutability::Not) = method.sig.inputs()[0].kind() {
+        if let ty::Ref(region, _, ty::Mutability::Not) = method.sig.inputs()[0].kind() {
             self.apply_adjustments(
                 oprnd_expr,
                 vec![Adjustment {
@@ -159,10 +159,10 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
                 let method = self.register_infer_ok_obligations(result);
 
                 let mut adjustments = self.adjust_steps(autoderef);
-                if let ty::Ref(region, _, hir::Mutability::Not) = method.sig.inputs()[0].kind() {
+                if let ty::Ref(region, _, ty::Mutability::Not) = method.sig.inputs()[0].kind() {
                     adjustments.push(Adjustment {
                         kind: Adjust::Borrow(AutoBorrow::Ref(*region, AutoBorrowMutability::Not)),
-                        target: self.tcx.mk_ref(*region, adjusted_ty, hir::Mutability::Not),
+                        target: self.tcx.mk_ref(*region, adjusted_ty, ty::Mutability::Not),
                     });
                 } else {
                     span_bug!(expr.span, "input to index is not a ref?");
@@ -402,7 +402,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         debug!("convert_place_op_to_mutable: method={:?}", method);
         self.write_method_call(expr.hir_id, method);
 
-        let ty::Ref(region, _, hir::Mutability::Mut) = method.sig.inputs()[0].kind() else {
+        let ty::Ref(region, _, ty::Mutability::Mut) = method.sig.inputs()[0].kind() else {
             span_bug!(expr.span, "input to mutable place op is not a mut ref?");
         };
 

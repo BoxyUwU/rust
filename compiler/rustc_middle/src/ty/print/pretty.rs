@@ -651,13 +651,7 @@ pub trait PrettyPrinter<'tcx>:
             ty::Uint(t) => p!(write("{}", t.name_str())),
             ty::Float(t) => p!(write("{}", t.name_str())),
             ty::RawPtr(ref tm) => {
-                p!(write(
-                    "*{} ",
-                    match tm.mutbl {
-                        hir::Mutability::Mut => "mut",
-                        hir::Mutability::Not => "const",
-                    }
-                ));
+                p!(write("{} ", tm.mutbl.ptr_prefix_str()));
                 p!(print(tm.ty))
             }
             ty::Ref(r, ty, mutbl) => {

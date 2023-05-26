@@ -257,19 +257,19 @@ impl<'tcx> BinOp {
 }
 
 impl BorrowKind {
-    pub fn to_mutbl_lossy(self) -> hir::Mutability {
+    pub fn to_mutbl_lossy(self) -> rustc_type_ir::Mutability {
         match self {
-            BorrowKind::Mut { .. } => hir::Mutability::Mut,
-            BorrowKind::Shared => hir::Mutability::Not,
+            BorrowKind::Mut { .. } => rustc_type_ir::Mutability::Mut,
+            BorrowKind::Shared => rustc_type_ir::Mutability::Not,
 
             // We have no type corresponding to a unique imm borrow, so
             // use `&mut`. It gives all the capabilities of a `&uniq`
             // and hence is a safe "over approximation".
-            BorrowKind::Unique => hir::Mutability::Mut,
+            BorrowKind::Unique => rustc_type_ir::Mutability::Mut,
 
             // We have no type corresponding to a shallow borrow, so use
             // `&` as an approximation.
-            BorrowKind::Shallow => hir::Mutability::Not,
+            BorrowKind::Shallow => rustc_type_ir::Mutability::Not,
         }
     }
 }

@@ -4,9 +4,9 @@ use clippy_utils::source::snippet;
 use clippy_utils::sugg;
 use if_chain::if_chain;
 use rustc_errors::Applicability;
-use rustc_hir::{Expr, Mutability};
+use rustc_hir::Expr;
 use rustc_lint::LateContext;
-use rustc_middle::ty::{self, Ty};
+use rustc_middle::ty::{self, Ty, Mutability};
 
 /// Checks for `transmute_bytes_to_str` and `transmute_ptr_to_ptr` lints.
 /// Returns `true` if either one triggered, otherwise returns `false`.

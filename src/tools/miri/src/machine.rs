@@ -10,7 +10,6 @@ use std::process;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 
-use rustc_ast::ast::Mutability;
 use rustc_const_eval::const_eval::CheckAlignment;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 #[allow(unused)]
@@ -20,7 +19,7 @@ use rustc_middle::{
     ty::{
         self,
         layout::{LayoutCx, LayoutError, LayoutOf, TyAndLayout},
-        Instance, Ty, TyCtxt, RawPtr,
+        Instance, RawPtr, Ty, TyCtxt, Mutability,
     },
 };
 use rustc_span::def_id::{CrateNum, DefId};

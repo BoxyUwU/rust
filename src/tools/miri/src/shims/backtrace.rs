@@ -1,7 +1,6 @@
 use crate::*;
-use rustc_ast::ast::Mutability;
 use rustc_middle::ty::layout::LayoutOf as _;
-use rustc_middle::ty::{self, Instance};
+use rustc_middle::ty::{self, Instance, Mutability};
 use rustc_span::{BytePos, Loc, Symbol};
 use rustc_target::{abi::Size, spec::abi::Abi};
 

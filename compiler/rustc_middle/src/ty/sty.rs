@@ -45,7 +45,7 @@ pub type RegionKind<'tcx> = IrRegionKind<TyCtxt<'tcx>>;
 #[derive(HashStable, TypeFoldable, TypeVisitable, Lift)]
 pub struct RawPtr<'tcx> {
     pub ty: Ty<'tcx>,
-    pub mutbl: hir::Mutability,
+    pub mutbl: rustc_type_ir::Mutability,
 }
 
 #[derive(Clone, PartialEq, PartialOrd, Eq, Ord, Hash, TyEncodable, TyDecodable, Copy)]
@@ -1917,13 +1917,14 @@ impl<'tcx> Ty<'tcx> {
     pub fn is_mutable_ptr(self) -> bool {
         matches!(
             self.kind(),
-            RawPtr(RawPtr { mutbl: hir::Mutability::Mut, .. }) | Ref(_, _, hir::Mutability::Mut)
+            RawPtr(RawPtr { mutbl: rustc_type_ir::Mutability::Mut, .. })
+                | Ref(_, _, rustc_type_ir::Mutability::Mut)
         )
     }
 
     /// Get the mutability of the reference or `None` when not a reference
     #[inline]
-    pub fn ref_mutability(self) -> Option<hir::Mutability> {
+    pub fn ref_mutability(self) -> Option<rustc_type_ir::Mutability> {
         match self.kind() {
             Ref(_, _, mutability) => Some(*mutability),
             _ => None,
@@ -2098,7 +2099,7 @@ impl<'tcx> Ty<'tcx> {
     pub fn builtin_deref(self, explicit: bool) -> Option<RawPtr<'tcx>> {
         match self.kind() {
             Adt(def, _) if def.is_box() => {
-                Some(RawPtr { ty: self.boxed_ty(), mutbl: hir::Mutability::Not })
+                Some(RawPtr { ty: self.boxed_ty(), mutbl: rustc_type_ir::Mutability::Not })
             }
             Ref(_, ty, mutbl) => Some(RawPtr { ty: *ty, mutbl: *mutbl }),
             RawPtr(mt) if explicit => Some(*mt),
@@ -2412,11 +2413,11 @@ impl<'tcx> Ty<'tcx> {
             ty::FnPtr(..) => false,
 
             // Definitely absolutely not copy.
-            ty::Ref(_, _, hir::Mutability::Mut) => false,
+            ty::Ref(_, _, rustc_type_ir::Mutability::Mut) => false,
 
             // Thin pointers & thin shared references are pure-clone-copy, but for
             // anything with custom metadata it might be more complicated.
-            ty::Ref(_, _, hir::Mutability::Not) | ty::RawPtr(..) => false,
+            ty::Ref(_, _, rustc_type_ir::Mutability::Not) | ty::RawPtr(..) => false,
 
             ty::Generator(..) | ty::GeneratorWitness(..) | ty::GeneratorWitnessMIR(..) => false,
 
