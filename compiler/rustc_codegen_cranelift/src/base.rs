@@ -630,11 +630,8 @@ fn codegen_stmt<'tcx>(
                     let to_ty = fx.monomorphize(to_ty);
 
                     fn is_fat_ptr<'tcx>(fx: &FunctionCx<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
-                        ty.builtin_deref(true).is_some_and(
-                            |(pointee_ty, _)| {
-                                has_ptr_meta(fx.tcx, pointee_ty)
-                            },
-                        )
+                        ty.builtin_deref(true)
+                            .is_some_and(|(pointee_ty, _)| has_ptr_meta(fx.tcx, pointee_ty))
                     }
 
                     if is_fat_ptr(fx, from_ty) {

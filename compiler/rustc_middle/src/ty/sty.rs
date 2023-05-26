@@ -2099,9 +2099,7 @@ impl<'tcx> Ty<'tcx> {
     /// Some types -- notably unsafe ptrs -- can only be dereferenced explicitly.
     pub fn builtin_deref(self, explicit: bool) -> Option<(Ty<'tcx>, rustc_type_ir::Mutability)> {
         match self.kind() {
-            Adt(def, _) if def.is_box() => {
-                Some((self.boxed_ty(), rustc_type_ir::Mutability::Not))
-            }
+            Adt(def, _) if def.is_box() => Some((self.boxed_ty(), rustc_type_ir::Mutability::Not)),
             Ref(_, ty, mutbl) => Some((*ty, *mutbl)),
             RawPtr(mt) if explicit => Some((mt.ty, mt.mutbl)),
             _ => None,

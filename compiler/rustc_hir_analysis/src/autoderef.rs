@@ -66,14 +66,13 @@ impl<'a, 'tcx> Iterator for Autoderef<'a, 'tcx> {
         }
 
         // Otherwise, deref if type is derefable:
-        let (kind, new_ty) = if let Some((ty, _)) =
-            self.state.cur_ty.builtin_deref(self.include_raw_pointers)
-        {
-            debug_assert_eq!(ty, self.infcx.resolve_vars_if_possible(ty));
-            // NOTE: we may still need to normalize the built-in deref in case
-            // we have some type like `&<Ty as Trait>::Assoc`, since users of
-            // autoderef expect this type to have been structurally normalized.
-            if self.infcx.tcx.trait_solver_next()
+        let (kind, new_ty) =
+            if let Some((ty, _)) = self.state.cur_ty.builtin_deref(self.include_raw_pointers) {
+                debug_assert_eq!(ty, self.infcx.resolve_vars_if_possible(ty));
+                // NOTE: we may still need to normalize the built-in deref in case
+                // we have some type like `&<Ty as Trait>::Assoc`, since users of
+                // autoderef expect this type to have been structurally normalized.
+                if self.infcx.tcx.trait_solver_next()
                 && let ty::Alias(ty::Projection, _) = ty.kind()
             {
                 let (normalized_ty, obligations) = self.structurally_normalize(ty)?;
@@ -82,11 +81,11 @@ impl<'a, 'tcx> Iterator for Autoderef<'a, 'tcx> {
             } else {
                 (AutoderefKind::Builtin, ty)
             }
-        } else if let Some(ty) = self.overloaded_deref_ty(self.state.cur_ty) {
-            (AutoderefKind::Overloaded, ty)
-        } else {
-            return None;
-        };
+            } else if let Some(ty) = self.overloaded_deref_ty(self.state.cur_ty) {
+                (AutoderefKind::Overloaded, ty)
+            } else {
+                return None;
+            };
 
         if new_ty.references_error() {
             return None;
