@@ -41,7 +41,7 @@ use rustc_type_ir::TyKind as IrTyKind;
 pub type TyKind<'tcx> = IrTyKind<TyCtxt<'tcx>>;
 pub type RegionKind<'tcx> = IrRegionKind<TyCtxt<'tcx>>;
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, TyEncodable, TyDecodable)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, TyEncodable, TyDecodable)]
 #[derive(HashStable, TypeFoldable, TypeVisitable, Lift)]
 pub struct RawPtr<'tcx> {
     pub ty: Ty<'tcx>,
@@ -1511,10 +1511,11 @@ impl Atom for RegionVid {
 
 rustc_index::newtype_index! {
     #[derive(HashStable)]
+    #[debug_format = "{}"]
     pub struct BoundVar {}
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, TyEncodable, TyDecodable)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, TyEncodable, TyDecodable)]
 #[derive(HashStable)]
 pub struct BoundTy {
     pub var: BoundVar,
