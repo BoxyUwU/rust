@@ -1301,8 +1301,8 @@ impl<'tcx> Ty<'tcx> {
 
 pub enum ExplicitSelf<'tcx> {
     ByValue,
-    ByReference(ty::Region<'tcx>, rustc_type_ir::Mutability),
-    ByRawPointer(rustc_type_ir::Mutability),
+    ByReference(ty::Region<'tcx>, ty::Mutability),
+    ByRawPointer(ty::Mutability),
     ByBox,
     Other,
 }

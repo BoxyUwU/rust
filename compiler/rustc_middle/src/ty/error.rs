@@ -295,7 +295,7 @@ impl<'tcx> Ty<'tcx> {
             ty::Slice(_) => "slice".into(),
             ty::RawPtr(_) => "raw pointer".into(),
             ty::Ref(.., mutbl) => match mutbl {
-                rustc_type_ir::Mutability::Mut => "mutable reference",
+                ty::Mutability::Mut => "mutable reference",
                 _ => "reference",
             }
             .into(),

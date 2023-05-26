@@ -981,10 +981,10 @@ where
                 // attributes in LLVM have compile-time cost even in unoptimized builds).
                 let optimize = tcx.sess.opts.optimize != OptLevel::No;
                 let kind = match mt {
-                    rustc_type_ir::Mutability::Not => PointerKind::SharedRef {
+                    ty::Mutability::Not => PointerKind::SharedRef {
                         frozen: optimize && ty.is_freeze(tcx, cx.param_env()),
                     },
-                    rustc_type_ir::Mutability::Mut => PointerKind::MutableRef {
+                    ty::Mutability::Mut => PointerKind::MutableRef {
                         unpin: optimize && ty.is_unpin(tcx, cx.param_env()),
                     },
                 };

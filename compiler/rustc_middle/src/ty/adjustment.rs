@@ -172,11 +172,11 @@ impl AutoBorrowMutability {
     }
 }
 
-impl From<AutoBorrowMutability> for rustc_type_ir::Mutability {
+impl From<AutoBorrowMutability> for ty::Mutability {
     fn from(m: AutoBorrowMutability) -> Self {
         match m {
-            AutoBorrowMutability::Mut { .. } => rustc_type_ir::Mutability::Mut,
-            AutoBorrowMutability::Not => rustc_type_ir::Mutability::Not,
+            AutoBorrowMutability::Mut { .. } => ty::Mutability::Mut,
+            AutoBorrowMutability::Not => ty::Mutability::Not,
         }
     }
 }

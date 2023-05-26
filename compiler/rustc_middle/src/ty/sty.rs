@@ -45,7 +45,7 @@ pub type RegionKind<'tcx> = IrRegionKind<TyCtxt<'tcx>>;
 #[derive(HashStable, TypeFoldable, TypeVisitable, Lift)]
 pub struct RawPtr<'tcx> {
     pub ty: Ty<'tcx>,
-    pub mutbl: rustc_type_ir::Mutability,
+    pub mutbl: ty::Mutability,
 }
 
 #[derive(Clone, PartialEq, PartialOrd, Eq, Ord, Hash, TyEncodable, TyDecodable, Copy)]
@@ -1918,14 +1918,14 @@ impl<'tcx> Ty<'tcx> {
     pub fn is_mutable_ptr(self) -> bool {
         matches!(
             self.kind(),
-            RawPtr(RawPtr { mutbl: rustc_type_ir::Mutability::Mut, .. })
-                | Ref(_, _, rustc_type_ir::Mutability::Mut)
+            RawPtr(RawPtr { mutbl: ty::Mutability::Mut, .. })
+                | Ref(_, _, ty::Mutability::Mut)
         )
     }
 
     /// Get the mutability of the reference or `None` when not a reference
     #[inline]
-    pub fn ref_mutability(self) -> Option<rustc_type_ir::Mutability> {
+    pub fn ref_mutability(self) -> Option<ty::Mutability> {
         match self.kind() {
             Ref(_, _, mutability) => Some(*mutability),
             _ => None,
@@ -2097,9 +2097,9 @@ impl<'tcx> Ty<'tcx> {
     ///
     /// The parameter `explicit` indicates if this is an *explicit* dereference.
     /// Some types -- notably unsafe ptrs -- can only be dereferenced explicitly.
-    pub fn builtin_deref(self, explicit: bool) -> Option<(Ty<'tcx>, rustc_type_ir::Mutability)> {
+    pub fn builtin_deref(self, explicit: bool) -> Option<(Ty<'tcx>, ty::Mutability)> {
         match self.kind() {
-            Adt(def, _) if def.is_box() => Some((self.boxed_ty(), rustc_type_ir::Mutability::Not)),
+            Adt(def, _) if def.is_box() => Some((self.boxed_ty(), ty::Mutability::Not)),
             Ref(_, ty, mutbl) => Some((*ty, *mutbl)),
             RawPtr(mt) if explicit => Some((mt.ty, mt.mutbl)),
             _ => None,
@@ -2412,11 +2412,11 @@ impl<'tcx> Ty<'tcx> {
             ty::FnPtr(..) => false,
 
             // Definitely absolutely not copy.
-            ty::Ref(_, _, rustc_type_ir::Mutability::Mut) => false,
+            ty::Ref(_, _, ty::Mutability::Mut) => false,
 
             // Thin pointers & thin shared references are pure-clone-copy, but for
             // anything with custom metadata it might be more complicated.
-            ty::Ref(_, _, rustc_type_ir::Mutability::Not) | ty::RawPtr(..) => false,
+            ty::Ref(_, _, ty::Mutability::Not) | ty::RawPtr(..) => false,
 
             ty::Generator(..) | ty::GeneratorWitness(..) | ty::GeneratorWitnessMIR(..) => false,
 
