@@ -68,8 +68,8 @@ fn unsize_ptr<'tcx>(
 ) -> (Value, Value) {
     match (&src_layout.ty.kind(), &dst_layout.ty.kind()) {
         (&ty::Ref(_, a, _), &ty::Ref(_, b, _))
-        | (&ty::Ref(_, a, _), &ty::RawPtr(ty::TypeAndMut { ty: b, .. }))
-        | (&ty::RawPtr(ty::TypeAndMut { ty: a, .. }), &ty::RawPtr(ty::TypeAndMut { ty: b, .. })) => {
+        | (&ty::Ref(_, a, _), &ty::RawPtr(ty::RawPtr { ty: b, .. }))
+        | (&ty::RawPtr(ty::RawPtr { ty: a, .. }), &ty::RawPtr(ty::RawPtr { ty: b, .. })) => {
             (src, unsized_info(fx, *a, *b, old_info))
         }
         (&ty::Adt(def_a, _), &ty::Adt(def_b, _)) if def_a.is_box() && def_b.is_box() => {
@@ -130,7 +130,7 @@ pub(crate) fn coerce_unsized_into<'tcx>(
     let dst_ty = dst.layout().ty;
     let mut coerce_ptr = || {
         let (base, info) =
-            if fx.layout_of(src.layout().ty.builtin_deref(true).unwrap().ty).is_unsized() {
+            if fx.layout_of(src.layout().ty.builtin_deref(true).unwrap().0).is_unsized() {
                 let (old_base, old_info) = src.load_scalar_pair(fx);
                 unsize_ptr(fx, old_base, src.layout(), dst.layout(), Some(old_info))
             } else {

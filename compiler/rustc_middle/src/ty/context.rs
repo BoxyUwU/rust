@@ -27,8 +27,8 @@ use crate::traits::solve::{
 use crate::ty::{
     self, AdtDef, AdtDefData, AdtKind, Binder, Const, ConstData, FloatTy, FloatVar, FloatVid,
     GenericParamDefKind, ImplPolarity, InferTy, IntTy, IntVar, IntVid, List, ParamConst, ParamTy,
-    PolyExistentialPredicate, PolyFnSig, Predicate, PredicateKind, Region, RegionKind, ReprOptions,
-    TraitObjectVisitor, Ty, TyKind, TyVar, TyVid, TypeAndMut, UintTy, Visibility,
+    PolyExistentialPredicate, PolyFnSig, Predicate, PredicateKind, RawPtr, Region, RegionKind,
+    ReprOptions, TraitObjectVisitor, Ty, TyKind, TyVar, TyVid, UintTy, Visibility,
 };
 use crate::ty::{GenericArg, InternalSubsts, SubstsRef};
 use rustc_ast::{self as ast, attr};
@@ -94,7 +94,7 @@ impl<'tcx> Interner for TyCtxt<'tcx> {
     type Const = ty::Const<'tcx>;
     type Region = Region<'tcx>;
     type Predicate = Predicate<'tcx>;
-    type TypeAndMut = TypeAndMut<'tcx>;
+    type RawPtrTy = RawPtr<'tcx>;
     type Mutability = hir::Mutability;
     type Movability = hir::Movability;
     type PolyFnSig = PolyFnSig<'tcx>;
@@ -1760,33 +1760,33 @@ impl<'tcx> TyCtxt<'tcx> {
     }
 
     #[inline]
-    pub fn mk_ptr(self, tm: TypeAndMut<'tcx>) -> Ty<'tcx> {
+    pub fn mk_ptr(self, tm: RawPtr<'tcx>) -> Ty<'tcx> {
         self.mk_ty_from_kind(RawPtr(tm))
     }
 
     #[inline]
-    pub fn mk_ref(self, r: Region<'tcx>, tm: TypeAndMut<'tcx>) -> Ty<'tcx> {
-        self.mk_ty_from_kind(Ref(r, tm.ty, tm.mutbl))
+    pub fn mk_ref(self, r: Region<'tcx>, t: Ty<'tcx>, m: hir::Mutability) -> Ty<'tcx> {
+        self.mk_ty_from_kind(Ref(r, t, m))
     }
 
     #[inline]
     pub fn mk_mut_ref(self, r: Region<'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
-        self.mk_ref(r, TypeAndMut { ty, mutbl: hir::Mutability::Mut })
+        self.mk_ref(r, ty, hir::Mutability::Mut)
     }
 
     #[inline]
     pub fn mk_imm_ref(self, r: Region<'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
-        self.mk_ref(r, TypeAndMut { ty, mutbl: hir::Mutability::Not })
+        self.mk_ref(r, ty, hir::Mutability::Not)
     }
 
     #[inline]
     pub fn mk_mut_ptr(self, ty: Ty<'tcx>) -> Ty<'tcx> {
-        self.mk_ptr(TypeAndMut { ty, mutbl: hir::Mutability::Mut })
+        self.mk_ptr(ty::RawPtr { ty, mutbl: hir::Mutability::Mut })
     }
 
     #[inline]
     pub fn mk_imm_ptr(self, ty: Ty<'tcx>) -> Ty<'tcx> {
-        self.mk_ptr(TypeAndMut { ty, mutbl: hir::Mutability::Not })
+        self.mk_ptr(ty::RawPtr { ty, mutbl: hir::Mutability::Not })
     }
 
     #[inline]

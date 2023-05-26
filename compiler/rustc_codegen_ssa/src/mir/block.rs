@@ -988,7 +988,7 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
 
                         // Make sure that we've actually unwrapped the rcvr down
                         // to a pointer or ref to `dyn* Trait`.
-                        if !op.layout.ty.builtin_deref(true).unwrap().ty.is_dyn_star() {
+                        if !op.layout.ty.builtin_deref(true).unwrap().0.is_dyn_star() {
                             span_bug!(span, "can't codegen a virtual call on {:#?}", op);
                         }
                         let place = op.deref(bx.cx());

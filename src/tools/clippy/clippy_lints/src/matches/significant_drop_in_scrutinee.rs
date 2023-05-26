@@ -7,7 +7,7 @@ use rustc_hir::intravisit::{walk_expr, Visitor};
 use rustc_hir::{Arm, Expr, ExprKind, MatchSource};
 use rustc_lint::{LateContext, LintContext};
 use rustc_middle::ty::subst::GenericArgKind;
-use rustc_middle::ty::{Ty, TypeAndMut};
+use rustc_middle::ty::{Ty, RawPtr};
 use rustc_span::Span;
 
 use super::SIGNIFICANT_DROP_IN_SCRUTINEE;
@@ -150,7 +150,7 @@ impl<'a, 'tcx> SigDropChecker<'a, 'tcx> {
                 false
             },
             rustc_middle::ty::Array(ty, _)
-            | rustc_middle::ty::RawPtr(TypeAndMut { ty, .. })
+            | rustc_middle::ty::RawPtr(RawPtr { ty, .. })
             | rustc_middle::ty::Ref(_, ty, _)
             | rustc_middle::ty::Slice(ty) => self.has_sig_drop_attr(cx, *ty),
             _ => false,
@@ -235,9 +235,9 @@ impl<'a, 'tcx> SigDropHelper<'a, 'tcx> {
         }
         let ty = self.sig_drop_checker.get_type(expr);
         if ty.is_ref() {
-            // We checked that the type was ref, so builtin_deref will return Some TypeAndMut,
+            // We checked that the type was ref, so builtin_deref will return Some RawPtr,
             // but let's avoid any chance of an ICE
-            if let Some(TypeAndMut { ty, .. }) = ty.builtin_deref(true) {
+            if let Some((ty, _)) = ty.builtin_deref(true) {
                 if ty.is_trivially_pure_clone_copy() {
                     self.replace_current_sig_drop(expr.span, false, LintSuggestion::MoveAndDerefToCopy);
                 } else if allow_move_and_clone {

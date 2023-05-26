@@ -3246,13 +3246,13 @@ impl<'o, 'tcx> dyn AstConv<'tcx> + 'o {
         let result_ty = match &ast_ty.kind {
             hir::TyKind::Slice(ty) => tcx.mk_slice(self.ast_ty_to_ty(ty)),
             hir::TyKind::Ptr(mt) => {
-                tcx.mk_ptr(ty::TypeAndMut { ty: self.ast_ty_to_ty(mt.ty), mutbl: mt.mutbl })
+                tcx.mk_ptr(ty::RawPtr { ty: self.ast_ty_to_ty(mt.ty), mutbl: mt.mutbl })
             }
             hir::TyKind::Ref(region, mt) => {
                 let r = self.ast_region_to_region(region, None);
                 debug!(?r);
                 let t = self.ast_ty_to_ty_inner(mt.ty, true, false);
-                tcx.mk_ref(r, ty::TypeAndMut { ty: t, mutbl: mt.mutbl })
+                tcx.mk_ref(r, t, mt.mutbl)
             }
             hir::TyKind::Never => tcx.types.never,
             hir::TyKind::Tup(fields) => {

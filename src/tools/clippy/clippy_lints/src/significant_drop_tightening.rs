@@ -10,7 +10,7 @@ use rustc_hir::{
     intravisit::{walk_expr, Visitor},
 };
 use rustc_lint::{LateContext, LateLintPass, LintContext};
-use rustc_middle::ty::{subst::GenericArgKind, Ty, TypeAndMut};
+use rustc_middle::ty::{subst::GenericArgKind, Ty, RawPtr};
 use rustc_session::{declare_tool_lint, impl_lint_pass};
 use rustc_span::{symbol::Ident, Span, DUMMY_SP};
 
@@ -343,7 +343,7 @@ impl<'cx, 'sdt, 'tcx> SigDropChecker<'cx, 'sdt, 'tcx> {
                 false
             },
             rustc_middle::ty::Array(ty, _)
-            | rustc_middle::ty::RawPtr(TypeAndMut { ty, .. })
+            | rustc_middle::ty::RawPtr(RawPtr { ty, .. })
             | rustc_middle::ty::Ref(_, ty, _)
             | rustc_middle::ty::Slice(ty) => self.has_sig_drop_attr(*ty),
             _ => false,

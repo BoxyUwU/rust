@@ -631,7 +631,7 @@ fn codegen_stmt<'tcx>(
 
                     fn is_fat_ptr<'tcx>(fx: &FunctionCx<'_, '_, 'tcx>, ty: Ty<'tcx>) -> bool {
                         ty.builtin_deref(true).is_some_and(
-                            |ty::TypeAndMut { ty: pointee_ty, mutbl: _ }| {
+                            |(pointee_ty, _)| {
                                 has_ptr_meta(fx.tcx, pointee_ty)
                             },
                         )

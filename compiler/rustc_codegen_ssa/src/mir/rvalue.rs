@@ -572,10 +572,7 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
 
             mir::Rvalue::Ref(_, bk, place) => {
                 let mk_ref = move |tcx: TyCtxt<'tcx>, ty: Ty<'tcx>| {
-                    tcx.mk_ref(
-                        tcx.lifetimes.re_erased,
-                        ty::TypeAndMut { ty, mutbl: bk.to_mutbl_lossy() },
-                    )
+                    tcx.mk_ref(tcx.lifetimes.re_erased, ty, bk.to_mutbl_lossy())
                 };
                 self.codegen_place_to_pointer(bx, place, mk_ref)
             }
@@ -583,7 +580,7 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
             mir::Rvalue::CopyForDeref(place) => self.codegen_operand(bx, &Operand::Copy(place)),
             mir::Rvalue::AddressOf(mutability, place) => {
                 let mk_ptr = move |tcx: TyCtxt<'tcx>, ty: Ty<'tcx>| {
-                    tcx.mk_ptr(ty::TypeAndMut { ty, mutbl: mutability })
+                    tcx.mk_ptr(ty::RawPtr { ty, mutbl: mutability })
                 };
                 self.codegen_place_to_pointer(bx, place, mk_ptr)
             }
@@ -823,7 +820,7 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
                 let pointee_type = input_ty
                     .builtin_deref(true)
                     .unwrap_or_else(|| bug!("deref of non-pointer {:?}", input_ty))
-                    .ty;
+                    .0;
                 let pointee_layout = bx.cx().layout_of(pointee_type);
                 if pointee_layout.is_zst() {
                     // `Offset` works in terms of the size of pointee,

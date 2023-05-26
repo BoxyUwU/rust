@@ -1215,7 +1215,7 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
         // In general, during probing we erase regions.
         let region = tcx.lifetimes.re_erased;
 
-        let autoref_ty = tcx.mk_ref(region, ty::TypeAndMut { ty: self_ty, mutbl });
+        let autoref_ty = tcx.mk_ref(region, self_ty, mutbl);
         self.pick_method(autoref_ty, unstable_candidates).map(|r| {
             r.map(|mut pick| {
                 pick.autoderefs = step.autoderefs;
@@ -1240,11 +1240,11 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
             return None;
         }
 
-        let &ty::RawPtr(ty::TypeAndMut { ty, mutbl: hir::Mutability::Mut }) = self_ty.kind() else {
+        let &ty::RawPtr(ty::RawPtr { ty, mutbl: hir::Mutability::Mut }) = self_ty.kind() else {
             return None;
         };
 
-        let const_self_ty = ty::TypeAndMut { ty, mutbl: hir::Mutability::Not };
+        let const_self_ty = ty::RawPtr { ty, mutbl: hir::Mutability::Not };
         let const_ptr_ty = self.tcx.mk_ptr(const_self_ty);
         self.pick_method(const_ptr_ty, unstable_candidates).map(|r| {
             r.map(|mut pick| {

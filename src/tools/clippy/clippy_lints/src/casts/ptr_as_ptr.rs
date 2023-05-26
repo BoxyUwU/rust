@@ -7,7 +7,7 @@ use if_chain::if_chain;
 use rustc_errors::Applicability;
 use rustc_hir::{Expr, ExprKind, Mutability, TyKind};
 use rustc_lint::LateContext;
-use rustc_middle::ty::{self, TypeAndMut};
+use rustc_middle::ty::{self, RawPtr};
 
 use super::PTR_AS_PTR;
 
@@ -19,8 +19,8 @@ pub(super) fn check(cx: &LateContext<'_>, expr: &Expr<'_>, msrv: &Msrv) {
     if_chain! {
         if let ExprKind::Cast(cast_expr, cast_to_hir_ty) = expr.kind;
         let (cast_from, cast_to) = (cx.typeck_results().expr_ty(cast_expr), cx.typeck_results().expr_ty(expr));
-        if let ty::RawPtr(TypeAndMut { mutbl: from_mutbl, .. }) = cast_from.kind();
-        if let ty::RawPtr(TypeAndMut { ty: to_pointee_ty, mutbl: to_mutbl }) = cast_to.kind();
+        if let ty::RawPtr(RawPtr { mutbl: from_mutbl, .. }) = cast_from.kind();
+        if let ty::RawPtr(RawPtr { ty: to_pointee_ty, mutbl: to_mutbl }) = cast_to.kind();
         if matches!((from_mutbl, to_mutbl),
             (Mutability::Not, Mutability::Not) | (Mutability::Mut, Mutability::Mut));
         // The `U` in `pointer::cast` have to be `Sized`

@@ -136,7 +136,7 @@ impl<'tcx> NewPermission {
         kind: RetagKind,
         cx: &crate::MiriInterpCx<'_, 'tcx>,
     ) -> Option<Self> {
-        let pointee = ty.builtin_deref(true).unwrap().ty;
+        let pointee = ty.builtin_deref(true).unwrap().0;
         pointee.is_unpin(*cx.tcx, cx.param_env()).then_some(()).map(|()| {
             // Regular `Unpin` box, give it `noalias` but only a weak protector
             // because it is valid to deallocate it within the function.

@@ -14,7 +14,7 @@ use rustc_middle::ty::adjustment::AllowTwoPhase;
 use rustc_middle::ty::error::{ExpectedFound, TypeError};
 use rustc_middle::ty::fold::BottomUpFolder;
 use rustc_middle::ty::print::with_no_trimmed_paths;
-use rustc_middle::ty::{self, Article, AssocItem, Ty, TypeAndMut, TypeFoldable};
+use rustc_middle::ty::{self, Article, AssocItem, RawPtr, Ty, TypeFoldable};
 use rustc_span::symbol::{sym, Symbol};
 use rustc_span::{BytePos, Span, DUMMY_SP};
 use rustc_trait_selection::infer::InferCtxtExt as _;
@@ -1427,7 +1427,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             }
             (
                 _,
-                &ty::RawPtr(TypeAndMut { ty: ty_b, mutbl: mutbl_b }),
+                &ty::RawPtr(RawPtr { ty: ty_b, mutbl: mutbl_b }),
                 &ty::Ref(_, ty_a, mutbl_a),
             ) => {
                 if let Some(steps) = self.deref_steps(ty_a, ty_b)

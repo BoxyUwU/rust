@@ -1287,7 +1287,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         expected_ty: Ty<'tcx>,
     ) -> bool {
         // Expected type needs to be a raw pointer.
-        let ty::RawPtr(ty::TypeAndMut { mutbl, .. }) = expected_ty.kind() else {
+        let ty::RawPtr(ty::RawPtr { mutbl, .. }) = expected_ty.kind() else {
             return false;
         };
 

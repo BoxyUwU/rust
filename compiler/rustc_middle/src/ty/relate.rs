@@ -113,23 +113,23 @@ pub trait Relate<'tcx>: TypeFoldable<TyCtxt<'tcx>> + PartialEq + Copy {
 
 pub fn relate_type_and_mut<'tcx, R: TypeRelation<'tcx>>(
     relation: &mut R,
-    a: ty::TypeAndMut<'tcx>,
-    b: ty::TypeAndMut<'tcx>,
+    (a_ty, a_mutbl): (Ty<'tcx>, hir::Mutability),
+    (b_ty, b_mutbl): (Ty<'tcx>, hir::Mutability),
     base_ty: Ty<'tcx>,
-) -> RelateResult<'tcx, ty::TypeAndMut<'tcx>> {
-    debug!("{}.mts({:?}, {:?})", relation.tag(), a, b);
-    if a.mutbl != b.mutbl {
+) -> RelateResult<'tcx, (Ty<'tcx>, hir::Mutability)> {
+    debug!("{}.mts({:?}, {:?})", relation.tag(), (a_ty, a_mutbl), (b_ty, b_mutbl));
+    if a_mutbl != b_mutbl {
         Err(TypeError::Mutability)
     } else {
-        let mutbl = a.mutbl;
+        let mutbl = a_mutbl;
         let (variance, info) = match mutbl {
             hir::Mutability::Not => (ty::Covariant, ty::VarianceDiagInfo::None),
             hir::Mutability::Mut => {
                 (ty::Invariant, ty::VarianceDiagInfo::Invariant { ty: base_ty, param_index: 0 })
             }
         };
-        let ty = relation.relate_with_variance(variance, info, a.ty, b.ty)?;
-        Ok(ty::TypeAndMut { ty, mutbl })
+        let ty = relation.relate_with_variance(variance, info, a_ty, b_ty)?;
+        Ok((ty, mutbl))
     }
 }
 
@@ -481,16 +481,15 @@ pub fn structurally_relate_tys<'tcx, R: TypeRelation<'tcx>>(
         }
 
         (&ty::RawPtr(a_mt), &ty::RawPtr(b_mt)) => {
-            let mt = relate_type_and_mut(relation, a_mt, b_mt, a)?;
-            Ok(tcx.mk_ptr(mt))
+            let (ty, mutbl) =
+                relate_type_and_mut(relation, (a_mt.ty, a_mt.mutbl), (b_mt.ty, b_mt.mutbl), a)?;
+            Ok(tcx.mk_ptr(ty::RawPtr { ty, mutbl }))
         }
 
         (&ty::Ref(a_r, a_ty, a_mutbl), &ty::Ref(b_r, b_ty, b_mutbl)) => {
             let r = relation.relate(a_r, b_r)?;
-            let a_mt = ty::TypeAndMut { ty: a_ty, mutbl: a_mutbl };
-            let b_mt = ty::TypeAndMut { ty: b_ty, mutbl: b_mutbl };
-            let mt = relate_type_and_mut(relation, a_mt, b_mt, a)?;
-            Ok(tcx.mk_ref(r, mt))
+            let (ty, mutbl) = relate_type_and_mut(relation, (a_ty, a_mutbl), (b_ty, b_mutbl), a)?;
+            Ok(tcx.mk_ref(r, ty, mutbl))
         }
 
         (&ty::Array(a_t, sz_a), &ty::Array(b_t, sz_b)) => {

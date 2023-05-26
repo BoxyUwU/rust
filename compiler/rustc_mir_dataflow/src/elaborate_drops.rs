@@ -616,8 +616,7 @@ where
         let drop_fn = tcx.associated_item_def_ids(drop_trait)[0];
         let ty = self.place_ty(self.place);
 
-        let ref_ty =
-            tcx.mk_ref(tcx.lifetimes.re_erased, ty::TypeAndMut { ty, mutbl: hir::Mutability::Mut });
+        let ref_ty = tcx.mk_ref(tcx.lifetimes.re_erased, ty, hir::Mutability::Mut);
         let ref_place = self.new_temp(ref_ty);
         let unit_temp = Place::from(self.new_temp(tcx.mk_unit()));
 
@@ -675,7 +674,7 @@ where
         let move_ = |place: Place<'tcx>| Operand::Move(place);
         let tcx = self.tcx();
 
-        let ptr_ty = tcx.mk_ptr(ty::TypeAndMut { ty: ety, mutbl: hir::Mutability::Mut });
+        let ptr_ty = tcx.mk_ptr(ty::RawPtr { ty: ety, mutbl: hir::Mutability::Mut });
         let ptr = Place::from(self.new_temp(ptr_ty));
         let can_go = Place::from(self.new_temp(tcx.types.bool));
         let one = self.constant_usize(1);

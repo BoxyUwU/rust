@@ -66,7 +66,7 @@ impl<'a, 'tcx> Iterator for Autoderef<'a, 'tcx> {
         }
 
         // Otherwise, deref if type is derefable:
-        let (kind, new_ty) = if let Some(ty::TypeAndMut { ty, .. }) =
+        let (kind, new_ty) = if let Some((ty, _)) =
             self.state.cur_ty.builtin_deref(self.include_raw_pointers)
         {
             debug_assert_eq!(ty, self.infcx.resolve_vars_if_possible(ty));

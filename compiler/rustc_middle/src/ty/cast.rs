@@ -33,7 +33,7 @@ pub enum CastTy<'tcx> {
     /// Function pointers.
     FnPtr,
     /// Raw pointers.
-    Ptr(ty::TypeAndMut<'tcx>),
+    Ptr(ty::RawPtr<'tcx>),
     /// Casting into a `dyn*` value.
     DynStar,
 }

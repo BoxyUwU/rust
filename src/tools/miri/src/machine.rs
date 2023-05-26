@@ -20,7 +20,7 @@ use rustc_middle::{
     ty::{
         self,
         layout::{LayoutCx, LayoutError, LayoutOf, TyAndLayout},
-        Instance, Ty, TyCtxt, TypeAndMut,
+        Instance, Ty, TyCtxt, RawPtr,
     },
 };
 use rustc_span::def_id::{CrateNum, DefId};
@@ -310,8 +310,8 @@ pub struct PrimitiveLayouts<'tcx> {
 impl<'mir, 'tcx: 'mir> PrimitiveLayouts<'tcx> {
     fn new(layout_cx: LayoutCx<'tcx, TyCtxt<'tcx>>) -> Result<Self, LayoutError<'tcx>> {
         let tcx = layout_cx.tcx;
-        let mut_raw_ptr = tcx.mk_ptr(TypeAndMut { ty: tcx.types.unit, mutbl: Mutability::Mut });
-        let const_raw_ptr = tcx.mk_ptr(TypeAndMut { ty: tcx.types.unit, mutbl: Mutability::Not });
+        let mut_raw_ptr = tcx.mk_ptr(RawPtr { ty: tcx.types.unit, mutbl: Mutability::Mut });
+        let const_raw_ptr = tcx.mk_ptr(RawPtr { ty: tcx.types.unit, mutbl: Mutability::Not });
         Ok(Self {
             unit: layout_cx.layout_of(tcx.mk_unit())?,
             i8: layout_cx.layout_of(tcx.types.i8)?,

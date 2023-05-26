@@ -85,7 +85,7 @@ pub enum TyKind<I: Interner> {
     Slice(I::Ty),
 
     /// A raw pointer. Written as `*mut T` or `*const T`
-    RawPtr(I::TypeAndMut),
+    RawPtr(I::RawPtrTy),
 
     /// A reference; a pointer with an associated lifetime. Written as
     /// `&'a mut T` or `&'a T`.
@@ -540,7 +540,7 @@ where
     I::Ty: Encodable<E>,
     I::Const: Encodable<E>,
     I::Region: Encodable<E>,
-    I::TypeAndMut: Encodable<E>,
+    I::RawPtrTy: Encodable<E>,
     I::Mutability: Encodable<E>,
     I::Movability: Encodable<E>,
     I::PolyFnSig: Encodable<E>,
@@ -658,7 +658,7 @@ where
     I::Ty: Decodable<D>,
     I::Const: Decodable<D>,
     I::Region: Decodable<D>,
-    I::TypeAndMut: Decodable<D>,
+    I::RawPtrTy: Decodable<D>,
     I::Mutability: Decodable<D>,
     I::Movability: Decodable<D>,
     I::PolyFnSig: Decodable<D>,
@@ -723,7 +723,7 @@ where
     I::SubstsRef: HashStable<CTX>,
     I::Ty: HashStable<CTX>,
     I::Const: HashStable<CTX>,
-    I::TypeAndMut: HashStable<CTX>,
+    I::RawPtrTy: HashStable<CTX>,
     I::PolyFnSig: HashStable<CTX>,
     I::ListBinderExistentialPredicate: HashStable<CTX>,
     I::Region: HashStable<CTX>,

@@ -7,7 +7,7 @@ use if_chain::if_chain;
 use rustc_hir::BinOpKind;
 use rustc_hir::{Expr, ExprKind};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{self, Ty, TypeAndMut};
+use rustc_middle::ty::{self, Ty, RawPtr};
 use rustc_session::{declare_lint_pass, declare_tool_lint};
 use rustc_span::sym;
 
@@ -113,7 +113,7 @@ fn get_pointee_ty_and_count_expr<'tcx>(
         if METHODS.iter().any(|m| *m == method_ident);
 
         // Get the pointee type
-        if let ty::RawPtr(TypeAndMut { ty: pointee_ty, .. }) =
+        if let ty::RawPtr(RawPtr { ty: pointee_ty, .. }) =
             cx.typeck_results().expr_ty(ptr_self).kind();
         then {
             return Some((*pointee_ty, count));

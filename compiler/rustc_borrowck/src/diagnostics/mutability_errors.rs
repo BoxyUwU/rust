@@ -1272,12 +1272,12 @@ fn suggest_ampmut<'tcx>(
         // otherwise, suggest that the user annotates the binding; we provide the
         // type of the local.
         let ty_mut = decl_ty.builtin_deref(true).unwrap();
-        assert_eq!(ty_mut.mutbl, hir::Mutability::Not);
+        assert_eq!(ty_mut.1, ty::Mutability::Not);
 
         (
             false,
             span,
-            format!("{}mut {}", if decl_ty.is_ref() {"&"} else {"*"}, ty_mut.ty)
+            format!("{}mut {}", if decl_ty.is_ref() {"&"} else {"*"}, ty_mut.0)
         )
     }
 }

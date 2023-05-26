@@ -40,7 +40,7 @@ pub(in crate::solve) fn instantiate_constituent_tys_for_auto_trait<'tcx>(
             bug!("unexpected type `{ty}`")
         }
 
-        ty::RawPtr(ty::TypeAndMut { ty: element_ty, .. }) | ty::Ref(_, element_ty, _) => {
+        ty::RawPtr(ty::RawPtr { ty: element_ty, .. }) | ty::Ref(_, element_ty, _) => {
             Ok(vec![element_ty])
         }
 

@@ -276,7 +276,7 @@ pub trait EvalContextExt<'mir, 'tcx: 'mir>: crate::MiriInterpCxExt<'mir, 'tcx> {
                     .ok_or_else(|| err_ub_format!(
                         "wrong signature used for `pthread_key_create`: first argument must be a raw pointer."
                     ))?
-                    .ty;
+                    .0;
                 let key_layout = this.layout_of(key_type)?;
 
                 // Create key and write it into the memory where `key_ptr` wants it.

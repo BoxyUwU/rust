@@ -153,7 +153,7 @@ pub fn check_intrinsic_type(tcx: TyCtxt<'_>, it: &hir::ForeignItem<'_>) {
                 ty::BoundRegion { var: ty::BoundVar::from_u32(1), kind: ty::BrEnv },
             );
             let va_list_ty = tcx.type_of(did).subst(tcx, &[region.into()]);
-            (tcx.mk_ref(env_region, ty::TypeAndMut { ty: va_list_ty, mutbl }), va_list_ty)
+            (tcx.mk_ref(env_region, va_list_ty, mutbl), va_list_ty)
         })
     };
 
@@ -205,7 +205,7 @@ pub fn check_intrinsic_type(tcx: TyCtxt<'_>, it: &hir::ForeignItem<'_>) {
             | sym::prefetch_write_instruction => (
                 1,
                 vec![
-                    tcx.mk_ptr(ty::TypeAndMut { ty: param(0), mutbl: hir::Mutability::Not }),
+                    tcx.mk_ptr(ty::RawPtr { ty: param(0), mutbl: hir::Mutability::Not }),
                     tcx.types.i32,
                 ],
                 tcx.mk_unit(),
@@ -219,40 +219,40 @@ pub fn check_intrinsic_type(tcx: TyCtxt<'_>, it: &hir::ForeignItem<'_>) {
             sym::arith_offset => (
                 1,
                 vec![
-                    tcx.mk_ptr(ty::TypeAndMut { ty: param(0), mutbl: hir::Mutability::Not }),
+                    tcx.mk_ptr(ty::RawPtr { ty: param(0), mutbl: hir::Mutability::Not }),
                     tcx.types.isize,
                 ],
-                tcx.mk_ptr(ty::TypeAndMut { ty: param(0), mutbl: hir::Mutability::Not }),
+                tcx.mk_ptr(ty::RawPtr { ty: param(0), mutbl: hir::Mutability::Not }),
             ),
             sym::option_payload_ptr => {
                 let option_def_id = tcx.require_lang_item(hir::LangItem::Option, None);
                 let p0 = param(0);
                 (
                     1,
-                    vec![tcx.mk_ptr(ty::TypeAndMut {
+                    vec![tcx.mk_ptr(ty::RawPtr {
                         ty: tcx.mk_adt(
                             tcx.adt_def(option_def_id),
                             tcx.mk_substs_from_iter([ty::GenericArg::from(p0)].into_iter()),
                         ),
                         mutbl: hir::Mutability::Not,
                     })],
-                    tcx.mk_ptr(ty::TypeAndMut { ty: p0, mutbl: hir::Mutability::Not }),
+                    tcx.mk_ptr(ty::RawPtr { ty: p0, mutbl: hir::Mutability::Not }),
                 )
             }
             sym::ptr_mask => (
                 1,
                 vec![
-                    tcx.mk_ptr(ty::TypeAndMut { ty: param(0), mutbl: hir::Mutability::Not }),
+                    tcx.mk_ptr(ty::RawPtr { ty: param(0), mutbl: hir::Mutability::Not }),
                     tcx.types.usize,
                 ],
-                tcx.mk_ptr(ty::TypeAndMut { ty: param(0), mutbl: hir::Mutability::Not }),
+                tcx.mk_ptr(ty::RawPtr { ty: param(0), mutbl: hir::Mutability::Not }),
             ),
 
             sym::copy | sym::copy_nonoverlapping => (
                 1,
                 vec![
-                    tcx.mk_ptr(ty::TypeAndMut { ty: param(0), mutbl: hir::Mutability::Not }),
-                    tcx.mk_ptr(ty::TypeAndMut { ty: param(0), mutbl: hir::Mutability::Mut }),
+                    tcx.mk_ptr(ty::RawPtr { ty: param(0), mutbl: hir::Mutability::Not }),
+                    tcx.mk_ptr(ty::RawPtr { ty: param(0), mutbl: hir::Mutability::Mut }),
                     tcx.types.usize,
                 ],
                 tcx.mk_unit(),
@@ -260,8 +260,8 @@ pub fn check_intrinsic_type(tcx: TyCtxt<'_>, it: &hir::ForeignItem<'_>) {
             sym::volatile_copy_memory | sym::volatile_copy_nonoverlapping_memory => (
                 1,
                 vec![
-                    tcx.mk_ptr(ty::TypeAndMut { ty: param(0), mutbl: hir::Mutability::Mut }),
-                    tcx.mk_ptr(ty::TypeAndMut { ty: param(0), mutbl: hir::Mutability::Not }),
+                    tcx.mk_ptr(ty::RawPtr { ty: param(0), mutbl: hir::Mutability::Mut }),
+                    tcx.mk_ptr(ty::RawPtr { ty: param(0), mutbl: hir::Mutability::Not }),
                     tcx.types.usize,
                 ],
                 tcx.mk_unit(),
@@ -269,7 +269,7 @@ pub fn check_intrinsic_type(tcx: TyCtxt<'_>, it: &hir::ForeignItem<'_>) {
             sym::write_bytes | sym::volatile_set_memory => (
                 1,
                 vec![
-                    tcx.mk_ptr(ty::TypeAndMut { ty: param(0), mutbl: hir::Mutability::Mut }),
+                    tcx.mk_ptr(ty::RawPtr { ty: param(0), mutbl: hir::Mutability::Mut }),
                     tcx.types.u8,
                     tcx.types.usize,
                 ],

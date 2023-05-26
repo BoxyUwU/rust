@@ -41,7 +41,7 @@ use rustc_middle::mir::Mutability;
 use rustc_middle::ty::adjustment::AllowTwoPhase;
 use rustc_middle::ty::cast::{CastKind, CastTy};
 use rustc_middle::ty::error::TypeError;
-use rustc_middle::ty::{self, Ty, TypeAndMut, TypeVisitableExt, VariantDef};
+use rustc_middle::ty::{self, RawPtr, Ty, TypeVisitableExt, VariantDef};
 use rustc_session::lint;
 use rustc_session::Session;
 use rustc_span::def_id::{DefId, LOCAL_CRATE};
@@ -389,13 +389,14 @@ impl<'a, 'tcx> CastCheck<'tcx> {
                 let mut sugg = None;
                 let mut sugg_mutref = false;
                 if let ty::Ref(reg, cast_ty, mutbl) = *self.cast_ty.kind() {
-                    if let ty::RawPtr(TypeAndMut { ty: expr_ty, .. }) = *self.expr_ty.kind()
+                    if let ty::RawPtr(RawPtr { ty: expr_ty, .. }) = *self.expr_ty.kind()
                         && fcx
                             .try_coerce(
                                 self.expr,
                                 fcx.tcx.mk_ref(
                                     fcx.tcx.lifetimes.re_erased,
-                                    TypeAndMut { ty: expr_ty, mutbl },
+                                    expr_ty,
+                                    mutbl,
                                 ),
                                 self.cast_ty,
                                 AllowTwoPhase::No,
@@ -412,7 +413,8 @@ impl<'a, 'tcx> CastCheck<'tcx> {
                                 self.expr,
                                 fcx.tcx.mk_ref(
                                     expr_reg,
-                                    TypeAndMut { ty: expr_ty, mutbl: Mutability::Mut },
+                                    expr_ty,
+                                    Mutability::Mut,
                                 ),
                                 self.cast_ty,
                                 AllowTwoPhase::No,
@@ -428,7 +430,7 @@ impl<'a, 'tcx> CastCheck<'tcx> {
                         && fcx
                             .try_coerce(
                                 self.expr,
-                                fcx.tcx.mk_ref(reg, TypeAndMut { ty: self.expr_ty, mutbl }),
+                                fcx.tcx.mk_ref(reg, self.expr_ty, mutbl),
                                 self.cast_ty,
                                 AllowTwoPhase::No,
                                 None,
@@ -437,13 +439,14 @@ impl<'a, 'tcx> CastCheck<'tcx> {
                     {
                         sugg = Some((format!("&{}", mutbl.prefix_str()), false));
                     }
-                } else if let ty::RawPtr(TypeAndMut { mutbl, .. }) = *self.cast_ty.kind()
+                } else if let ty::RawPtr(RawPtr { mutbl, .. }) = *self.cast_ty.kind()
                     && fcx
                         .try_coerce(
                             self.expr,
                             fcx.tcx.mk_ref(
                                 fcx.tcx.lifetimes.re_erased,
-                                TypeAndMut { ty: self.expr_ty, mutbl },
+                                self.expr_ty,
+                                mutbl,
                             ),
                             self.cast_ty,
                             AllowTwoPhase::No,
@@ -795,9 +798,7 @@ impl<'a, 'tcx> CastCheck<'tcx> {
                                 _ => Err(CastError::NeedViaPtr),
                             },
                             // array-ptr-cast
-                            Ptr(mt) => {
-                                self.check_ref_cast(fcx, TypeAndMut { mutbl, ty: inner_ty }, mt)
-                            }
+                            Ptr(mt) => self.check_ref_cast(fcx, RawPtr { mutbl, ty: inner_ty }, mt),
                             _ => Err(CastError::NonScalar),
                         };
                     }
@@ -877,8 +878,8 @@ impl<'a, 'tcx> CastCheck<'tcx> {
     fn check_ptr_ptr_cast(
         &self,
         fcx: &FnCtxt<'a, 'tcx>,
-        m_expr: ty::TypeAndMut<'tcx>,
-        m_cast: ty::TypeAndMut<'tcx>,
+        m_expr: ty::RawPtr<'tcx>,
+        m_cast: ty::RawPtr<'tcx>,
     ) -> Result<CastKind, CastError> {
         debug!("check_ptr_ptr_cast m_expr={:?} m_cast={:?}", m_expr, m_cast);
         // ptr-ptr cast. vtables must match.
@@ -917,7 +918,7 @@ impl<'a, 'tcx> CastCheck<'tcx> {
     fn check_fptr_ptr_cast(
         &self,
         fcx: &FnCtxt<'a, 'tcx>,
-        m_cast: ty::TypeAndMut<'tcx>,
+        m_cast: ty::RawPtr<'tcx>,
     ) -> Result<CastKind, CastError> {
         // fptr-ptr cast. must be to thin ptr
 
@@ -931,7 +932,7 @@ impl<'a, 'tcx> CastCheck<'tcx> {
     fn check_ptr_addr_cast(
         &self,
         fcx: &FnCtxt<'a, 'tcx>,
-        m_expr: ty::TypeAndMut<'tcx>,
+        m_expr: ty::RawPtr<'tcx>,
     ) -> Result<CastKind, CastError> {
         // ptr-addr cast. must be from thin ptr
 
@@ -945,8 +946,8 @@ impl<'a, 'tcx> CastCheck<'tcx> {
     fn check_ref_cast(
         &self,
         fcx: &FnCtxt<'a, 'tcx>,
-        m_expr: ty::TypeAndMut<'tcx>,
-        m_cast: ty::TypeAndMut<'tcx>,
+        m_expr: ty::RawPtr<'tcx>,
+        m_cast: ty::RawPtr<'tcx>,
     ) -> Result<CastKind, CastError> {
         // array-ptr-cast: allow mut-to-mut, mut-to-const, const-to-const
         if m_expr.mutbl >= m_cast.mutbl {
@@ -981,7 +982,7 @@ impl<'a, 'tcx> CastCheck<'tcx> {
     fn check_addr_ptr_cast(
         &self,
         fcx: &FnCtxt<'a, 'tcx>,
-        m_cast: TypeAndMut<'tcx>,
+        m_cast: ty::RawPtr<'tcx>,
     ) -> Result<CastKind, CastError> {
         // ptr-addr cast. pointer must be thin.
         match fcx.pointer_kind(m_cast.ty, self.span)? {

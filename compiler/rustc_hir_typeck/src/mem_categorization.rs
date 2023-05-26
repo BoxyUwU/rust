@@ -217,7 +217,7 @@ impl<'a, 'tcx> MemCategorizationContext<'a, 'tcx> {
                     // but what we want here is the type of the underlying value being borrowed.
                     // So peel off one-level, turning the &T into T.
                     match base_ty.builtin_deref(false) {
-                        Some(t) => t.ty,
+                        Some(t) => t.0,
                         None => {
                             debug!("By-ref binding of non-derefable type {:?}", base_ty);
                             return Err(());
@@ -277,9 +277,7 @@ impl<'a, 'tcx> MemCategorizationContext<'a, 'tcx> {
             adjustment::Adjust::Deref(overloaded) => {
                 // Equivalent to *expr or something similar.
                 let base = if let Some(deref) = overloaded {
-                    let ref_ty = self
-                        .tcx()
-                        .mk_ref(deref.region, ty::TypeAndMut { ty: target, mutbl: deref.mutbl });
+                    let ref_ty = self.tcx().mk_ref(deref.region, target, deref.mutbl);
                     self.cat_rvalue(expr.hir_id, expr.span, ref_ty)
                 } else {
                     previous()?
@@ -488,7 +486,7 @@ impl<'a, 'tcx> MemCategorizationContext<'a, 'tcx> {
         let ty::Ref(region, _, mutbl) = *base_ty.kind() else {
             span_bug!(expr.span, "cat_overloaded_place: base is not a reference");
         };
-        let ref_ty = self.tcx().mk_ref(region, ty::TypeAndMut { ty: place_ty, mutbl });
+        let ref_ty = self.tcx().mk_ref(region, place_ty, mutbl);
 
         let base = self.cat_rvalue(expr.hir_id, expr.span, ref_ty);
         self.cat_deref(expr, base)
@@ -502,7 +500,7 @@ impl<'a, 'tcx> MemCategorizationContext<'a, 'tcx> {
     ) -> McResult<PlaceWithHirId<'tcx>> {
         let base_curr_ty = base_place.place.ty();
         let deref_ty = match base_curr_ty.builtin_deref(true) {
-            Some(mt) => mt.ty,
+            Some(mt) => mt.0,
             None => {
                 debug!("explicit deref of non-derefable type: {:?}", base_curr_ty);
                 return Err(());

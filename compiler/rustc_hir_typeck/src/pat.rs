@@ -813,7 +813,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     ) -> Result<(), ErrorGuaranteed> {
         if let PatKind::Binding(..) = inner.kind
             && let Some(mt) = self.shallow_resolve(expected).builtin_deref(true)
-            && let ty::Dynamic(..) = mt.ty.kind()
+            && let ty::Dynamic(..) = mt.0.kind()
         {
             // This is "x = SomeTrait" being reduced from
             // "let &x = &SomeTrait" or "let box x = Box<SomeTrait>", an error.
@@ -2018,8 +2018,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
     /// Create a reference type with a fresh region variable.
     fn new_ref_ty(&self, span: Span, mutbl: hir::Mutability, ty: Ty<'tcx>) -> Ty<'tcx> {
         let region = self.next_region_var(infer::PatternRegion(span));
-        let mt = ty::TypeAndMut { ty, mutbl };
-        self.tcx.mk_ref(region, mt)
+        self.tcx.mk_ref(region, ty, mutbl)
     }
 
     /// Type check a slice pattern.

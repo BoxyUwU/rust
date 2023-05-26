@@ -312,7 +312,7 @@ impl<'mir, 'tcx: 'mir, M: Machine<'mir, 'tcx>> InterpCx<'mir, 'tcx, M> {
             Offset => {
                 let ptr = left.to_scalar().to_pointer(self)?;
                 let offset_count = right.to_scalar().to_target_isize(self)?;
-                let pointee_ty = left.layout.ty.builtin_deref(true).unwrap().ty;
+                let pointee_ty = left.layout.ty.builtin_deref(true).unwrap().0;
 
                 let offset_ptr = self.ptr_offset_inbounds(ptr, pointee_ty, offset_count)?;
                 Ok((Scalar::from_maybe_pointer(offset_ptr, self), false, left.layout.ty))

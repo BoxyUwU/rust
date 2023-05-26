@@ -665,7 +665,7 @@ pub trait PrettyPrinter<'tcx>:
                 if self.should_print_region(r) {
                     p!(print(r), " ");
                 }
-                p!(print(ty::TypeAndMut { ty, mutbl }))
+                p!(print(ty::RawPtr { ty, mutbl }))
             }
             ty::Never => p!("!"),
             ty::Tuple(ref tys) => {
@@ -2728,7 +2728,7 @@ define_print_and_forward_display! {
         p!("{{", comma_sep(self.iter()), "}}")
     }
 
-    ty::TypeAndMut<'tcx> {
+    ty::RawPtr<'tcx> {
         p!(write("{}", self.mutbl.prefix_str()), print(self.ty))
     }
 

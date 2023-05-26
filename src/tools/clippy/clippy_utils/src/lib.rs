@@ -105,7 +105,7 @@ use rustc_middle::ty::fast_reject::SimplifiedType::{
     PtrSimplifiedType, SliceSimplifiedType, StrSimplifiedType, UintSimplifiedType,
 };
 use rustc_middle::ty::{
-    layout::IntegerExt, BorrowKind, ClosureKind, Ty, TyCtxt, TypeAndMut, TypeVisitableExt, UpvarCapture,
+    layout::IntegerExt, BorrowKind, ClosureKind, Ty, TyCtxt, RawPtr, TypeVisitableExt, UpvarCapture,
 };
 use rustc_middle::ty::{FloatTy, IntTy, UintTy};
 use rustc_span::hygiene::{ExpnKind, MacroKind};
@@ -1020,7 +1020,7 @@ pub fn capture_local_usage(cx: &LateContext<'_>, e: &Expr<'_>) -> CaptureKind {
             .get(child_id)
             .map_or(&[][..], |x| &**x)
         {
-            if let rustc_ty::RawPtr(TypeAndMut { mutbl: mutability, .. }) | rustc_ty::Ref(_, _, mutability) =
+            if let rustc_ty::RawPtr(RawPtr { mutbl: mutability, .. }) | rustc_ty::Ref(_, _, mutability) =
                 *adjust.last().map_or(target, |a| a.target).kind()
             {
                 return CaptureKind::Ref(mutability);

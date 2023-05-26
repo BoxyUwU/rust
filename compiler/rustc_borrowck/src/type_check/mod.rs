@@ -403,7 +403,7 @@ impl<'a, 'b, 'tcx> Visitor<'tcx> for TypeVerifier<'a, 'b, 'tcx> {
             } else if let Some(static_def_id) = constant.check_static_ptr(tcx) {
                 let unnormalized_ty = tcx.type_of(static_def_id).subst_identity();
                 let normalized_ty = self.cx.normalize(unnormalized_ty, locations);
-                let literal_ty = constant.literal.ty().builtin_deref(true).unwrap().ty;
+                let literal_ty = constant.literal.ty().builtin_deref(true).unwrap().0;
 
                 if let Err(terr) = self.cx.eq_types(
                     literal_ty,
@@ -638,7 +638,7 @@ impl<'a, 'b, 'tcx> TypeVerifier<'a, 'b, 'tcx> {
         match pi {
             ProjectionElem::Deref => {
                 let deref_ty = base_ty.builtin_deref(true);
-                PlaceTy::from_ty(deref_ty.map(|t| t.ty).unwrap_or_else(|| {
+                PlaceTy::from_ty(deref_ty.map(|(ty, _)| ty).unwrap_or_else(|| {
                     span_mirbug_and_err!(self, place, "deref of non-pointer {:?}", base_ty)
                 }))
             }
@@ -2031,7 +2031,7 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
                     }
 
                     CastKind::Pointer(PointerCast::MutToConstPointer) => {
-                        let ty::RawPtr(ty::TypeAndMut {
+                        let ty::RawPtr(ty::RawPtr {
                             ty: ty_from,
                             mutbl: hir::Mutability::Mut,
                         }) = op.ty(body, tcx).kind() else {
@@ -2043,7 +2043,7 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
                             );
                             return;
                         };
-                        let ty::RawPtr(ty::TypeAndMut {
+                        let ty::RawPtr(ty::RawPtr {
                             ty: ty_to,
                             mutbl: hir::Mutability::Not,
                         }) = ty.kind() else {
@@ -2076,7 +2076,7 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
                         let ty_from = op.ty(body, tcx);
 
                         let opt_ty_elem_mut = match ty_from.kind() {
-                            ty::RawPtr(ty::TypeAndMut { mutbl: array_mut, ty: array_ty }) => {
+                            ty::RawPtr(ty::RawPtr { mutbl: array_mut, ty: array_ty }) => {
                                 match array_ty.kind() {
                                     ty::Array(ty_elem, _) => Some((ty_elem, *array_mut)),
                                     _ => None,
@@ -2096,7 +2096,7 @@ impl<'a, 'tcx> TypeChecker<'a, 'tcx> {
                         };
 
                         let (ty_to, ty_to_mut) = match ty.kind() {
-                            ty::RawPtr(ty::TypeAndMut { mutbl: ty_to_mut, ty: ty_to }) => {
+                            ty::RawPtr(ty::RawPtr { mutbl: ty_to_mut, ty: ty_to }) => {
                                 (ty_to, *ty_to_mut)
                             }
                             _ => {

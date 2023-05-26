@@ -2331,7 +2331,7 @@ impl<'tcx> SelectionContext<'_, 'tcx> {
                 bug!("asked to assemble constituent types of unexpected type: {:?}", t);
             }
 
-            ty::RawPtr(ty::TypeAndMut { ty: element_ty, .. }) | ty::Ref(_, element_ty, _) => {
+            ty::RawPtr(ty::RawPtr { ty: element_ty, .. }) | ty::Ref(_, element_ty, _) => {
                 t.rebind(vec![element_ty])
             }
 

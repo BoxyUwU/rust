@@ -35,7 +35,7 @@ pub(super) fn check<'tcx>(
                     "transmute from a reference to a pointer",
                     |diag| {
                         if let Some(arg) = sugg::Sugg::hir_opt(cx, arg) {
-                            let rty_and_mut = ty::TypeAndMut {
+                            let rty_and_mut = ty::RawPtr {
                                 ty: *rty,
                                 mutbl: *rty_mutbl,
                             };

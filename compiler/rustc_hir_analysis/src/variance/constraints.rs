@@ -226,7 +226,7 @@ impl<'a, 'tcx> ConstraintContext<'a, 'tcx> {
 
             ty::Ref(region, ty, mutbl) => {
                 self.add_constraints_from_region(current, region, variance);
-                self.add_constraints_from_mt(current, &ty::TypeAndMut { ty, mutbl }, variance);
+                self.add_constraints_from_mt(current, ty, mutbl, variance);
             }
 
             ty::Array(typ, len) => {
@@ -239,7 +239,7 @@ impl<'a, 'tcx> ConstraintContext<'a, 'tcx> {
             }
 
             ty::RawPtr(ref mt) => {
-                self.add_constraints_from_mt(current, mt, variance);
+                self.add_constraints_from_mt(current, mt.ty, mt.mutbl, variance);
             }
 
             ty::Tuple(subtys) => {
@@ -428,17 +428,18 @@ impl<'a, 'tcx> ConstraintContext<'a, 'tcx> {
     fn add_constraints_from_mt(
         &mut self,
         current: &CurrentItem,
-        mt: &ty::TypeAndMut<'tcx>,
+        ty: Ty<'tcx>,
+        mt: ty::Mutability,
         variance: VarianceTermPtr<'a>,
     ) {
-        match mt.mutbl {
-            hir::Mutability::Mut => {
+        match mt {
+            ty::Mutability::Mut => {
                 let invar = self.invariant(variance);
-                self.add_constraints_from_ty(current, mt.ty, invar);
+                self.add_constraints_from_ty(current, ty, invar);
             }
 
-            hir::Mutability::Not => {
-                self.add_constraints_from_ty(current, mt.ty, variance);
+            ty::Mutability::Not => {
+                self.add_constraints_from_ty(current, ty, variance);
             }
         }
     }

@@ -840,7 +840,7 @@ impl<'a, 'tcx> Visitor<'tcx> for TypeChecker<'a, 'tcx> {
             )) => {
                 let src_ty = src.ty(&self.body.local_decls, self.tcx);
                 let op_src_ty = if let Some(src_deref) = src_ty.builtin_deref(true) {
-                    src_deref.ty
+                    src_deref.0
                 } else {
                     self.fail(
                         location,
@@ -850,7 +850,7 @@ impl<'a, 'tcx> Visitor<'tcx> for TypeChecker<'a, 'tcx> {
                 };
                 let dst_ty = dst.ty(&self.body.local_decls, self.tcx);
                 let op_dst_ty = if let Some(dst_deref) = dst_ty.builtin_deref(true) {
-                    dst_deref.ty
+                    dst_deref.0
                 } else {
                     self.fail(
                         location,
