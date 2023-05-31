@@ -24,6 +24,7 @@ mod assembly;
 mod canonicalize;
 mod eval_ctxt;
 mod fulfill;
+pub mod inspect;
 mod opaques;
 mod project_goals;
 mod search_graph;
@@ -177,30 +178,33 @@ impl<'a, 'tcx> EvalCtxt<'a, 'tcx> {
                     ?invert
                 );
                 let _enter = span.enter();
-                let result = ecx.probe(|ecx| {
-                    let other = match direction {
-                        // This is purely an optimization.
-                        ty::AliasRelationDirection::Equate => other,
+                let result = ecx.probe_candidate(
+                    |ecx| {
+                        let other = match direction {
+                            // This is purely an optimization.
+                            ty::AliasRelationDirection::Equate => other,
 
-                        ty::AliasRelationDirection::Subtype => {
-                            let fresh = ecx.next_term_infer_of_kind(other);
-                            let (sub, sup) = match invert {
-                                Invert::No => (fresh, other),
-                                Invert::Yes => (other, fresh),
-                            };
-                            ecx.sub(goal.param_env, sub, sup)?;
-                            fresh
-                        }
-                    };
-                    ecx.add_goal(goal.with(
-                        tcx,
-                        ty::Binder::dummy(ty::ProjectionPredicate {
-                            projection_ty: alias,
-                            term: other,
-                        }),
-                    ));
-                    ecx.evaluate_added_goals_and_make_canonical_response(Certainty::Yes)
-                });
+                            ty::AliasRelationDirection::Subtype => {
+                                let fresh = ecx.next_term_infer_of_kind(other);
+                                let (sub, sup) = match invert {
+                                    Invert::No => (fresh, other),
+                                    Invert::Yes => (other, fresh),
+                                };
+                                ecx.sub(goal.param_env, sub, sup)?;
+                                fresh
+                            }
+                        };
+                        ecx.add_goal(goal.with(
+                            tcx,
+                            ty::Binder::dummy(ty::ProjectionPredicate {
+                                projection_ty: alias,
+                                term: other,
+                            }),
+                        ));
+                        ecx.evaluate_added_goals_and_make_canonical_response(Certainty::Yes)
+                    },
+                    || "normalizes to".into(),
+                );
                 debug!(?result);
                 result
             };
@@ -247,27 +251,30 @@ impl<'a, 'tcx> EvalCtxt<'a, 'tcx> {
                     Invert::Yes,
                 ));
                 // Relate via substs
-                let subst_relate_response = self.probe(|ecx| {
-                    let span = tracing::span!(
-                        tracing::Level::DEBUG,
-                        "compute_alias_relate_goal(relate_via_substs)",
-                        ?alias_lhs,
-                        ?alias_rhs,
-                        ?direction
-                    );
-                    let _enter = span.enter();
+                let subst_relate_response = self.probe_candidate(
+                    |ecx| {
+                        let span = tracing::span!(
+                            tracing::Level::DEBUG,
+                            "compute_alias_relate_goal(relate_via_substs)",
+                            ?alias_lhs,
+                            ?alias_rhs,
+                            ?direction
+                        );
+                        let _enter = span.enter();
 
-                    match direction {
-                        ty::AliasRelationDirection::Equate => {
-                            ecx.eq(goal.param_env, alias_lhs, alias_rhs)?;
+                        match direction {
+                            ty::AliasRelationDirection::Equate => {
+                                ecx.eq(goal.param_env, alias_lhs, alias_rhs)?;
+                            }
+                            ty::AliasRelationDirection::Subtype => {
+                                ecx.sub(goal.param_env, alias_lhs, alias_rhs)?;
+                            }
                         }
-                        ty::AliasRelationDirection::Subtype => {
-                            ecx.sub(goal.param_env, alias_lhs, alias_rhs)?;
-                        }
-                    }
 
-                    ecx.evaluate_added_goals_and_make_canonical_response(Certainty::Yes)
-                });
+                        ecx.evaluate_added_goals_and_make_canonical_response(Certainty::Yes)
+                    },
+                    || "substs relate".into(),
+                );
                 candidates.extend(subst_relate_response);
                 debug!(?candidates);
 

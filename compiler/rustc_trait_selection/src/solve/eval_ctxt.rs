@@ -21,8 +21,10 @@ use rustc_middle::ty::{
 use rustc_span::DUMMY_SP;
 use std::ops::ControlFlow;
 
+use crate::solve::inspect::DebugSolver;
 use crate::traits::specialization_graph;
 
+use super::inspect::InspectSolve;
 use super::search_graph::{self, OverflowHandler};
 use super::SolverMode;
 use super::{search_graph::SearchGraph, Goal};
@@ -73,6 +75,8 @@ pub struct EvalCtxt<'a, 'tcx> {
     // ambiguous goals. Instead, a probe needs to be introduced somewhere in the
     // evaluation code.
     tainted: Result<(), NoSolution>,
+
+    inspect: Box<dyn InspectSolve<'tcx> + 'tcx>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -143,8 +147,11 @@ impl<'tcx> InferCtxtEvalExt<'tcx> for InferCtxt<'tcx> {
             var_values: CanonicalVarValues::dummy(),
             nested_goals: NestedGoals::new(),
             tainted: Ok(()),
+            inspect: Box::new(DebugSolver::new()),
         };
         let result = ecx.evaluate_goal(IsNormalizesToHack::No, goal);
+
+        debug!("proof tree: {:#?}", ecx.inspect.into_debug_solver().unwrap());
 
         assert!(
             ecx.nested_goals.is_empty(),
@@ -170,12 +177,15 @@ impl<'a, 'tcx> EvalCtxt<'a, 'tcx> {
     /// Instead of calling this function directly, use either [EvalCtxt::evaluate_goal]
     /// if you're inside of the solver or [InferCtxtEvalExt::evaluate_root_goal] if you're
     /// outside of it.
-    #[instrument(level = "debug", skip(tcx, search_graph), ret)]
+    #[instrument(level = "debug", skip(tcx, search_graph, goal_evaluation), ret)]
     fn evaluate_canonical_goal(
         tcx: TyCtxt<'tcx>,
         search_graph: &'a mut search_graph::SearchGraph<'tcx>,
         canonical_input: CanonicalInput<'tcx>,
+        mut goal_evaluation: &mut dyn InspectSolve<'tcx>,
     ) -> QueryResult<'tcx> {
+        goal_evaluation.canonicalized_goal(canonical_input);
+
         // Deal with overflow, caching, and coinduction.
         //
         // The actual solver logic happens in `ecx.compute_goal`.
@@ -208,9 +218,11 @@ impl<'a, 'tcx> EvalCtxt<'a, 'tcx> {
                 search_graph,
                 nested_goals: NestedGoals::new(),
                 tainted: Ok(()),
+                inspect: goal_evaluation.new_goal_evaluation_step(input),
             };
-
             let result = ecx.compute_goal(input.goal);
+            ecx.inspect.query_result(result);
+            goal_evaluation.goal_evaluation_step(ecx.inspect);
 
             // When creating a query response we clone the opaque type constraints
             // instead of taking them. This would cause an ICE here, since we have
@@ -232,8 +244,16 @@ impl<'a, 'tcx> EvalCtxt<'a, 'tcx> {
         goal: Goal<'tcx, ty::Predicate<'tcx>>,
     ) -> Result<(bool, Certainty, Vec<Goal<'tcx, ty::Predicate<'tcx>>>), NoSolution> {
         let (orig_values, canonical_goal) = self.canonicalize_goal(goal);
-        let canonical_response =
-            EvalCtxt::evaluate_canonical_goal(self.tcx(), self.search_graph, canonical_goal)?;
+        let mut goal_evaluation = self.inspect.new_goal_evaluation(goal);
+        let canonical_response = EvalCtxt::evaluate_canonical_goal(
+            self.tcx(),
+            self.search_graph,
+            canonical_goal,
+            &mut *goal_evaluation,
+        );
+        goal_evaluation.query_result(canonical_response);
+        self.inspect.goal_evaluation(goal_evaluation);
+        let canonical_response = canonical_response?;
 
         let has_changed = !canonical_response.value.var_values.is_identity()
             || !canonical_response.value.external_constraints.opaque_types.is_empty();
@@ -261,8 +281,13 @@ impl<'a, 'tcx> EvalCtxt<'a, 'tcx> {
         {
             debug!("rerunning goal to check result is stable");
             let (_orig_values, canonical_goal) = self.canonicalize_goal(goal);
-            let new_canonical_response =
-                EvalCtxt::evaluate_canonical_goal(self.tcx(), self.search_graph, canonical_goal)?;
+            let new_canonical_response = EvalCtxt::evaluate_canonical_goal(
+                self.tcx(),
+                self.search_graph,
+                canonical_goal,
+                // FIXME(-Ztrait-solver=next): we do not track what happens in `evaluate_canonical_goal`
+                &mut (),
+            )?;
             if !new_canonical_response.value.var_values.is_identity() {
                 bug!(
                     "unstable result: re-canonicalized goal={canonical_goal:#?} \
@@ -347,12 +372,17 @@ impl<'a, 'tcx> EvalCtxt<'a, 'tcx> {
     // the certainty of all the goals.
     #[instrument(level = "debug", skip(self))]
     pub(super) fn try_evaluate_added_goals(&mut self) -> Result<Certainty, NoSolution> {
+        let inspect = self.inspect.new_evaluate_added_goals();
+        let inspect = core::mem::replace(&mut self.inspect, inspect);
+
         let mut goals = core::mem::replace(&mut self.nested_goals, NestedGoals::new());
         let mut new_goals = NestedGoals::new();
 
         let response = self.repeat_while_none(
             |_| Ok(Certainty::Maybe(MaybeCause::Overflow)),
             |this| {
+                this.inspect.evaluate_added_goals_loop_start();
+
                 let mut has_changed = Err(Certainty::Yes);
 
                 if let Some(goal) = goals.normalizes_to_hack_goal.take() {
@@ -441,9 +471,14 @@ impl<'a, 'tcx> EvalCtxt<'a, 'tcx> {
             },
         );
 
+        self.inspect.eval_added_goals_result(response);
+
         if response.is_err() {
             self.tainted = Err(NoSolution);
         }
+
+        let goal_evaluations = std::mem::replace(&mut self.inspect, inspect);
+        self.inspect.added_goals_evaluation(goal_evaluations);
 
         self.nested_goals = goals;
         response
@@ -460,8 +495,24 @@ impl<'tcx> EvalCtxt<'_, 'tcx> {
             search_graph: self.search_graph,
             nested_goals: self.nested_goals.clone(),
             tainted: self.tainted,
+            inspect: self.inspect.new_goal_candidate(),
         };
-        self.infcx.probe(|_| f(&mut ecx))
+        let r = self.infcx.probe(|_| f(&mut ecx));
+        self.inspect.goal_candidate(ecx.inspect);
+        r
+    }
+
+    pub(super) fn probe_candidate(
+        &mut self,
+        f: impl FnOnce(&mut EvalCtxt<'_, 'tcx>) -> QueryResult<'tcx>,
+        mut name: impl FnMut() -> String,
+    ) -> QueryResult<'tcx> {
+        self.probe(|ecx| {
+            let result = f(ecx);
+            ecx.inspect.candidate_name(&mut name);
+            ecx.inspect.query_result(result);
+            result
+        })
     }
 
     pub(super) fn tcx(&self) -> TyCtxt<'tcx> {
@@ -753,22 +804,25 @@ impl<'tcx> EvalCtxt<'_, 'tcx> {
             if candidate_key.def_id != key.def_id {
                 continue;
             }
-            values.extend(self.probe(|ecx| {
-                for (a, b) in std::iter::zip(candidate_key.substs, key.substs) {
-                    ecx.eq(param_env, a, b)?;
-                }
-                ecx.eq(param_env, candidate_ty, ty)?;
-                let mut obl = vec![];
-                ecx.infcx.add_item_bounds_for_hidden_type(
-                    candidate_key,
-                    ObligationCause::dummy(),
-                    param_env,
-                    candidate_ty,
-                    &mut obl,
-                );
-                ecx.add_goals(obl.into_iter().map(Into::into));
-                ecx.evaluate_added_goals_and_make_canonical_response(Certainty::Yes)
-            }));
+            values.extend(self.probe_candidate(
+                |ecx| {
+                    for (a, b) in std::iter::zip(candidate_key.substs, key.substs) {
+                        ecx.eq(param_env, a, b)?;
+                    }
+                    ecx.eq(param_env, candidate_ty, ty)?;
+                    let mut obl = vec![];
+                    ecx.infcx.add_item_bounds_for_hidden_type(
+                        candidate_key,
+                        ObligationCause::dummy(),
+                        param_env,
+                        candidate_ty,
+                        &mut obl,
+                    );
+                    ecx.add_goals(obl.into_iter().map(Into::into));
+                    ecx.evaluate_added_goals_and_make_canonical_response(Certainty::Yes)
+                },
+                || "opaque type storage".into(),
+            ));
         }
         values
     }
