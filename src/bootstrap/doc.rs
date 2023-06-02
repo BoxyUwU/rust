@@ -746,7 +746,7 @@ impl Step for Rustc {
 }
 
 macro_rules! tool_doc {
-    ($tool: ident, $should_run: literal, $path: literal, $(rustc_tool = $rustc_tool:literal, )? $(in_tree = $in_tree:literal, )? [$($krate: literal),+ $(,)?] $(,)?) => {
+    ($tool: ident, $should_run: literal, $path: literal, $(alias = $alias:literal,)? $(rustc_tool = $rustc_tool:literal, )? $(in_tree = $in_tree:literal, )? [$($krate: literal),+ $(,)?] $(,)?) => {
         #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
         pub struct $tool {
             target: TargetSelection,
@@ -759,7 +759,10 @@ macro_rules! tool_doc {
 
             fn should_run(run: ShouldRun<'_>) -> ShouldRun<'_> {
                 let builder = run.builder;
-                run.crate_or_deps($should_run).default_condition(builder.config.compiler_docs)
+                run
+                    .crate_or_deps($should_run)
+                    $( .alias($alias) )?
+                    .default_condition(builder.config.compiler_docs)
             }
 
             fn make_run(run: RunConfig<'_>) {
@@ -851,6 +854,7 @@ macro_rules! tool_doc {
     }
 }
 
+tool_doc!(Scopium, "scopium", "src/tools/scopium", alias = "scopium", ["scopium",],);
 tool_doc!(Rustdoc, "rustdoc-tool", "src/tools/rustdoc", ["rustdoc", "rustdoc-json-types"],);
 tool_doc!(
     Rustfmt,

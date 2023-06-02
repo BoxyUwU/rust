@@ -161,6 +161,15 @@ macro_rules! install {
 }
 
 install!((self, builder, _config),
+    ScopiumProxy, path = "src/tools/scopium", false, only_hosts: true, {
+        let exe = crate::exe("cargo-scopium", builder.build.build);
+        let cargo_scopium_path = builder.ensure(crate::tool::Scopium { compiler: self.compiler });
+        let mut dst = home::cargo_home().expect("could not find location for cargo's home dir");
+        dst.push("bin/");
+        dst.push(exe.as_str());
+        let _ = fs::remove_file(&dst);
+        builder.copy(&cargo_scopium_path, &dst);
+    };
     Docs, path = "src/doc", _config.docs, only_hosts: false, {
         let tarball = builder.ensure(dist::Docs { host: self.target }).expect("missing docs");
         install_sh(builder, "docs", self.compiler.stage, Some(self.target), &tarball);

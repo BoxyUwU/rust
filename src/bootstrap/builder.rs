@@ -689,6 +689,8 @@ impl<'a> Builder<'a> {
                 llvm::Lld,
                 llvm::CrtBeginEnd,
                 tool::RustdocGUITest,
+                // tool::CargoScopium,
+                tool::Scopium,
             ),
             Kind::Check | Kind::Clippy | Kind::Fix => describe!(
                 check::Std,
@@ -702,7 +704,8 @@ impl<'a> Builder<'a> {
                 check::Rls,
                 check::RustAnalyzer,
                 check::Rustfmt,
-                check::Bootstrap
+                check::Bootstrap,
+                check::Scopium,
             ),
             Kind::Test => describe!(
                 crate::toolstate::ToolStateCheck,
@@ -787,6 +790,7 @@ impl<'a> Builder<'a> {
                 doc::StyleGuide,
                 doc::Tidy,
                 doc::Bootstrap,
+                doc::Scopium,
             ),
             Kind::Dist => describe!(
                 dist::Docs,
@@ -828,7 +832,8 @@ impl<'a> Builder<'a> {
                 install::Miri,
                 install::LlvmTools,
                 install::Src,
-                install::Rustc
+                install::Rustc,
+                install::ScopiumProxy,
             ),
             Kind::Run => describe!(
                 run::ExpandYamlAnchors,

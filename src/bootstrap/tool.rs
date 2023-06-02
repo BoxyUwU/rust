@@ -511,6 +511,120 @@ impl Step for Rustdoc {
     }
 }
 
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, Ord, PartialOrd)]
+pub struct Scopium {
+    /// This should only ever be 0 or 2.
+    /// We sometimes want to reference the "bootstrap" rustdoc, which is why this option is here.
+    pub compiler: Compiler,
+}
+
+impl Step for Scopium {
+    type Output = PathBuf;
+    const DEFAULT: bool = true;
+    const ONLY_HOSTS: bool = true;
+
+    fn should_run(run: ShouldRun<'_>) -> ShouldRun<'_> {
+        run.path("src/tools/scopium").alias("scopium-driver")
+    }
+
+    fn make_run(run: RunConfig<'_>) {
+        run.builder.ensure(Scopium {
+            // Note: this is somewhat unique in that we actually want a *target*
+            // compiler here, because rustdoc *is* a compiler. We won't be using
+            // this as the compiler to build with, but rather this is "what
+            // compiler are we producing"?
+            compiler: run.builder.compiler(run.builder.top_stage, run.target),
+        });
+    }
+
+    fn run(self, builder: &Builder<'_>) -> PathBuf {
+        let target_compiler = self.compiler;
+        let target = target_compiler.host;
+        // Similar to `compile::Assemble`, build with the previous stage's compiler. Otherwise
+        // we'd have stageN/bin/rustc and stageN/bin/rustdoc be effectively different stage
+        // compilers, which isn't what we want. Rustdoc should be linked in the same way as the
+        // rustc compiler it's paired with, so it must be built with the previous stage compiler.
+        let build_compiler = if target_compiler.stage > 0 {
+            builder.compiler(target_compiler.stage - 1, builder.config.build)
+        } else {
+            target_compiler
+        };
+
+        // When using `download-rustc` and a stage0 build_compiler, copying rustc doesn't actually
+        // build stage0 libstd (because the libstd in sysroot has the wrong ABI). Explicitly build
+        // it.
+        builder.ensure(compile::Std::new(build_compiler, target_compiler.host));
+        builder.ensure(compile::Rustc::new(build_compiler, target_compiler.host));
+        // Apparently this isnt exactly correct
+        builder.ensure(compile::Std::new(target_compiler, target_compiler.host));
+        // NOTE: this implies that `download-rustc` is pretty useless when compiling with the stage0
+        // compiler, since you do just as much work.
+        if !builder.config.dry_run() && builder.download_rustc() && build_compiler.stage == 0 {
+            println!(
+                "warning: `download-rustc` does nothing when building stage1 tools; consider using `--stage 2` instead"
+            );
+        }
+
+        // The presence of `target_compiler` ensures that the necessary libraries (codegen backends,
+        // compiler libraries, ...) are built. Rustdoc does not require the presence of any
+        // libraries within sysroot_libdir (i.e., rustlib), though doctests may want it (since
+        // they'll be linked to those libraries). As such, don't explicitly `ensure` any additional
+        // libraries here. The intuition here is that If we've built a compiler, we should be able
+        // to build rustdoc.
+        //
+        let mut features = Vec::new();
+        if builder.config.jemalloc {
+            features.push("jemalloc".to_string());
+        }
+
+        let mut cargo: CargoCommand = prepare_tool_cargo(
+            builder,
+            build_compiler,
+            Mode::ToolRustc,
+            target,
+            "build",
+            "src/tools/scopium",
+            SourceType::InTree,
+            features.as_slice(),
+        );
+
+        if builder.config.rustc_parallel {
+            cargo.rustflag("--cfg=parallel_compiler");
+        }
+
+        let _guard = builder.msg_tool(
+            Mode::ToolRustc,
+            "scopium-driver",
+            build_compiler.stage,
+            &self.compiler.host,
+            &target,
+        );
+        builder.run(&mut cargo.into());
+
+        if target_compiler.stage > 0 {
+            let sysroot = builder.sysroot(target_compiler);
+            let bindir = sysroot.join("bin");
+            t!(fs::create_dir_all(&bindir));
+            let a = |name| {
+                let src = builder
+                    .cargo_out(build_compiler, Mode::ToolRustc, target)
+                    .join(exe(name, target_compiler.host));
+                let bin_dst = bindir.join(exe(name, target_compiler.host));
+                let _ = fs::remove_file(&bin_dst);
+                builder.copy(&src, &bin_dst);
+                bin_dst
+            };
+            a("scopium-wrapper");
+            a("scopium-driver");
+            a("cargo-scopium")
+        } else {
+            builder
+                .cargo_out(build_compiler, Mode::ToolRustc, target)
+                .join(exe("cargo-scopium", target_compiler.host))
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub struct Cargo {
     pub compiler: Compiler,
@@ -733,6 +847,7 @@ macro_rules! tool_extended {
        $path:expr,
        $tool_name:expr,
        stable = $stable:expr
+       $(,alias = $alias:literal)?
        $(,tool_std = $tool_std:literal)?
        $(,allow_features = $allow_features:expr)?
        $(,add_bins_to_sysroot = $add_bins_to_sysroot:expr)?
@@ -752,7 +867,7 @@ macro_rules! tool_extended {
 
             fn should_run(run: ShouldRun<'_>) -> ShouldRun<'_> {
                 let builder = run.builder;
-                run.path($path).default_condition(
+                run.path($path)$(.alias($alias))?.default_condition(
                     builder.config.extended
                         && builder.config.tools.as_ref().map_or(
                             // By default, on nightly/dev enable all tools, else only

@@ -405,7 +405,7 @@ impl Step for RustAnalyzer {
 }
 
 macro_rules! tool_check_step {
-    ($name:ident, $path:literal, $($alias:literal, )* $source_type:path $(, $default:literal )?) => {
+    ($name:ident, $path:literal, $($paths:literal, )* $(...alias=$alias:literal,)? $source_type:path $(, $default:literal )?) => {
         #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
         pub struct $name {
             pub target: TargetSelection,
@@ -418,7 +418,7 @@ macro_rules! tool_check_step {
             const DEFAULT: bool = matches!($source_type, SourceType::InTree) $( && $default )?;
 
             fn should_run(run: ShouldRun<'_>) -> ShouldRun<'_> {
-                run.paths(&[ $path, $($alias),* ])
+                run.paths(&[ $path $(,$paths)*])$(.alias($alias))*
             }
 
             fn make_run(run: RunConfig<'_>) {
@@ -490,6 +490,7 @@ tool_check_step!(CargoMiri, "src/tools/miri/cargo-miri", SourceType::InTree);
 tool_check_step!(Rls, "src/tools/rls", SourceType::InTree);
 tool_check_step!(Rustfmt, "src/tools/rustfmt", SourceType::InTree);
 tool_check_step!(MiroptTestTools, "src/tools/miropt-test-tools", SourceType::InTree);
+tool_check_step!(Scopium, "src/tools/scopium", ...alias = "scopium", SourceType::InTree);
 
 tool_check_step!(Bootstrap, "src/bootstrap", SourceType::InTree, false);
 

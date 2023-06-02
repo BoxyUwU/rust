@@ -1,0 +1,23 @@
+[package]
+name = "scopium"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+
+[[bin]]
+name = "cargo-scopium"
+test = false
+path = "src/proxy.rs"
+
+[[bin]]
+name = "scopium-wrapper"
+test = false
+path = "src/wrapper.rs"
+
+[[bin]]
+name = "scopium-driver"
+path = "src/driver.rs"
+
+[package.metadata.rust-analyzer]
+rustc_private = true
