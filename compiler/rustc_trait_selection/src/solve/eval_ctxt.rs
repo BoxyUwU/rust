@@ -151,7 +151,22 @@ impl<'tcx> InferCtxtEvalExt<'tcx> for InferCtxt<'tcx> {
         };
         let result = ecx.evaluate_goal(IsNormalizesToHack::No, goal);
 
-        debug!("proof tree: {:#?}", ecx.inspect.into_debug_solver().unwrap());
+        let tree = match ecx.inspect.into_debug_solver() {
+            Some(tree) => match Box::leak(tree) {
+                DebugSolver::GoalEvaluation(tree) => tree,
+                _ => unreachable!("unable to convert to `DebugSolver::GoalEvaluation`"),
+            },
+            _ => unreachable!("unable to convert to `DebugSolver::GoalEvaluation`"),
+        };
+        println!("{:?}", tree);
+
+        // let _ = ecx.tcx().emit_solver_tree(match ecx.inspect.into_debug_solver() {
+        //     Some(tree) => match Box::leak(tree) {
+        //         DebugSolver::GoalEvaluation(tree) => tree,
+        //         _ => unreachable!("unable to convert to `DebugSolver::GoalEvaluation`"),
+        //     },
+        //     _ => unreachable!("unable to convert to `DebugSolver::GoalEvaluation`"),
+        // });
 
         assert!(
             ecx.nested_goals.is_empty(),
@@ -189,51 +204,56 @@ impl<'a, 'tcx> EvalCtxt<'a, 'tcx> {
         // Deal with overflow, caching, and coinduction.
         //
         // The actual solver logic happens in `ecx.compute_goal`.
-        search_graph.with_new_goal(tcx, canonical_input, |search_graph| {
-            let intercrate = match search_graph.solver_mode() {
-                SolverMode::Normal => false,
-                SolverMode::Coherence => true,
-            };
-            let (ref infcx, input, var_values) = tcx
-                .infer_ctxt()
-                .intercrate(intercrate)
-                .with_opaque_type_inference(canonical_input.value.anchor)
-                .build_with_canonical(DUMMY_SP, &canonical_input);
+        search_graph.with_new_goal(
+            tcx,
+            canonical_input,
+            goal_evaluation,
+            |search_graph, goal_evaluation| {
+                let intercrate = match search_graph.solver_mode() {
+                    SolverMode::Normal => false,
+                    SolverMode::Coherence => true,
+                };
+                let (ref infcx, input, var_values) = tcx
+                    .infer_ctxt()
+                    .intercrate(intercrate)
+                    .with_opaque_type_inference(canonical_input.value.anchor)
+                    .build_with_canonical(DUMMY_SP, &canonical_input);
 
-            for &(a, b) in &input.predefined_opaques_in_body.opaque_types {
-                let InferOk { value: (), obligations } = infcx
-                    .register_hidden_type_in_new_solver(a, input.goal.param_env, b)
-                    .expect("expected opaque type instantiation to succeed");
-                // We're only registering opaques already defined by the caller,
-                // so we're not responsible for proving that they satisfy their
-                // item bounds, unless we use them in a normalizes-to goal,
-                // which is handled in `EvalCtxt::unify_existing_opaque_tys`.
-                let _ = obligations;
-            }
-            let mut ecx = EvalCtxt {
-                infcx,
-                var_values,
-                predefined_opaques_in_body: input.predefined_opaques_in_body,
-                max_input_universe: canonical_input.max_universe,
-                search_graph,
-                nested_goals: NestedGoals::new(),
-                tainted: Ok(()),
-                inspect: goal_evaluation.new_goal_evaluation_step(input),
-            };
-            let result = ecx.compute_goal(input.goal);
-            ecx.inspect.query_result(result);
-            goal_evaluation.goal_evaluation_step(ecx.inspect);
+                for &(a, b) in &input.predefined_opaques_in_body.opaque_types {
+                    let InferOk { value: (), obligations } = infcx
+                        .register_hidden_type_in_new_solver(a, input.goal.param_env, b)
+                        .expect("expected opaque type instantiation to succeed");
+                    // We're only registering opaques already defined by the caller,
+                    // so we're not responsible for proving that they satisfy their
+                    // item bounds, unless we use them in a normalizes-to goal,
+                    // which is handled in `EvalCtxt::unify_existing_opaque_tys`.
+                    let _ = obligations;
+                }
+                let mut ecx = EvalCtxt {
+                    infcx,
+                    var_values,
+                    predefined_opaques_in_body: input.predefined_opaques_in_body,
+                    max_input_universe: canonical_input.max_universe,
+                    search_graph,
+                    nested_goals: NestedGoals::new(),
+                    tainted: Ok(()),
+                    inspect: goal_evaluation.new_goal_evaluation_step(input),
+                };
+                let result = ecx.compute_goal(input.goal);
+                ecx.inspect.query_result(result);
+                goal_evaluation.goal_evaluation_step(ecx.inspect);
 
-            // When creating a query response we clone the opaque type constraints
-            // instead of taking them. This would cause an ICE here, since we have
-            // assertions against dropping an `InferCtxt` without taking opaques.
-            // FIXME: Once we remove support for the old impl we can remove this.
-            if input.anchor != DefiningAnchor::Error {
-                let _ = infcx.take_opaque_types();
-            }
+                // When creating a query response we clone the opaque type constraints
+                // instead of taking them. This would cause an ICE here, since we have
+                // assertions against dropping an `InferCtxt` without taking opaques.
+                // FIXME: Once we remove support for the old impl we can remove this.
+                if input.anchor != DefiningAnchor::Error {
+                    let _ = infcx.take_opaque_types();
+                }
 
-            result
-        })
+                result
+            },
+        )
     }
 
     /// Recursively evaluates `goal`, returning whether any inference vars have

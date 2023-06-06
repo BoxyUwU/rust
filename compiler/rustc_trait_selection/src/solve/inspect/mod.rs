@@ -1,48 +1,10 @@
 use rustc_middle::{
     traits::{
         query::NoSolution,
-        solve::{CanonicalInput, Certainty, Goal, QueryInput, QueryResult},
+        solve::{inspect::*, CanonicalInput, Certainty, Goal, QueryInput, QueryResult},
     },
     ty,
 };
-
-#[derive(Debug)]
-pub struct GoalEvaluation<'tcx> {
-    pub uncanonicalized_goal: Goal<'tcx, ty::Predicate<'tcx>>,
-    pub canonicalized_goal: Option<CanonicalInput<'tcx>>,
-
-    /// To handle coinductive cycles we can end up re-evaluating a goal
-    /// multiple times with different results for a nested goal. Each rerun
-    /// is represented as an entry in this vec.
-    pub evaluation_steps: Vec<GoalEvaluationStep<'tcx>>,
-
-    pub result: Option<QueryResult<'tcx>>,
-}
-
-#[derive(Debug)]
-pub struct AddedGoalsEvaluation<'tcx> {
-    pub evaluations: Vec<Vec<GoalEvaluation<'tcx>>>,
-    pub result: Option<Result<Certainty, NoSolution>>,
-}
-
-#[derive(Debug)]
-pub struct GoalEvaluationStep<'tcx> {
-    pub instantiated_goal: QueryInput<'tcx, ty::Predicate<'tcx>>,
-
-    pub nested_goal_evaluations: Vec<AddedGoalsEvaluation<'tcx>>,
-    pub candidates: Vec<GoalCandidate<'tcx>>,
-
-    pub result: Option<QueryResult<'tcx>>,
-}
-
-#[derive(Debug)]
-pub struct GoalCandidate<'tcx> {
-    pub nested_goal_evaluations: Vec<AddedGoalsEvaluation<'tcx>>,
-    pub candidates: Vec<GoalCandidate<'tcx>>,
-
-    pub name: Option<String>,
-    pub result: Option<QueryResult<'tcx>>,
-}
 
 #[derive(Debug)]
 pub enum DebugSolver<'tcx> {
@@ -61,6 +23,7 @@ pub trait InspectSolve<'tcx> {
         goal: Goal<'tcx, ty::Predicate<'tcx>>,
     ) -> Box<dyn InspectSolve<'tcx> + 'tcx>;
     fn canonicalized_goal(&mut self, canonical_goal: CanonicalInput<'tcx>);
+    fn cache_hit(&mut self);
     fn goal_evaluation(&mut self, goal_evaluation: Box<dyn InspectSolve<'tcx> + 'tcx>);
 
     fn new_goal_evaluation_step(
@@ -96,6 +59,7 @@ impl<'tcx> InspectSolve<'tcx> for () {
         Box::new(())
     }
     fn canonicalized_goal(&mut self, _canonical_goal: CanonicalInput<'tcx>) {}
+    fn cache_hit(&mut self) {}
     fn goal_evaluation(&mut self, _goal_evaluation: Box<dyn InspectSolve<'tcx> + 'tcx>) {}
 
     fn new_goal_evaluation_step(
@@ -140,6 +104,7 @@ impl<'tcx> InspectSolve<'tcx> for DebugSolver<'tcx> {
             uncanonicalized_goal: goal,
             canonicalized_goal: None,
             evaluation_steps: vec![],
+            cache_hit: false,
             result: None,
         }))
     }
@@ -151,6 +116,12 @@ impl<'tcx> InspectSolve<'tcx> for DebugSolver<'tcx> {
             }
             _ => unreachable!(),
         }
+    }
+    fn cache_hit(&mut self) {
+        match self {
+            DebugSolver::GoalEvaluation(goal_evaluation) => goal_evaluation.cache_hit = true,
+            _ => unreachable!(),
+        };
     }
     fn goal_evaluation(&mut self, goal_evaluation: Box<dyn InspectSolve<'tcx> + 'tcx>) {
         let goal_evaluation = goal_evaluation.into_debug_solver().unwrap();
@@ -177,7 +148,6 @@ impl<'tcx> InspectSolve<'tcx> for DebugSolver<'tcx> {
     }
     fn goal_evaluation_step(&mut self, goal_eval_step: Box<dyn InspectSolve<'tcx> + 'tcx>) {
         let goal_eval_step = goal_eval_step.into_debug_solver().unwrap();
-        debug!("hi what the fuck");
         match (self, *goal_eval_step) {
             (DebugSolver::GoalEvaluation(goal_eval), DebugSolver::GoalEvaluationStep(step)) => {
                 goal_eval.evaluation_steps.push(step);

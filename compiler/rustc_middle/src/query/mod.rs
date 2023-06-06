@@ -37,6 +37,7 @@ use crate::traits::query::{
     DropckConstraint, DropckOutlivesResult, MethodAutoderefStepsResult, NormalizationResult,
     OutlivesBound,
 };
+use crate::traits::solve::inspect::GoalEvaluation;
 use crate::traits::specialization_graph;
 use crate::traits::{
     CanonicalChalkEnvironmentAndGoal, CodegenObligationError, EvaluationResult, ImplSource,
@@ -2185,6 +2186,12 @@ rustc_queries! {
     query check_tys_might_be_eq(arg: Canonical<'tcx, (ty::ParamEnv<'tcx>, Ty<'tcx>, Ty<'tcx>)>) -> Result<(), NoSolution> {
         desc { "check whether two const param are definitely not equal to eachother"}
     }
+
+    query emit_solver_tree(tree: &'tcx GoalEvaluation<'tcx>) {
+        eval_always
+        desc { "emitting trait solver's proof tree" }
+    }
+
 }
 
 rustc_query_append! { define_callbacks! }

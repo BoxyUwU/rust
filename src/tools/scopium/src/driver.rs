@@ -60,7 +60,10 @@ impl rustc_driver::Callbacks for ScopiumCallbacks {
         config.parse_sess_created = Some(Box::new(move |parse_sess| {
             track_scopium_args(parse_sess, &scopium_args_var);
             track_files(parse_sess);
-        }))
+        }));
+        config.override_queries = Some(|_sess, providers, _extern_providers| {
+            providers.emit_solver_tree = |_, tree| println!("{tree:#?}");
+        });
     }
 }
 

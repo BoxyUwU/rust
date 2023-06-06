@@ -547,3 +547,11 @@ impl<'tcx> Key for (ValidityRequirement, ty::ParamEnvAnd<'tcx, Ty<'tcx>>) {
         }
     }
 }
+
+impl<'tcx> Key for &'tcx crate::traits::solve::inspect::GoalEvaluation<'tcx> {
+    type CacheSelector = DefaultCacheSelector<Self>;
+
+    fn default_span(&self, _: TyCtxt<'_>) -> Span {
+        DUMMY_SP
+    }
+}
