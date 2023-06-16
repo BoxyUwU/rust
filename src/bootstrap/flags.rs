@@ -82,10 +82,10 @@ pub struct Flags {
     #[arg(global(true), long)]
     /// dry run; don't build anything
     pub dry_run: bool,
-    #[arg(global(true), value_hint = clap::ValueHint::Other, long, value_name = "N")]
-    /// stage to build (indicates compiler to use/test, e.g., stage 0 uses the
-    /// bootstrap compiler, stage 1 the stage 0 rustc artifacts, etc.)
-    pub stage: Option<u32>,
+    #[arg(global(true), value_hint = clap::ValueHint::Other, long, value_name = "STAGE", value_parser = stage_parser)]
+    /// stage to build (indicates compiler to use/test, e.g., `bootstrap` uses the
+    /// bootstrap compiler, `dev` the local rustc artifacts, `dist` the local rustc artifacts built with `dev`, etc)
+    pub stage: Option<Stage>,
 
     #[arg(global(true), value_hint = clap::ValueHint::Other, long, value_name = "N")]
     /// stage(s) to keep without recompiling
@@ -412,6 +412,40 @@ Arguments:
         #[arg(long)]
         run: bool,
     },
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Ord, PartialOrd)]
+pub enum Stage {
+    Bootstrap,
+    Dev,
+    Dist,
+}
+impl std::fmt::Display for Stage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Stage::Bootstrap => write!(f, "bootstrap"),
+            Stage::Dev => write!(f, "dev"),
+            Stage::Dist => write!(f, "dist"),
+        }
+    }
+}
+impl Stage {
+    pub fn prev_stage(self) -> Option<Self> {
+        match self {
+            Stage::Bootstrap => None,
+            Stage::Dev => Some(Stage::Bootstrap),
+            Stage::Dist => Some(Stage::Dev),
+        }
+    }
+}
+
+pub fn stage_parser(input: &str) -> Result<Stage, String> {
+    match input {
+        "bootstrap" => Ok(Stage::Bootstrap),
+        "dev" => Ok(Stage::Dev),
+        "dist" => Ok(Stage::Dist),
+        _ => Err("uhm".into()),
+    }
 }
 
 impl Subcommand {

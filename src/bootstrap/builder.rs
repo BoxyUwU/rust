@@ -15,7 +15,7 @@ use std::time::{Duration, Instant};
 use crate::cache::{Cache, Interned, INTERNER};
 use crate::config::{SplitDebuginfo, TargetSelection};
 use crate::doc;
-use crate::flags::{Color, Subcommand};
+use crate::flags::{Color, Stage, Subcommand};
 use crate::install;
 use crate::llvm;
 use crate::run;
@@ -38,7 +38,7 @@ use once_cell::sync::{Lazy, OnceCell};
 
 pub struct Builder<'a> {
     pub build: &'a Build,
-    pub top_stage: u32,
+    pub top_stage: Stage,
     pub kind: Kind,
     cache: Cache,
     stack: RefCell<Vec<Box<dyn Any>>>,
@@ -927,7 +927,7 @@ impl<'a> Builder<'a> {
         build: &mut Build,
         kind: Kind,
         paths: Vec<PathBuf>,
-        stage: Option<u32>,
+        stage: Option<Stage>,
     ) -> Builder<'_> {
         // FIXME: don't mutate `build`
         if let Some(stage) = stage {
@@ -964,7 +964,7 @@ impl<'a> Builder<'a> {
     /// not take `Compiler` since all `Compiler` instances are meant to be
     /// obtained through this function, since it ensures that they are valid
     /// (i.e., built and assembled).
-    pub fn compiler(&self, stage: u32, host: TargetSelection) -> Compiler {
+    pub fn compiler(&self, stage: Stage, host: TargetSelection) -> Compiler {
         self.ensure(compile::Assemble { target_compiler: Compiler { stage, host } })
     }
 
@@ -981,17 +981,18 @@ impl<'a> Builder<'a> {
     /// See `force_use_stage1` and `force_use_stage2` for documentation on what each argument is.
     pub fn compiler_for(
         &self,
-        stage: u32,
+        stage: Stage,
         host: TargetSelection,
         target: TargetSelection,
     ) -> Compiler {
-        if self.build.force_use_stage2(stage) {
-            self.compiler(2, self.config.build)
-        } else if self.build.force_use_stage1(stage, target) {
-            self.compiler(1, self.config.build)
-        } else {
-            self.compiler(stage, host)
-        }
+        // FIXME(BoxyUwU) ???
+        // if self.build.force_use_stage2(stage) {
+        //     self.compiler(2, self.config.build)
+        // } else if self.build.force_use_stage1(stage, target) {
+        //     self.compiler(1, self.config.build)
+        // } else {
+        self.compiler(stage, host)
+        // }
     }
 
     pub fn sysroot(&self, compiler: Compiler) -> Interned<PathBuf> {
@@ -1032,7 +1033,8 @@ impl<'a> Builder<'a> {
                     t!(fs::create_dir_all(&sysroot));
                 }
 
-                if self.compiler.stage == 0 {
+                // FIXME(BoxyUwU)
+                if self.compiler.stage == Stage::Bootstrap {
                     // The stage 0 compiler for the build triple is always pre-built.
                     // Ensure that `libLLVM.so` ends up in the target libdir, so that ui-fulldeps tests can use it when run.
                     dist::maybe_install_llvm_target(
@@ -1062,7 +1064,7 @@ impl<'a> Builder<'a> {
             self.rustc_snapshot_libdir()
         } else {
             match self.config.libdir_relative() {
-                Some(relative_libdir) if compiler.stage >= 1 => {
+                Some(relative_libdir) if compiler.stage >= Stage::Dev => {
                     self.sysroot(compiler).join(relative_libdir)
                 }
                 _ => self.sysroot(compiler).join(libdir(compiler.host)),
@@ -1080,7 +1082,7 @@ impl<'a> Builder<'a> {
             libdir(self.config.build).as_ref()
         } else {
             match self.config.libdir_relative() {
-                Some(relative_libdir) if compiler.stage >= 1 => relative_libdir,
+                Some(relative_libdir) if compiler.stage >= Stage::Dev => relative_libdir,
                 _ => libdir(compiler.host).as_ref(),
             }
         }
@@ -1092,8 +1094,8 @@ impl<'a> Builder<'a> {
     /// For example this returns `lib` on Unix and Windows.
     pub fn sysroot_libdir_relative(&self, compiler: Compiler) -> &Path {
         match self.config.libdir_relative() {
-            Some(relative_libdir) if compiler.stage >= 1 => relative_libdir,
-            _ if compiler.stage == 0 => &self.build.initial_libdir,
+            Some(relative_libdir) if compiler.stage >= Stage::Dev => relative_libdir,
+            _ if compiler.stage == Stage::Bootstrap => &self.build.initial_libdir,
             _ => Path::new("lib"),
         }
     }
@@ -1313,15 +1315,15 @@ impl<'a> Builder<'a> {
             }
         }
 
-        let stage = if compiler.stage == 0 && self.local_rebuild {
+        let stage = if compiler.stage == Stage::Bootstrap && self.local_rebuild {
             // Assume the local-rebuild rustc already has stage1 features.
-            1
+            Stage::Dev
         } else {
             compiler.stage
         };
 
         let mut rustflags = Rustflags::new(target);
-        if stage != 0 {
+        if stage != Stage::Bootstrap {
             if let Ok(s) = env::var("CARGOFLAGS_NOT_BOOTSTRAP") {
                 cargo.args(s.split_whitespace());
             }
@@ -1440,7 +1442,7 @@ impl<'a> Builder<'a> {
         // #71458.
         let mut rustdocflags = rustflags.clone();
         rustdocflags.propagate_cargo_env("RUSTDOCFLAGS");
-        if stage == 0 {
+        if stage == Stage::Bootstrap {
             rustdocflags.env("RUSTDOCFLAGS_BOOTSTRAP");
         } else {
             rustdocflags.env("RUSTDOCFLAGS_NOT_BOOTSTRAP");
@@ -1501,7 +1503,7 @@ impl<'a> Builder<'a> {
 
         // FIXME: Temporary fix for https://github.com/rust-lang/cargo/issues/3005
         // Force cargo to output binaries with disambiguating hashes in the name
-        let mut metadata = if compiler.stage == 0 {
+        let mut metadata = if compiler.stage == Stage::Bootstrap {
             // Treat stage0 like a special channel, whether it's a normal prior-
             // release rustc or a local rebuild with the same version, so we
             // never mix these libraries by accident.
@@ -1553,7 +1555,7 @@ impl<'a> Builder<'a> {
         // compiler, but for tools we just use the precompiled libraries that
         // we've downloaded
         let use_snapshot = mode == Mode::ToolBootstrap;
-        assert!(!use_snapshot || stage == 0 || self.local_rebuild);
+        assert!(!use_snapshot || stage == Stage::Bootstrap || self.local_rebuild);
 
         let maybe_sysroot = self.sysroot(compiler);
         let sysroot = if use_snapshot { self.rustc_snapshot_sysroot() } else { &maybe_sysroot };
@@ -1797,7 +1799,7 @@ impl<'a> Builder<'a> {
         // Ignore incremental modes except for stage0, since we're
         // not guaranteeing correctness across builds if the compiler
         // is changing under your feet.
-        if self.config.incremental && compiler.stage == 0 {
+        if self.config.incremental && compiler.stage == Stage::Bootstrap {
             cargo.env("CARGO_INCREMENTAL", "1");
         } else {
             // Don't rely on any default setting for incr. comp. in Cargo
@@ -1920,11 +1922,7 @@ impl<'a> Builder<'a> {
         // for the standard library in case the compiler is run on a non-Windows platform.
         // This is not needed for stage 0 artifacts because these will only be used for building
         // the stage 1 compiler.
-        if cfg!(windows)
-            && mode == Mode::Std
-            && self.config.control_flow_guard
-            && compiler.stage >= 1
-        {
+        if cfg!(windows) && mode == Mode::Std && self.config.control_flow_guard {
             rustflags.arg("-Ccontrol-flow-guard");
         }
 
@@ -2021,7 +2019,8 @@ impl<'a> Builder<'a> {
             };
 
             if let Some(limit) = limit {
-                if stage == 0 || self.config.default_codegen_backend().unwrap_or_default() == "llvm"
+                if stage == Stage::Bootstrap
+                    || self.config.default_codegen_backend().unwrap_or_default() == "llvm"
                 {
                     rustflags.arg(&format!("-Cllvm-args=-import-instr-limit={}", limit));
                 }

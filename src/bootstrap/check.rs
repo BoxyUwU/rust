@@ -5,9 +5,10 @@ use build_helper::detail_exit_macro;
 use crate::builder::{crate_description, Builder, Kind, RunConfig, ShouldRun, Step};
 use crate::cache::Interned;
 use crate::compile::{
-    self, add_to_sysroot, make_run_crates, run_cargo, rustc_cargo, rustc_cargo_env, std_cargo,
+    add_to_sysroot, make_run_crates, run_cargo, rustc_cargo, rustc_cargo_env, std_cargo,
 };
 use crate::config::TargetSelection;
+use crate::flags::Stage;
 use crate::tool::{prepare_tool_cargo, SourceType};
 use crate::INTERNER;
 use crate::{Compiler, Mode, Subcommand};
@@ -88,13 +89,13 @@ impl Step for Std {
 
     fn should_run(run: ShouldRun<'_>) -> ShouldRun<'_> {
         let stage = run.builder.top_stage;
-        run.crate_or_deps("sysroot").path("library").default_condition(stage != 0)
+        run.crate_or_deps("sysroot").path("library").default_condition(stage != Stage::Bootstrap)
     }
 
     fn make_run(run: RunConfig<'_>) {
-        if run.builder.top_stage == 0 {
+        if run.builder.top_stage == Stage::Bootstrap {
             eprintln!(
-                "check --stage 0 std is no longer supported - try --stage 1 or enabling rust.download-rustc"
+                "check --bootstrap std is not supported - try --dev or enabling rust.download-rustc"
             );
             detail_exit_macro!(1);
         }
@@ -104,14 +105,10 @@ impl Step for Std {
     }
 
     fn run(self, builder: &Builder<'_>) {
+        assert!(builder.top_stage > Stage::Bootstrap, "checking bootstrap std is not supported");
+
         let target = self.target;
         let compiler = builder.compiler(builder.top_stage, builder.config.build);
-
-        if builder.top_stage == 0 {
-            // Reuse the beta compiler's libstd
-            builder.ensure(compile::Std::new(compiler, target));
-            return;
-        }
 
         builder.update_submodule(&Path::new("library").join("stdarch"));
 
@@ -146,14 +143,6 @@ impl Step for Std {
             false,
         );
 
-        // We skip populating the sysroot in non-zero stage because that'll lead
-        // to rlib/rmeta conflicts if std gets built during this session.
-        if compiler.stage == 0 {
-            let libdir = builder.sysroot_libdir(compiler, target);
-            let hostdir = builder.sysroot_libdir(compiler, compiler.host);
-            add_to_sysroot(&builder, &libdir, &hostdir, &libstd_stamp(builder, compiler, target));
-        }
-
         // don't run on std twice with x.py clippy
         // don't check test dependencies if we haven't built libtest
         if builder.kind == Kind::Clippy || !self.crates.is_empty() {
@@ -173,13 +162,6 @@ impl Step for Std {
             target,
             cargo_subcommand(builder.kind),
         );
-
-        // If we're not in stage 0, tests and examples will fail to compile
-        // from `core` definitions being loaded from two different `libcore`
-        // .rmeta and .rlib files.
-        if compiler.stage == 0 {
-            cargo.arg("--all-targets");
-        }
 
         std_cargo(builder, target, compiler.stage, &mut cargo);
 
@@ -234,6 +216,9 @@ impl Step for Rustc {
     }
 
     fn make_run(run: RunConfig<'_>) {
+        if run.builder.top_stage == Stage::Bootstrap {
+            eprintln!("`./x.py check --bootstrap compiler` is not supported - try `-- dev`")
+        }
         let crates = make_run_crates(&run, "compiler");
         run.builder.ensure(Rustc { target: run.target, crates });
     }
@@ -244,19 +229,21 @@ impl Step for Rustc {
     /// the `compiler` targeting the `target` architecture. The artifacts
     /// created will also be linked into the sysroot directory.
     fn run(self, builder: &Builder<'_>) {
-        let compiler = builder.compiler(builder.top_stage, builder.config.build);
+        let compiler = builder.compiler(
+            builder.top_stage.prev_stage().expect("checking bootstrap compiler is not supported"),
+            builder.config.build,
+        );
         let target = self.target;
 
-        if compiler.stage != 0 {
-            // If we're not in stage 0, then we won't have a std from the beta
-            // compiler around. That means we need to make sure there's one in
-            // the sysroot for the compiler to find. Otherwise, we're going to
-            // fail when building crates that need to generate code (e.g., build
-            // scripts and their dependencies).
-            builder.ensure(crate::compile::Std::new(compiler, compiler.host));
+        // If we are checking the `Dev` compiler the std dependency is bootstrap std which is already built.
+        // If we are checking the `Dist` compiler the std dependency is dev std which we need to build ourselves
+        // as building the `Dev` compiler does not also build the std that crates compiled with the dev compiler
+        // need.
+        if builder.top_stage >= Stage::Dist {
             builder.ensure(crate::compile::Std::new(compiler, target));
-        } else {
-            builder.ensure(Std::new(target));
+            // We must also build std for the host so that build scripts in the compiler we are checking are run
+            // with an std that matches the target they're being run on.
+            builder.ensure(crate::compile::Std::new(compiler, compiler.host));
         }
 
         let mut cargo = builder.cargo(
@@ -317,15 +304,27 @@ impl Step for CodegenBackend {
     }
 
     fn make_run(run: RunConfig<'_>) {
+        if run.builder.top_stage == Stage::Bootstrap {
+            eprintln!("checking bootstrap codegen backends is not supported")
+        }
         for &backend in &[INTERNER.intern_str("cranelift"), INTERNER.intern_str("gcc")] {
             run.builder.ensure(CodegenBackend { target: run.target, backend });
         }
     }
 
     fn run(self, builder: &Builder<'_>) {
-        let compiler = builder.compiler(builder.top_stage, builder.config.build);
+        let compiler = builder.compiler(
+            builder
+                .top_stage
+                .prev_stage()
+                .expect("building bootstrap codegen backends is not supported"),
+            builder.config.build,
+        );
         let target = self.target;
         let backend = self.backend;
+
+        // we dont need to build host and target std for `top_stage.prev_stage()` because the
+        // `Rustc::new(target, builder)` below ought to handle that itself.
 
         builder.ensure(Rustc::new(target, builder));
 
@@ -377,7 +376,17 @@ impl Step for RustAnalyzer {
         let compiler = builder.compiler(builder.top_stage, builder.config.build);
         let target = self.target;
 
-        builder.ensure(Std::new(target));
+        // If `Stage::Bootstrap` then rust analyzer's std dep is fulfilled by bootstrap std which
+        // is already available.
+        if builder.top_stage > Stage::Bootstrap {
+            builder.ensure(crate::compile::Std::new(compiler, target));
+            // We also have to build host std so that build scripts can link to an std built for the
+            // same target as they are running on.
+            builder.ensure(crate::compile::Std::new(compiler, compiler.host));
+        } else if target != compiler.host {
+            eprint!("cannot cross compile rust analyzer using bootstrap std and rustc");
+            return;
+        }
 
         let mut cargo = prepare_tool_cargo(
             builder,
@@ -438,11 +447,20 @@ macro_rules! tool_check_step {
             }
 
             fn make_run(run: RunConfig<'_>) {
+                if run.builder.top_stage == Stage::Bootstrap {
+                    eprintln!("compiling bootstrap {} is not supported", stringify!($name));
+                }
                 run.builder.ensure($name { target: run.target });
             }
 
             fn run(self, builder: &Builder<'_>) {
-                let compiler = builder.compiler(builder.top_stage, builder.config.build);
+                let compiler = builder.compiler(
+                    builder
+                        .top_stage
+                        .prev_stage()
+                        .expect("cannot compile tools as bootstrap"),
+                    builder.config.build,
+                );
                 let target = self.target;
 
                 builder.ensure(Rustc::new(target, builder));

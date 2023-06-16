@@ -20,6 +20,7 @@ use crate::builder::TaskPath;
 use crate::cache::{Interned, INTERNER};
 use crate::cc_detect::{ndk_compiler, Language};
 use crate::channel::{self, GitInfo};
+use crate::flags::Stage;
 pub use crate::flags::Subcommand;
 use crate::flags::{Color, Flags, Warnings};
 use crate::util::{exe, output, t};
@@ -102,7 +103,7 @@ pub struct Config {
     pub stderr_is_tty: bool,
 
     pub on_fail: Option<String>,
-    pub stage: u32,
+    pub stage: Stage,
     pub keep_stage: Vec<u32>,
     pub keep_stage_std: Vec<u32>,
     pub src: PathBuf,

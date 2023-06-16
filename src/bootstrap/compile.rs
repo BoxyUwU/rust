@@ -25,6 +25,7 @@ use crate::builder::{Builder, Kind, PathSet, RunConfig, ShouldRun, Step, TaskPat
 use crate::cache::{Interned, INTERNER};
 use crate::config::{LlvmLibunwind, RustcLto, TargetSelection};
 use crate::dist;
+use crate::flags::Stage;
 use crate::llvm;
 use crate::tool::SourceType;
 use crate::util::get_clang_cl_resource_dir;
@@ -329,7 +330,7 @@ fn copy_self_contained_objects(
 
 /// Configure cargo to compile the standard library, adding appropriate env vars
 /// and such.
-pub fn std_cargo(builder: &Builder<'_>, target: TargetSelection, stage: u32, cargo: &mut Cargo) {
+pub fn std_cargo(builder: &Builder<'_>, target: TargetSelection, stage: Stage, cargo: &mut Cargo) {
     if let Some(target) = env::var_os("MACOSX_STD_DEPLOYMENT_TARGET") {
         cargo.env("MACOSX_DEPLOYMENT_TARGET", target);
     }
@@ -368,7 +369,9 @@ pub fn std_cargo(builder: &Builder<'_>, target: TargetSelection, stage: u32, car
     let mut features = String::new();
 
     // Cranelift doesn't support `asm`.
-    if stage != 0 && builder.config.default_codegen_backend().unwrap_or_default() == "cranelift" {
+    if stage != Stage::Bootstrap
+        && builder.config.default_codegen_backend().unwrap_or_default() == "cranelift"
+    {
         features += " compiler-builtins-no-asm";
     }
 
@@ -877,7 +880,12 @@ impl Step for Rustc {
     }
 }
 
-pub fn rustc_cargo(builder: &Builder<'_>, cargo: &mut Cargo, target: TargetSelection, stage: u32) {
+pub fn rustc_cargo(
+    builder: &Builder<'_>,
+    cargo: &mut Cargo,
+    target: TargetSelection,
+    stage: Stage,
+) {
     cargo
         .arg("--features")
         .arg(builder.rustc_features(builder.kind))
@@ -893,7 +901,7 @@ pub fn rustc_cargo_env(
     builder: &Builder<'_>,
     cargo: &mut Cargo,
     target: TargetSelection,
-    stage: u32,
+    stage: Stage,
 ) {
     // Set some configuration variables picked up by build scripts and
     // the compiler alike

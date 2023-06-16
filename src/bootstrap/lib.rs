@@ -31,6 +31,7 @@ use build_helper::detail_exit_macro;
 use channel::GitInfo;
 use config::{DryRun, Target};
 use filetime::FileTime;
+use flags::Stage;
 use once_cell::sync::OnceCell;
 
 use crate::builder::Kind;
@@ -161,7 +162,7 @@ const EXTRA_CHECK_CFGS: &[(Option<Mode>, &'static str, Option<&[&'static str]>)]
 /// a parameter to many methods below.
 #[derive(Eq, PartialOrd, Ord, PartialEq, Clone, Copy, Hash, Debug)]
 pub struct Compiler {
-    stage: u32,
+    stage: Stage,
     host: TargetSelection,
 }
 
