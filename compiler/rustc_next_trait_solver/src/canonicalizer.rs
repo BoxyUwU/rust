@@ -71,37 +71,37 @@ impl<'a, Infcx: InferCtxtLike<Interner = I>, I: Interner> Canonicalizer<'a, Infc
     }
 
     fn finalize(self) -> (ty::UniverseIndex, I::CanonicalVars) {
-        let mut var_infos = self.primitive_var_infos;
-        // See the rustc-dev-guide section about how we deal with universes
-        // during canonicalization in the new solver.
-        match self.canonicalize_mode {
-            // We try to deduplicate as many query calls as possible and hide
-            // all information which should not matter for the solver.
-            //
-            // For this we compress universes as much as possible.
-            CanonicalizeMode::Input => {}
-            // When canonicalizing a response we map a universes already entered
-            // by the caller to the root universe and only return useful universe
-            // information for placeholders and inference variables created inside
-            // of the query.
-            CanonicalizeMode::Response { max_input_universe } => {
-                for var in var_infos.iter_mut() {
-                    let uv = var.universe();
-                    let new_uv = ty::UniverseIndex::from(
-                        uv.index().saturating_sub(max_input_universe.index()),
-                    );
-                    *var = var.with_updated_universe(new_uv);
-                }
-                let max_universe = var_infos
-                    .iter()
-                    .map(|info| info.universe())
-                    .max()
-                    .unwrap_or(ty::UniverseIndex::ROOT);
+        // let mut var_infos = self.primitive_var_infos;
+        // // See the rustc-dev-guide section about how we deal with universes
+        // // during canonicalization in the new solver.
+        // match self.canonicalize_mode {
+        //     // We try to deduplicate as many query calls as possible and hide
+        //     // all information which should not matter for the solver.
+        //     //
+        //     // For this we compress universes as much as possible.
+        //     CanonicalizeMode::Input => {}
+        //     // When canonicalizing a response we map a universes already entered
+        //     // by the caller to the root universe and only return useful universe
+        //     // information for placeholders and inference variables created inside
+        //     // of the query.
+        //     CanonicalizeMode::Response { max_input_universe } => {
+        //         for var in var_infos.iter_mut() {
+        //             let uv = var.universe();
+        //             let new_uv = ty::UniverseIndex::from(
+        //                 uv.index().saturating_sub(max_input_universe.index()),
+        //             );
+        //             *var = var.with_updated_universe(new_uv);
+        //         }
+        //         let max_universe = var_infos
+        //             .iter()
+        //             .map(|info| info.universe())
+        //             .max()
+        //             .unwrap_or(ty::UniverseIndex::ROOT);
 
-                let var_infos = self.infcx.interner().mk_canonical_var_infos(&var_infos);
-                return (max_universe, var_infos);
-            }
-        }
+        //         let var_infos = self.infcx.interner().mk_canonical_var_infos(&var_infos);
+        //         return (max_universe, var_infos);
+        //     }
+        // }
 
         // Given a `var_infos` with existentials `En` and universals `Un` in
         // universes `n`, this algorithm compresses them in place so that:
@@ -123,65 +123,66 @@ impl<'a, Infcx: InferCtxtLike<Interner = I>, I: Interner> Canonicalizer<'a, Infc
         let mut curr_compressed_uv = ty::UniverseIndex::ROOT;
         let mut existential_in_new_uv = false;
         let mut next_orig_uv = Some(ty::UniverseIndex::ROOT);
-        while let Some(orig_uv) = next_orig_uv.take() {
-            let mut update_uv = |var: &mut CanonicalVarInfo<I>, orig_uv, is_existential| {
-                let uv = var.universe();
-                match uv.cmp(&orig_uv) {
-                    Ordering::Less => (), // Already updated
-                    Ordering::Equal => {
-                        if is_existential {
-                            existential_in_new_uv = true;
-                        } else if existential_in_new_uv {
-                            //  `var` is a placeholder from a universe which is not nameable
-                            // by an existential which we already put into the compressed
-                            // universe `curr_compressed_uv`. We therefore have to create a
-                            // new universe for `var`.
-                            curr_compressed_uv = curr_compressed_uv.next_universe();
-                            existential_in_new_uv = false;
-                        }
+        // while let Some(orig_uv) = next_orig_uv.take() {
+        //     let mut update_uv = |var: &mut CanonicalVarInfo<I>, orig_uv, is_existential| {
+        //         let uv = var.universe();
+        //         match uv.cmp(&orig_uv) {
+        //             Ordering::Less => (), // Already updated
+        //             Ordering::Equal => {
+        //                 if is_existential {
+        //                     existential_in_new_uv = true;
+        //                 } else if existential_in_new_uv {
+        //                     //  `var` is a placeholder from a universe which is not nameable
+        //                     // by an existential which we already put into the compressed
+        //                     // universe `curr_compressed_uv`. We therefore have to create a
+        //                     // new universe for `var`.
+        //                     curr_compressed_uv = curr_compressed_uv.next_universe();
+        //                     existential_in_new_uv = false;
+        //                 }
 
-                        *var = var.with_updated_universe(curr_compressed_uv);
-                    }
-                    Ordering::Greater => {
-                        // We can ignore this variable in this iteration. We only look at
-                        // universes which actually occur in the input for performance.
-                        //
-                        // For this we set `next_orig_uv` to the next smallest, not yet compressed,
-                        // universe of the input.
-                        if next_orig_uv.map_or(true, |curr_next_uv| uv.cannot_name(curr_next_uv)) {
-                            next_orig_uv = Some(uv);
-                        }
-                    }
-                }
-            };
+        //                 *var = var.with_updated_universe(curr_compressed_uv);
+        //             }
+        //             Ordering::Greater => {
+        //                 // We can ignore this variable in this iteration. We only look at
+        //                 // universes which actually occur in the input for performance.
+        //                 //
+        //                 // For this we set `next_orig_uv` to the next smallest, not yet compressed,
+        //                 // universe of the input.
+        //                 if next_orig_uv.map_or(true, |curr_next_uv| uv.cannot_name(curr_next_uv)) {
+        //                     next_orig_uv = Some(uv);
+        //                 }
+        //             }
+        //         }
+        //     };
 
-            // For each universe which occurs in the input, we first iterate over all
-            // placeholders and then over all inference variables.
-            //
-            // Whenever we compress the universe of a placeholder, no existential with
-            // an already compressed universe can name that placeholder.
-            for is_existential in [false, true] {
-                for var in var_infos.iter_mut() {
-                    // We simply put all regions from the input into the highest
-                    // compressed universe, so we only deal with them at the end.
-                    if !var.is_region() {
-                        if is_existential == var.is_existential() {
-                            update_uv(var, orig_uv, is_existential)
-                        }
-                    }
-                }
-            }
-        }
+        //     // For each universe which occurs in the input, we first iterate over all
+        //     // placeholders and then over all inference variables.
+        //     //
+        //     // Whenever we compress the universe of a placeholder, no existential with
+        //     // an already compressed universe can name that placeholder.
+        //     for is_existential in [false, true] {
+        //         for var in var_infos.iter_mut() {
+        //             // We simply put all regions from the input into the highest
+        //             // compressed universe, so we only deal with them at the end.
+        //             if !var.is_region() {
+        //                 if is_existential == var.is_existential() {
+        //                     update_uv(var, orig_uv, is_existential)
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
 
-        for var in var_infos.iter_mut() {
-            if var.is_region() {
-                assert!(var.is_existential());
-                *var = var.with_updated_universe(curr_compressed_uv);
-            }
-        }
+        // for var in var_infos.iter_mut() {
+        //     if var.is_region() {
+        //         assert!(var.is_existential());
+        //         *var = var.with_updated_universe(curr_compressed_uv);
+        //     }
+        // }
 
-        let var_infos = self.infcx.interner().mk_canonical_var_infos(&var_infos);
-        (curr_compressed_uv, var_infos)
+        // let var_infos = self.infcx.interner().mk_canonical_var_infos(&var_infos);
+        // (curr_compressed_uv, var_infos)
+        todo!()
     }
 }
 

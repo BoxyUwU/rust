@@ -150,7 +150,7 @@ impl<I: Interner> DebugWithInfcx<I> for InferConst {
         match *this.data {
             InferConst::Var(vid) => match this.infcx.universe_of_ct(vid) {
                 None => write!(f, "{:?}", this.data),
-                Some(universe) => write!(f, "?{}_{}c", vid.index(), universe.index()),
+                Some(universe) => write!(f, "?{}_{:?}c", vid.index(), universe),
             },
             InferConst::EffectVar(vid) => write!(f, "?{}e", vid.index()),
             InferConst::Fresh(_) => {

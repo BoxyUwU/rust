@@ -266,52 +266,57 @@ impl fmt::Debug for Variance {
     }
 }
 
-rustc_index::newtype_index! {
-    /// "Universes" are used during type- and trait-checking in the
-    /// presence of `for<..>` binders to control what sets of names are
-    /// visible. Universes are arranged into a tree: the root universe
-    /// contains names that are always visible. Each child then adds a new
-    /// set of names that are visible, in addition to those of its parent.
-    /// We say that the child universe "extends" the parent universe with
-    /// new names.
-    ///
-    /// To make this more concrete, consider this program:
-    ///
-    /// ```ignore (illustrative)
-    /// struct Foo { }
-    /// fn bar<T>(x: T) {
-    ///   let y: for<'a> fn(&'a u8, Foo) = ...;
-    /// }
-    /// ```
-    ///
-    /// The struct name `Foo` is in the root universe U0. But the type
-    /// parameter `T`, introduced on `bar`, is in an extended universe U1
-    /// -- i.e., within `bar`, we can name both `T` and `Foo`, but outside
-    /// of `bar`, we cannot name `T`. Then, within the type of `y`, the
-    /// region `'a` is in a universe U2 that extends U1, because we can
-    /// name it inside the fn type but not outside.
-    ///
-    /// Universes are used to do type- and trait-checking around these
-    /// "forall" binders (also called **universal quantification**). The
-    /// idea is that when, in the body of `bar`, we refer to `T` as a
-    /// type, we aren't referring to any type in particular, but rather a
-    /// kind of "fresh" type that is distinct from all other types we have
-    /// actually declared. This is called a **placeholder** type, and we
-    /// use universes to talk about this. In other words, a type name in
-    /// universe 0 always corresponds to some "ground" type that the user
-    /// declared, but a type name in a non-zero universe is a placeholder
-    /// type -- an idealized representative of "types in general" that we
-    /// use for checking generic functions.
-    #[cfg_attr(feature = "nightly", derive(HashStable_NoContext))]
-    #[encodable]
-    #[orderable]
-    #[debug_format = "U{}"]
-    #[gate_rustc_only]
-    pub struct UniverseIndex {}
+/// "Universes" are used during type- and trait-checking in the
+/// presence of `for<..>` binders to control what sets of names are
+/// visible. Universes are arranged into a tree: the root universe
+/// contains names that are always visible. Each child then adds a new
+/// set of names that are visible, in addition to those of its parent.
+/// We say that the child universe "extends" the parent universe with
+/// new names.
+///
+/// To make this more concrete, consider this program:
+///
+/// ```ignore (illustrative)
+/// struct Foo { }
+/// fn bar<T>(x: T) {
+///   let y: for<'a> fn(&'a u8, Foo) = ...;
+/// }
+/// ```
+///
+/// The struct name `Foo` is in the root universe U0. But the type
+/// parameter `T`, introduced on `bar`, is in an extended universe U1
+/// -- i.e., within `bar`, we can name both `T` and `Foo`, but outside
+/// of `bar`, we cannot name `T`. Then, within the type of `y`, the
+/// region `'a` is in a universe U2 that extends U1, because we can
+/// name it inside the fn type but not outside.
+///
+/// Universes are used to do type- and trait-checking around these
+/// "forall" binders (also called **universal quantification**). The
+/// idea is that when, in the body of `bar`, we refer to `T` as a
+/// type, we aren't referring to any type in particular, but rather a
+/// kind of "fresh" type that is distinct from all other types we have
+/// actually declared. This is called a **placeholder** type, and we
+/// use universes to talk about this. In other words, a type name in
+/// universe 0 always corresponds to some "ground" type that the user
+/// declared, but a type name in a non-zero universe is a placeholder
+/// type -- an idealized representative of "types in general" that we
+/// use for checking generic functions.
+#[cfg_attr(feature = "nightly", derive(HashStable_NoContext, Encodable, Decodable))]
+// FIXME(tree_universes): ord is kind of sus
+#[derive(Copy, Clone, Eq, PartialEq, Hash, PartialOrd, Ord)]
+pub struct UniverseIndex {
+    index: u32,
+    gen: u32,
+}
+
+impl fmt::Debug for UniverseIndex {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "U{}.{}", self.index, self.gen)
+    }
 }
 
 impl UniverseIndex {
-    pub const ROOT: UniverseIndex = UniverseIndex::from_u32(0);
+    pub const ROOT: UniverseIndex = UniverseIndex { index: 0, gen: 0 };
 
     /// Returns the "next" universe index in order -- this new index
     /// is considered to extend all previous universes. This
@@ -327,21 +332,24 @@ impl UniverseIndex {
     /// name the region `'a`, but that region was not nameable from
     /// `U` because it was not in scope there.
     pub fn next_universe(self) -> UniverseIndex {
-        UniverseIndex::from_u32(self.as_u32().checked_add(1).unwrap())
+        todo!()
+        // UniverseIndex::from_u32(self.as_u32().checked_add(1).unwrap())
     }
 
     /// Returns `true` if `self` can name a name from `other` -- in other words,
     /// if the set of names in `self` is a superset of those in
     /// `other` (`self >= other`).
     pub fn can_name(self, other: UniverseIndex) -> bool {
-        self >= other
+        todo!()
+        // self >= other
     }
 
     /// Returns `true` if `self` cannot name some names from `other` -- in other
     /// words, if the set of names in `self` is a strict subset of
     /// those in `other` (`self < other`).
     pub fn cannot_name(self, other: UniverseIndex) -> bool {
-        self < other
+        todo!()
+        // self < other
     }
 }
 

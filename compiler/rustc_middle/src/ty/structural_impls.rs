@@ -307,7 +307,7 @@ impl<T: fmt::Debug> fmt::Debug for ty::Placeholder<T> {
         if self.universe == ty::UniverseIndex::ROOT {
             write!(f, "!{:?}", self.bound)
         } else {
-            write!(f, "!{}_{:?}", self.universe.index(), self.bound)
+            write!(f, "!{:?}_{:?}", self.universe, self.bound)
         }
     }
 }
@@ -354,7 +354,7 @@ impl<'tcx> DebugWithInfcx<TyCtxt<'tcx>> for ty::RegionVid {
         f: &mut core::fmt::Formatter<'_>,
     ) -> core::fmt::Result {
         match this.infcx.universe_of_lt(*this.data) {
-            Some(universe) => write!(f, "'?{}_{}", this.data.index(), universe.index()),
+            Some(universe) => write!(f, "'?{}_{:?}", this.data.index(), universe),
             None => write!(f, "{:?}", this.data),
         }
     }

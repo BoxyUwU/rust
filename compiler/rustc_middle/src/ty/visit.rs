@@ -623,7 +623,7 @@ impl<'tcx> TypeVisitor<TyCtxt<'tcx>> for LateBoundRegionsCollector {
 }
 
 /// Finds the max universe present
-pub struct MaxUniverse {
+pub struct MaxUniverse<'a> {
     max_universe: ty::UniverseIndex,
 }
 

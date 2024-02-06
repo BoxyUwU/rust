@@ -819,7 +819,7 @@ impl<I: Interner> DebugWithInfcx<I> for InferTy {
         match this.data {
             InferTy::TyVar(vid) => {
                 if let Some(universe) = this.infcx.universe_of_ty(*vid) {
-                    write!(f, "?{}_{}t", vid.index(), universe.index())
+                    write!(f, "?{}_{:?}t", vid.index(), universe)
                 } else {
                     write!(f, "{:?}", this.data)
                 }

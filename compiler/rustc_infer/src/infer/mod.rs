@@ -9,6 +9,7 @@ pub use relate::combine::ObligationEmittingRelation;
 use rustc_data_structures::captures::Captures;
 use rustc_data_structures::undo_log::UndoLogs;
 use rustc_middle::infer::unify_key::{ConstVidKey, EffectVidKey};
+use rustc_middle::ty::UniverseIndex;
 
 use self::opaque_types::OpaqueTypeStorage;
 pub(crate) use self::undo_log::{InferCtxtUndoLogs, Snapshot, UndoLog};
@@ -238,6 +239,43 @@ impl<'tcx> InferCtxtInner<'tcx> {
     }
 }
 
+pub struct UniverseTree(RefCell<UniverseTreeInner>)
+
+pub struct UniverseTreeInner {
+    current_universe: UniverseIndex,
+    parents: Vec<Vec<UniverseIndex>>,
+}
+
+impl UniverseTreeInner {
+    pub fn universe(&self) -> UniverseIndex {
+        self.current_universe
+    }
+
+    pub fn enter_next_universe(&mut self) -> UniverseIndex {
+        if self.parents.len() == self.current_universe.depth + 1 {
+            self.parents.push(Vec::with_capacity(1));
+        }
+        
+        let parent = &mut self.parents[self.current_universe.index + 1];
+        let new_universe = UniverseIndex(self.current_universe.index + 1, parents.len());
+        parent.push(UniverseIndex(self.current_universe))
+        self.current_universe = new_universe;
+        new_universe
+    }
+
+    pub fn can_name(&self, u1: UniverseIndex, can_name: UniverseIndex) -> bool {
+        let cur = u1;
+        while cur != can_name {
+            if cur.index == 0 {
+                return false;
+            }
+            cur = self.parents[cur.index][cur.gen]
+        }
+
+        true
+    }
+}
+
 pub struct InferCtxt<'tcx> {
     pub tcx: TyCtxt<'tcx>,
 
@@ -313,7 +351,7 @@ pub struct InferCtxt<'tcx> {
     /// part of the root universe. So this would only get incremented
     /// when we enter into a higher-ranked (`for<..>`) type or trait
     /// bound.
-    universe: Cell<ty::UniverseIndex>,
+    universe: UniverseTree,
 
     /// During coherence we have to assume that other crates may add
     /// additional impls which we currently don't know about.
