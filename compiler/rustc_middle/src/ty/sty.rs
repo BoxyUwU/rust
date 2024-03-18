@@ -1928,6 +1928,11 @@ impl<'tcx> Ty<'tcx> {
         }
     }
 
+    #[inline]
+    pub fn is_alias(self) -> bool {
+        matches!(self.kind(), Alias(..))
+    }
+
     pub fn sequence_element_type(self, tcx: TyCtxt<'tcx>) -> Ty<'tcx> {
         match self.kind() {
             Array(ty, _) | Slice(ty) => *ty,

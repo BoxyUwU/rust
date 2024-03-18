@@ -116,6 +116,7 @@ fn adt_sized_constraint<'tcx>(
 }
 
 /// See `ParamEnv` struct definition for details.
+#[instrument(level = "debug", skip(tcx), ret)]
 fn param_env(tcx: TyCtxt<'_>, def_id: DefId) -> ty::ParamEnv<'_> {
     // Compute the bounds on Self and the type parameters.
     let ty::InstantiatedPredicates { mut predicates, .. } =

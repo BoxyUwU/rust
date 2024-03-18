@@ -30,10 +30,13 @@ use crate::regions::InferCtxtRegionExt;
 use crate::traits::error_reporting::TypeErrCtxtExt as _;
 use crate::traits::query::evaluate_obligation::InferCtxtExt as _;
 use rustc_errors::ErrorGuaranteed;
+use rustc_infer::infer::InferCtxtBuilder;
 use rustc_middle::query::Providers;
 use rustc_middle::ty::fold::TypeFoldable;
 use rustc_middle::ty::visit::{TypeVisitable, TypeVisitableExt};
-use rustc_middle::ty::{self, ToPredicate, Ty, TyCtxt, TypeFolder, TypeSuperVisitable};
+use rustc_middle::ty::{
+    self, ClauseKind, ToPredicate, Ty, TyCtxt, TyKind, TypeFolder, TypeSuperVisitable,
+};
 use rustc_middle::ty::{GenericArgs, GenericArgsRef};
 use rustc_span::def_id::DefId;
 use rustc_span::Span;

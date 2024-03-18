@@ -29,6 +29,7 @@ use rustc_middle::ty::{
 mod alias_relate;
 mod assembly;
 mod eval_ctxt;
+mod filter_param_env;
 mod fulfill;
 pub mod inspect;
 mod normalize;

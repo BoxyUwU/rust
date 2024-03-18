@@ -15,6 +15,8 @@ use rustc_infer::infer::canonical::{
     Canonical, CanonicalQueryResponse, CanonicalVarValues, QueryResponse,
 };
 use rustc_infer::infer::outlives::env::OutlivesEnvironment;
+use rustc_infer::infer::type_variable::TypeVariableOrigin;
+use rustc_infer::infer::type_variable::TypeVariableOriginKind;
 use rustc_infer::infer::{DefineOpaqueTypes, InferCtxt, InferOk};
 use rustc_infer::traits::{
     FulfillmentError, Obligation, ObligationCause, PredicateObligation, TraitEngineExt as _,
@@ -114,6 +116,46 @@ impl<'a, 'tcx> ObligationCtxt<'a, 'tcx> {
         value: T,
     ) -> Result<T, Vec<FulfillmentError<'tcx>>> {
         self.infcx.at(cause, param_env).deeply_normalize(value, &mut **self.engine.borrow_mut())
+    }
+
+    pub fn structurally_normalize_ty(
+        &self,
+        cause: &ObligationCause<'tcx>,
+        param_env: ty::ParamEnv<'tcx>,
+        ty: Ty<'tcx>,
+    ) -> Result<Ty<'tcx>, Vec<FulfillmentError<'tcx>>> {
+        assert!(self.infcx.next_trait_solver());
+
+        let ty::Alias(..) = *ty.kind() else {
+            return Ok(ty);
+        };
+
+        let new_infer_ty = self.infcx.next_ty_var(TypeVariableOrigin {
+            kind: TypeVariableOriginKind::NormalizeProjectionType,
+            span: cause.span,
+        });
+
+        // We simply emit an `alias-eq` goal here, since that will take care of
+        // normalizing the LHS of the projection until it is a rigid projection
+        // (or a not-yet-defined opaque in scope).
+        let obligation = Obligation::new(
+            self.infcx.tcx,
+            cause.clone(),
+            param_env,
+            ty::PredicateKind::AliasRelate(
+                ty.into(),
+                new_infer_ty.into(),
+                ty::AliasRelationDirection::Equate,
+            ),
+        );
+
+        self.register_obligation(obligation);
+        let errors = self.select_where_possible();
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+
+        Ok(self.infcx.resolve_vars_if_possible(new_infer_ty))
     }
 
     pub fn eq<T: ToTrace<'tcx>>(
