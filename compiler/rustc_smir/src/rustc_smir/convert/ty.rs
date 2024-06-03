@@ -448,10 +448,10 @@ impl<'tcx> Stable<'tcx> for ty::Const<'tcx> {
             ty::ExprCt(_) => unimplemented!(),
         };
         // THISPR
-        let ty = todo!();
         // let ty = self.ty().stable(tables);
-        let id = tables.intern_const(mir::Const::Ty(tables.tcx.lift(*self).unwrap()));
-        Const::new(kind, ty, id)
+        // let id = tables.intern_const(mir::Const::Ty(tables.tcx.lift(*self).unwrap()));
+        // Const::new(kind, ty, id)
+        todo!()
     }
 }
 

@@ -245,7 +245,7 @@ fn ty_const<'tcx>(
     tcx: TyCtxt<'tcx>,
 ) -> rustc_ty::Const<'tcx> {
     match constant.internal(tables, tcx) {
-        rustc_middle::mir::Const::Ty(c) => c,
+        rustc_middle::mir::Const::Ty(_, c) => c,
         cnst => {
             panic!("Trying to convert constant `{constant:?}` to type constant, but found {cnst:?}")
         }
@@ -257,7 +257,9 @@ impl RustcInternal for Const {
     fn internal<'tcx>(&self, tables: &mut Tables<'_>, tcx: TyCtxt<'tcx>) -> Self::T<'tcx> {
         let constant = tables.constants[self.id];
         match constant {
-            rustc_middle::mir::Const::Ty(ty) => rustc_middle::mir::Const::Ty(tcx.lift(ty).unwrap()),
+            rustc_middle::mir::Const::Ty(ty, ct) => {
+                rustc_middle::mir::Const::Ty(tcx.lift(ty).unwrap(), tcx.lift(ct).unwrap())
+            }
             rustc_middle::mir::Const::Unevaluated(uneval, ty) => {
                 rustc_middle::mir::Const::Unevaluated(
                     tcx.lift(uneval).unwrap(),

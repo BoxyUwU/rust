@@ -728,7 +728,7 @@ impl<'tcx> Stable<'tcx> for rustc_middle::mir::Const<'tcx> {
 
     fn stable(&self, tables: &mut Tables<'_>) -> Self::T {
         match *self {
-            mir::Const::Ty(c) => c.stable(tables),
+            mir::Const::Ty(_, c) => c.stable(tables),
             mir::Const::Unevaluated(unev_const, ty) => {
                 let kind =
                     stable_mir::ty::ConstantKind::Unevaluated(stable_mir::ty::UnevaluatedConst {
