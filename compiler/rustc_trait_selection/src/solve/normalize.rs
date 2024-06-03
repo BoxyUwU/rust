@@ -100,7 +100,6 @@ impl<'tcx> NormalizationFolder<'_, 'tcx> {
 
     fn normalize_unevaluated_const(
         &mut self,
-        ty: Ty<'tcx>,
         uv: ty::UnevaluatedConst<'tcx>,
     ) -> Result<ty::Const<'tcx>, Vec<FulfillmentError<'tcx>>> {
         let infcx = self.at.infcx;
@@ -117,7 +116,7 @@ impl<'tcx> NormalizationFolder<'_, 'tcx> {
 
         self.depth += 1;
 
-        let new_infer_ct = infcx.next_const_var(ty, self.at.cause.span);
+        let new_infer_ct = infcx.next_const_var(self.at.cause.span);
         let obligation = Obligation::new(
             tcx,
             self.at.cause.clone(),
@@ -134,7 +133,7 @@ impl<'tcx> NormalizationFolder<'_, 'tcx> {
             let ct = infcx.resolve_vars_if_possible(new_infer_ct);
             ct.try_fold_with(self)?
         } else {
-            ty::Const::new_unevaluated(tcx, uv, ty).try_super_fold_with(self)?
+            ty::Const::new_unevaluated(tcx, uv).try_super_fold_with(self)?
         };
 
         self.depth -= 1;
@@ -202,7 +201,7 @@ impl<'tcx> FallibleTypeFolder<TyCtxt<'tcx>> for NormalizationFolder<'_, 'tcx> {
         if uv.has_escaping_bound_vars() {
             let (uv, mapped_regions, mapped_types, mapped_consts) =
                 BoundVarReplacer::replace_bound_vars(infcx, &mut self.universes, uv);
-            let result = ensure_sufficient_stack(|| self.normalize_unevaluated_const(ct.ty(), uv))?;
+            let result = ensure_sufficient_stack(|| self.normalize_unevaluated_const(uv))?;
             Ok(PlaceholderReplacer::replace_placeholders(
                 infcx,
                 mapped_regions,
@@ -212,7 +211,7 @@ impl<'tcx> FallibleTypeFolder<TyCtxt<'tcx>> for NormalizationFolder<'_, 'tcx> {
                 result,
             ))
         } else {
-            ensure_sufficient_stack(|| self.normalize_unevaluated_const(ct.ty(), uv))
+            ensure_sufficient_stack(|| self.normalize_unevaluated_const(uv))
         }
     }
 }

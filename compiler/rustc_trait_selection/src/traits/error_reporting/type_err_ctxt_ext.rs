@@ -921,7 +921,8 @@ impl<'tcx> TypeErrCtxt<'_, 'tcx> {
                             &obligation.cause,
                             None,
                             None,
-                            TypeError::Sorts(ty::error::ExpectedFound::new(true, ty, ct.ty())),
+                            // THISPR
+                            TypeError::Sorts(ty::error::ExpectedFound::new(true, ty, todo!())),
                             false,
                             false,
                         );

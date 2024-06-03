@@ -103,12 +103,7 @@ pub trait HirTyLowerer<'tcx> {
     fn ty_infer(&self, param: Option<&ty::GenericParamDef>, span: Span) -> Ty<'tcx>;
 
     /// Returns the const to use when a const is omitted.
-    fn ct_infer(
-        &self,
-        ty: Ty<'tcx>,
-        param: Option<&ty::GenericParamDef>,
-        span: Span,
-    ) -> Const<'tcx>;
+    fn ct_infer(&self, param: Option<&ty::GenericParamDef>, span: Span) -> Const<'tcx>;
 
     /// Probe bounds in scope where the bounded type coincides with the given type parameter.
     ///
@@ -485,16 +480,11 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
                         ty::Const::from_anon_const(tcx, did).into()
                     }
                     (&GenericParamDefKind::Const { .. }, hir::GenericArg::Infer(inf)) => {
-                        let ty = tcx
-                            .at(self.span)
-                            .type_of(param.def_id)
-                            .no_bound_vars()
-                            .expect("const parameter types cannot be generic");
                         if self.lowerer.allow_infer() {
-                            self.lowerer.ct_infer(ty, Some(param), inf.span).into()
+                            self.lowerer.ct_infer(Some(param), inf.span).into()
                         } else {
                             self.inferred_params.push(inf.span);
-                            ty::Const::new_misc_error(tcx, ty).into()
+                            ty::Const::new_misc_error(tcx).into()
                         }
                     }
                     (kind, arg) => span_bug!(
@@ -552,7 +542,7 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
                             .no_bound_vars()
                             .expect("const parameter types cannot be generic");
                         if let Err(guar) = ty.error_reported() {
-                            return ty::Const::new_error(tcx, guar, ty).into();
+                            return ty::Const::new_error(tcx, guar).into();
                         }
                         // FIXME(effects) see if we should special case effect params here
                         if !infer_args && has_default {
@@ -561,10 +551,10 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
                                 .into()
                         } else {
                             if infer_args {
-                                self.lowerer.ct_infer(ty, Some(param), self.span).into()
+                                self.lowerer.ct_infer(Some(param), self.span).into()
                             } else {
                                 // We've already errored above about the mismatch.
-                                ty::Const::new_misc_error(tcx, ty).into()
+                                ty::Const::new_misc_error(tcx).into()
                             }
                         }
                     }
@@ -1914,7 +1904,7 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
     ///
     /// Early-bound const parameters get lowered to [`ty::ConstKind::Param`]
     /// and late-bound ones to [`ty::ConstKind::Bound`].
-    pub(crate) fn lower_const_param(&self, hir_id: HirId, param_ty: Ty<'tcx>) -> Const<'tcx> {
+    pub(crate) fn lower_const_param(&self, hir_id: HirId) -> Const<'tcx> {
         let tcx = self.tcx();
         match tcx.named_bound_var(hir_id) {
             Some(rbv::ResolvedArg::EarlyBound(def_id)) => {
@@ -1924,12 +1914,12 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
                 let generics = tcx.generics_of(item_def_id);
                 let index = generics.param_def_id_to_index[&def_id];
                 let name = tcx.item_name(def_id);
-                ty::Const::new_param(tcx, ty::ParamConst::new(index, name), param_ty)
+                ty::Const::new_param(tcx, ty::ParamConst::new(index, name))
             }
             Some(rbv::ResolvedArg::LateBound(debruijn, index, _)) => {
-                ty::Const::new_bound(tcx, debruijn, ty::BoundVar::from_u32(index), param_ty)
+                ty::Const::new_bound(tcx, debruijn, ty::BoundVar::from_u32(index))
             }
-            Some(rbv::ResolvedArg::Error(guar)) => ty::Const::new_error(tcx, guar, param_ty),
+            Some(rbv::ResolvedArg::Error(guar)) => ty::Const::new_error(tcx, guar),
             arg => bug!("unexpected bound var resolution for {:?}: {arg:?}", hir_id),
         }
     }
@@ -2145,7 +2135,7 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
             }
             hir::TyKind::Array(ty, length) => {
                 let length = match length {
-                    hir::ArrayLen::Infer(inf) => self.ct_infer(tcx.types.usize, None, inf.span),
+                    hir::ArrayLen::Infer(inf) => self.ct_infer(None, inf.span),
                     hir::ArrayLen::Body(constant) => {
                         ty::Const::from_anon_const(tcx, constant.def_id)
                     }
@@ -2183,7 +2173,7 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
                                     match tcx.lit_to_const(lit_input) {
                                         Ok(c) => c,
                                         Err(LitToConstError::Reported(err)) => {
-                                            ty::Const::new_error(tcx, err, ty)
+                                            ty::Const::new_error(tcx, err)
                                         }
                                         Err(LitToConstError::TypeError) => todo!(),
                                     }
@@ -2204,19 +2194,20 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
                                         .type_of(def_id)
                                         .no_bound_vars()
                                         .expect("const parameter types cannot be generic");
-                                    self.lower_const_param(expr.hir_id, ty)
+                                    self.lower_const_param(expr.hir_id)
                                 }
 
                                 _ => {
                                     let err = tcx
                                         .dcx()
                                         .emit_err(crate::errors::NonConstRange { span: expr.span });
-                                    ty::Const::new_error(tcx, err, ty)
+                                    ty::Const::new_error(tcx, err)
                                 }
                             };
-                            self.record_ty(expr.hir_id, c.ty(), expr.span);
+                            // THISPR
+                            self.record_ty(expr.hir_id, todo!(), expr.span);
                             if let Some((id, span)) = neg {
-                                self.record_ty(id, c.ty(), span);
+                                self.record_ty(id, todo!(), span);
                             }
                             c
                         };

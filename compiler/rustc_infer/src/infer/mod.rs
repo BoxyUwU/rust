@@ -392,18 +392,18 @@ impl<'tcx> ty::InferCtxtLike for InferCtxt<'tcx> {
         self.opportunistic_resolve_float_var(vid)
     }
 
-    fn opportunistic_resolve_ct_var(&self, vid: ConstVid, ty: Ty<'tcx>) -> ty::Const<'tcx> {
+    fn opportunistic_resolve_ct_var(&self, vid: ConstVid) -> ty::Const<'tcx> {
         match self.probe_const_var(vid) {
             Ok(ct) => ct,
-            Err(_) => ty::Const::new_var(self.tcx, self.root_const_var(vid), ty),
+            Err(_) => ty::Const::new_var(self.tcx, self.root_const_var(vid)),
         }
     }
 
-    fn opportunistic_resolve_effect_var(&self, vid: EffectVid, ty: Ty<'tcx>) -> ty::Const<'tcx> {
+    fn opportunistic_resolve_effect_var(&self, vid: EffectVid) -> ty::Const<'tcx> {
         match self.probe_effect_var(vid) {
             Some(ct) => ct,
             None => {
-                ty::Const::new_infer(self.tcx, InferConst::EffectVar(self.root_effect_var(vid)), ty)
+                ty::Const::new_infer(self.tcx, InferConst::EffectVar(self.root_effect_var(vid)))
             }
         }
     }
@@ -830,9 +830,7 @@ impl<'tcx> InferCtxt<'tcx> {
         (0..table.len())
             .map(|i| ty::EffectVid::from_usize(i))
             .filter(|&vid| table.probe_value(vid).is_unknown())
-            .map(|v| {
-                ty::Const::new_infer(self.tcx, ty::InferConst::EffectVar(v), self.tcx.types.bool)
-            })
+            .map(|v| ty::Const::new_infer(self.tcx, ty::InferConst::EffectVar(v)))
             .collect()
     }
 
@@ -991,27 +989,22 @@ impl<'tcx> InferCtxt<'tcx> {
         Ty::new_var(self.tcx, vid)
     }
 
-    pub fn next_const_var(&self, ty: Ty<'tcx>, span: Span) -> ty::Const<'tcx> {
-        self.next_const_var_with_origin(ty, ConstVariableOrigin { span, param_def_id: None })
+    pub fn next_const_var(&self, span: Span) -> ty::Const<'tcx> {
+        self.next_const_var_with_origin(ConstVariableOrigin { span, param_def_id: None })
     }
 
-    pub fn next_const_var_with_origin(
-        &self,
-        ty: Ty<'tcx>,
-        origin: ConstVariableOrigin,
-    ) -> ty::Const<'tcx> {
+    pub fn next_const_var_with_origin(&self, origin: ConstVariableOrigin) -> ty::Const<'tcx> {
         let vid = self
             .inner
             .borrow_mut()
             .const_unification_table()
             .new_key(ConstVariableValue::Unknown { origin, universe: self.universe() })
             .vid;
-        ty::Const::new_var(self.tcx, vid, ty)
+        ty::Const::new_var(self.tcx, vid)
     }
 
     pub fn next_const_var_in_universe(
         &self,
-        ty: Ty<'tcx>,
         span: Span,
         universe: ty::UniverseIndex,
     ) -> ty::Const<'tcx> {
@@ -1022,7 +1015,7 @@ impl<'tcx> InferCtxt<'tcx> {
             .const_unification_table()
             .new_key(ConstVariableValue::Unknown { origin, universe })
             .vid;
-        ty::Const::new_var(self.tcx, vid, ty)
+        ty::Const::new_var(self.tcx, vid)
     }
 
     pub fn next_int_var(&self) -> Ty<'tcx> {
@@ -1119,15 +1112,7 @@ impl<'tcx> InferCtxt<'tcx> {
                     .const_unification_table()
                     .new_key(ConstVariableValue::Unknown { origin, universe: self.universe() })
                     .vid;
-                ty::Const::new_var(
-                    self.tcx,
-                    const_var_id,
-                    self.tcx
-                        .type_of(param.def_id)
-                        .no_bound_vars()
-                        .expect("const parameter types cannot be generic"),
-                )
-                .into()
+                ty::Const::new_var(self.tcx, const_var_id).into()
             }
         }
     }
@@ -1141,7 +1126,7 @@ impl<'tcx> InferCtxt<'tcx> {
             .no_bound_vars()
             .expect("const parameter types cannot be generic");
         debug_assert_eq!(self.tcx.types.bool, ty);
-        ty::Const::new_infer(self.tcx, ty::InferConst::EffectVar(effect_vid), ty).into()
+        ty::Const::new_infer(self.tcx, ty::InferConst::EffectVar(effect_vid)).into()
     }
 
     /// Given a set of generics defined on a type or impl, returns the generic parameters mapping each
@@ -1449,10 +1434,10 @@ impl<'tcx> InferCtxt<'tcx> {
                     .or_insert_with(|| self.infcx.next_ty_var(self.span).into())
                     .expect_ty()
             }
-            fn replace_const(&mut self, bv: ty::BoundVar, ty: Ty<'tcx>) -> ty::Const<'tcx> {
+            fn replace_const(&mut self, bv: ty::BoundVar) -> ty::Const<'tcx> {
                 self.map
                     .entry(bv)
-                    .or_insert_with(|| self.infcx.next_const_var(ty, self.span).into())
+                    .or_insert_with(|| self.infcx.next_const_var(self.span).into())
                     .expect_const()
             }
         }
@@ -1506,11 +1491,11 @@ impl<'tcx> InferCtxt<'tcx> {
         &self,
         param_env: ty::ParamEnv<'tcx>,
         unevaluated: ty::UnevaluatedConst<'tcx>,
-        ty: Ty<'tcx>,
         span: Span,
     ) -> Result<ty::Const<'tcx>, ErrorHandled> {
         match self.const_eval_resolve(param_env, unevaluated, span) {
-            Ok(Some(val)) => Ok(ty::Const::new_value(self.tcx, val, ty)),
+            // THISPR
+            Ok(Some(val)) => Ok(ty::Const::new_value(self.tcx, val, todo!())),
             Ok(None) => {
                 let tcx = self.tcx;
                 let def_id = unevaluated.def;
@@ -1944,11 +1929,6 @@ fn replace_param_and_infer_args_with_placeholder<'tcx>(
 
         fn fold_const(&mut self, c: ty::Const<'tcx>) -> ty::Const<'tcx> {
             if let ty::ConstKind::Infer(_) = c.kind() {
-                let ty = c.ty();
-                // If the type references param or infer then ICE ICE ICE
-                if ty.has_non_region_param() || ty.has_non_region_infer() {
-                    bug!("const `{c}`'s type should not reference params or types");
-                }
                 ty::Const::new_placeholder(
                     self.tcx,
                     ty::PlaceholderConst {
@@ -1959,7 +1939,6 @@ fn replace_param_and_infer_args_with_placeholder<'tcx>(
                             idx
                         }),
                     },
-                    ty,
                 )
             } else {
                 c.super_fold_with(self)

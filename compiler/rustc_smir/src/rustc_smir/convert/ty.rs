@@ -422,7 +422,10 @@ impl<'tcx> Stable<'tcx> for ty::Const<'tcx> {
                         ty::ValTree::Branch(tables.tcx.lift(branch).unwrap())
                     }
                 };
-                let ty = tables.tcx.lift(self.ty()).unwrap();
+
+                // THISPR
+                let ty = todo!();
+                // let ty = tables.tcx.lift(c.ty()).unwrap();
                 let const_val = tables.tcx.valtree_to_const_val((ty, val));
                 if matches!(const_val, mir::ConstValue::ZeroSized) {
                     ConstantKind::ZeroSized
@@ -446,7 +449,9 @@ impl<'tcx> Stable<'tcx> for ty::Const<'tcx> {
             }
             ty::ExprCt(_) => unimplemented!(),
         };
-        let ty = self.ty().stable(tables);
+        // THISPR
+        let ty = todo!();
+        // let ty = self.ty().stable(tables);
         let id = tables.intern_const(mir::Const::Ty(tables.tcx.lift(*self).unwrap()));
         Const::new(kind, ty, id)
     }
