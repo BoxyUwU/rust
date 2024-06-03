@@ -911,23 +911,10 @@ impl<'tcx> TypeErrCtxt<'_, 'tcx> {
                         "AliasRelate predicate should never be the predicate cause of a SelectionError"
                     ),
 
-                    ty::PredicateKind::Clause(ty::ClauseKind::ConstArgHasType(ct, ty)) => {
-                        let mut diag = self.dcx().struct_span_err(
-                            span,
-                            format!("the constant `{ct}` is not of type `{ty}`"),
-                        );
-                        self.note_type_err(
-                            &mut diag,
-                            &obligation.cause,
-                            None,
-                            None,
-                            // THISPR
-                            TypeError::Sorts(ty::error::ExpectedFound::new(true, ty, todo!())),
-                            false,
-                            false,
-                        );
-                        diag
-                    }
+                    ty::PredicateKind::Clause(ty::ClauseKind::ConstArgHasType(..)) => span_bug!(
+                        span, 
+                        "ConstArgHasType predicate should never be the predicate cause of a SelectionError",
+                    ),
                 }
             }
 
@@ -989,6 +976,24 @@ impl<'tcx> TypeErrCtxt<'_, 'tcx> {
 
             Overflow(_) => {
                 bug!("overflow should be handled before the `report_selection_error` path");
+            }
+
+            SelectionError::ConstArgHasWrongType(ct, const_ty, expected_ty) => {
+                let mut diag = self.dcx().struct_span_err(
+                    span,
+                    format!("the constant `{ct}` is not of type `{expected_ty}`"),
+                );
+
+                self.note_type_err(
+                    &mut diag,
+                    &obligation.cause,
+                    None,
+                    None,
+                    TypeError::Sorts(ty::error::ExpectedFound::new(true, expected_ty, const_ty)),
+                    false,
+                    false,
+                );
+                diag
             }
         };
 

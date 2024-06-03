@@ -439,9 +439,16 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
                     // get unified with some const that is not of type `usize`.
                     let ct = self.selcx.infcx.shallow_resolve_const(ct);
                     let ct_ty = match ct.kind() {
-                        ty::ConstKind::Infer(ty::InferConst::Var(vid)) => {
+                        ty::ConstKind::Infer(var) => {
+                            let var = match var {
+                                ty::InferConst::Var(vid) => TyOrConstInferVar::Const(vid),
+                                ty::InferConst::EffectVar(vid) => TyOrConstInferVar::Effect(vid),
+                                ty::InferConst::Fresh(_) => {
+                                    bug!("encountered fresh const in fulfill")
+                                }
+                            };
                             pending_obligation.stalled_on.clear();
-                            pending_obligation.stalled_on.extend([TyOrConstInferVar::Const(vid)]);
+                            pending_obligation.stalled_on.extend([var]);
                             return ProcessResult::Unchanged;
                         }
                         ty::ConstKind::Error(_) => return ProcessResult::Changed(vec![]),
@@ -452,8 +459,20 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
                             .tcx
                             .type_of(uv.def)
                             .instantiate(self.selcx.infcx.tcx, uv.args),
-                        // THISPR
-                        _ => todo!(),
+                        // FIXME(generic_const_exprs): we should construct an alias like
+                        // `<lhs_ty as Add<rhs_ty>>::Output` when this is an `Expr` representing
+                        // `lhs + rhs`.
+                        ty::ConstKind::Expr(_) => {
+                            return ProcessResult::Changed(mk_pending(vec![]));
+                        }
+                        // FIXME(BoxyUwU): this doesnt seem right
+                        ty::ConstKind::Placeholder(_) => {
+                            return ProcessResult::Changed(mk_pending(vec![]));
+                        }
+                        ty::ConstKind::Bound(_, _) => bug!("escaping bound vars in {:?}", ct),
+                        ty::ConstKind::Param(param_ct) => {
+                            param_ct.find_ty_from_env(obligation.param_env)
+                        }
                     };
 
                     match self.selcx.infcx.at(&obligation.cause, obligation.param_env).eq(
@@ -464,7 +483,7 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
                     ) {
                         Ok(inf_ok) => ProcessResult::Changed(mk_pending(inf_ok.into_obligations())),
                         Err(_) => ProcessResult::Error(FulfillmentErrorCode::Select(
-                            SelectionError::Unimplemented,
+                            SelectionError::ConstArgHasWrongType(ct, ct_ty, ty),
                         )),
                     }
                 }
