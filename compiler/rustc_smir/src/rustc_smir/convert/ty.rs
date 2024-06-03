@@ -415,7 +415,7 @@ impl<'tcx> Stable<'tcx> for ty::Const<'tcx> {
 
     fn stable(&self, tables: &mut Tables<'_>) -> Self::T {
         let kind = match self.kind() {
-            ty::Value(val) => {
+            ty::Value(ty, val) => {
                 let val = match val {
                     ty::ValTree::Leaf(scalar) => ty::ValTree::Leaf(scalar),
                     ty::ValTree::Branch(branch) => {
@@ -423,9 +423,7 @@ impl<'tcx> Stable<'tcx> for ty::Const<'tcx> {
                     }
                 };
 
-                // THISPR
-                let ty = todo!();
-                // let ty = tables.tcx.lift(c.ty()).unwrap();
+                let ty = tables.tcx.lift(ty).unwrap();
                 let const_val = tables.tcx.valtree_to_const_val((ty, val));
                 if matches!(const_val, mir::ConstValue::ZeroSized) {
                     ConstantKind::ZeroSized

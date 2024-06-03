@@ -1008,6 +1008,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                             return Ok(EvaluatedToAmbig);
                         }
                         ty::ConstKind::Error(_) => return Ok(EvaluatedToOk),
+                        ty::ConstKind::Value(ty, _) => ty,
                         // THISPR
                         _ => todo!(),
                         // _ => ct.ty(),

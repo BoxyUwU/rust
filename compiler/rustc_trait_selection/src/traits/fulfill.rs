@@ -438,29 +438,34 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
                     // `ConstArgHasType(?x: usize, usize)` can succeed even though it might later
                     // get unified with some const that is not of type `usize`.
                     let ct = self.selcx.infcx.shallow_resolve_const(ct);
-                    match ct.kind() {
+                    let ct_ty = match ct.kind() {
                         ty::ConstKind::Infer(ty::InferConst::Var(vid)) => {
                             pending_obligation.stalled_on.clear();
                             pending_obligation.stalled_on.extend([TyOrConstInferVar::Const(vid)]);
-                            ProcessResult::Unchanged
+                            return ProcessResult::Unchanged;
                         }
                         ty::ConstKind::Error(_) => return ProcessResult::Changed(vec![]),
-                        _ => {
-                            match self.selcx.infcx.at(&obligation.cause, obligation.param_env).eq(
-                                // Only really excercised by generic_const_exprs
-                                DefineOpaqueTypes::Yes,
-                                // THISPR
-                                todo!(),
-                                ty,
-                            ) {
-                                Ok(inf_ok) => {
-                                    ProcessResult::Changed(mk_pending(inf_ok.into_obligations()))
-                                }
-                                Err(_) => ProcessResult::Error(FulfillmentErrorCode::Select(
-                                    SelectionError::Unimplemented,
-                                )),
-                            }
-                        }
+                        ty::ConstKind::Value(ty, _) => ty,
+                        ty::ConstKind::Unevaluated(uv) => self
+                            .selcx
+                            .infcx
+                            .tcx
+                            .type_of(uv.def)
+                            .instantiate(self.selcx.infcx.tcx, uv.args),
+                        // THISPR
+                        _ => todo!(),
+                    };
+
+                    match self.selcx.infcx.at(&obligation.cause, obligation.param_env).eq(
+                        // Only really excercised by generic_const_exprs
+                        DefineOpaqueTypes::Yes,
+                        ct_ty,
+                        ty,
+                    ) {
+                        Ok(inf_ok) => ProcessResult::Changed(mk_pending(inf_ok.into_obligations())),
+                        Err(_) => ProcessResult::Error(FulfillmentErrorCode::Select(
+                            SelectionError::Unimplemented,
+                        )),
                     }
                 }
 

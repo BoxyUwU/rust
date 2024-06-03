@@ -1284,7 +1284,7 @@ impl<'tcx> InferCtxt<'tcx> {
             | ty::ConstKind::Bound(_, _)
             | ty::ConstKind::Placeholder(_)
             | ty::ConstKind::Unevaluated(_)
-            | ty::ConstKind::Value(_)
+            | ty::ConstKind::Value(_, _)
             | ty::ConstKind::Error(_)
             | ty::ConstKind::Expr(_) => ct,
         }
@@ -1494,8 +1494,11 @@ impl<'tcx> InferCtxt<'tcx> {
         span: Span,
     ) -> Result<ty::Const<'tcx>, ErrorHandled> {
         match self.const_eval_resolve(param_env, unevaluated, span) {
-            // THISPR
-            Ok(Some(val)) => Ok(ty::Const::new_value(self.tcx, val, todo!())),
+            Ok(Some(val)) => Ok(ty::Const::new_value(
+                self.tcx,
+                val,
+                self.tcx.type_of(unevaluated.def).instantiate(self.tcx, unevaluated.args),
+            )),
             Ok(None) => {
                 let tcx = self.tcx;
                 let def_id = unevaluated.def;
