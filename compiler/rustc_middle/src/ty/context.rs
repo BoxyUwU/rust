@@ -85,6 +85,8 @@ use std::marker::PhantomData;
 use std::mem;
 use std::ops::{Bound, Deref};
 
+use super::ScalarInt;
+
 #[allow(rustc::usage_of_ty_tykind)]
 impl<'tcx> Interner for TyCtxt<'tcx> {
     type DefId = DefId;
@@ -1759,7 +1761,7 @@ macro_rules! nop_slice_lift {
 nop_slice_lift! {ty::ValTree<'a> => ty::ValTree<'tcx>}
 
 TrivialLiftImpls! {
-    ImplPolarity, PredicatePolarity, Promoted
+    ImplPolarity, PredicatePolarity, Promoted, ErrorGuaranteed, ScalarInt
 }
 
 macro_rules! sty_debug_print {

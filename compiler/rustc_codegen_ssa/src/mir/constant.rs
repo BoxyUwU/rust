@@ -40,12 +40,9 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
     ) -> Result<Option<ty::ValTree<'tcx>>, ErrorHandled> {
         let uv = match self.monomorphize(constant.const_) {
             mir::Const::Unevaluated(uv, _) => uv.shrink(),
-            mir::Const::Ty(_, c) => match c.kind() {
-                // A constant that came from a const generic but was then used as an argument to old-style
-                // simd_shuffle (passing as argument instead of as a generic param).
-                rustc_type_ir::ConstKind::Value(_, valtree) => return Ok(Some(valtree)),
-                other => span_bug!(constant.span, "{other:#?}"),
-            },
+            // A constant that came from a const generic but was then used as an argument to old-style
+            // simd_shuffle (passing as argument instead of as a generic param).
+            mir::Const::Valtree(valtree, _) => return Ok(Some(valtree)),
             // We should never encounter `Const::Val` unless MIR opts (like const prop) evaluate
             // a constant and write that value back into `Operand`s. This could happen, but is unlikely.
             // Also: all users of `simd_shuffle` are on unstable and already need to take a lot of care

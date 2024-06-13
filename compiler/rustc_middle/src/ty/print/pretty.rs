@@ -1974,6 +1974,23 @@ pub(crate) fn pretty_print_const<'tcx>(
     })
 }
 
+pub(crate) fn pretty_print_valtree<'tcx>(
+    val: ty::ValTree<'tcx>,
+    ty: Ty<'tcx>,
+    fmt: &mut fmt::Formatter<'_>,
+    print_types: bool,
+) -> fmt::Result {
+    ty::tls::with(|tcx| {
+        let val = tcx.lift(val).unwrap();
+        let ty = tcx.lift(ty).unwrap();
+        let mut cx = FmtPrinter::new(tcx, Namespace::ValueNS);
+        cx.print_alloc_ids = true;
+        cx.pretty_print_const_valtree(val, ty, print_types)?;
+        fmt.write_str(&cx.into_buffer())?;
+        Ok(())
+    })
+}
+
 // HACK(eddyb) boxed to avoid moving around a large struct by-value.
 pub struct FmtPrinter<'a, 'tcx>(Box<FmtPrinterData<'a, 'tcx>>);
 

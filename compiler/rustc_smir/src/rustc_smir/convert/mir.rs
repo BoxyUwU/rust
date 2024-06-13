@@ -11,6 +11,8 @@ use stable_mir::{opaque, Error};
 
 use crate::rustc_smir::{alloc, Stable, Tables};
 
+use super::ty::valtree_to_allocation;
+
 impl<'tcx> Stable<'tcx> for mir::Body<'tcx> {
     type T = stable_mir::mir::Body;
 
@@ -729,11 +731,12 @@ impl<'tcx> Stable<'tcx> for rustc_middle::mir::Const<'tcx> {
     fn stable(&self, tables: &mut Tables<'_>) -> Self::T {
         let id = tables.intern_mir_const(tables.tcx.lift(*self).unwrap());
         match *self {
-            mir::Const::Ty(ty, c) => MirConst::new(
-                stable_mir::ty::ConstantKind::Ty(c.stable(tables)),
-                ty.stable(tables),
-                id,
-            ),
+            mir::Const::Param(param_ct, ty) => {
+                let kind = stable_mir::ty::ConstantKind::Param(param_ct.stable(tables));
+                let ty = ty.stable(tables);
+                MirConst::new(kind, ty, id)
+            }
+            mir::Const::Error(_) => unimplemented!(),
             mir::Const::Unevaluated(unev_const, ty) => {
                 let kind =
                     stable_mir::ty::ConstantKind::Unevaluated(stable_mir::ty::UnevaluatedConst {
@@ -743,6 +746,21 @@ impl<'tcx> Stable<'tcx> for rustc_middle::mir::Const<'tcx> {
                     });
                 let ty = ty.stable(tables);
                 MirConst::new(kind, ty, id)
+            }
+            mir::Const::Valtree(val, ty) => {
+                // FIXME(BoxyUwU): Represent valtrees natively instead of mapping to an allocation
+                let alloc = valtree_to_allocation(
+                    tables,
+                    tables.tcx.lift(val).unwrap(),
+                    tables.tcx.lift(ty).unwrap(),
+                );
+
+                let kind = match alloc {
+                    None => ConstantKind::ZeroSized,
+                    Some(alloc) => ConstantKind::Allocated(alloc),
+                };
+
+                MirConst::new(kind, ty.stable(tables), id)
             }
             mir::Const::Val(mir::ConstValue::ZeroSized, ty) => {
                 let ty = ty.stable(tables);

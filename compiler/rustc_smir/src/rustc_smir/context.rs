@@ -393,8 +393,7 @@ impl<'tcx> Context for TablesWrapper<'tcx> {
             )));
         }
 
-        Ok(mir::Const::Ty(ty_internal, ty::Const::zero_sized(tables.tcx, ty_internal))
-            .stable(&mut *tables))
+        Ok(mir::Const::zero_sized(ty_internal).stable(&mut *tables))
     }
 
     fn new_const_str(&self, value: &str) -> MirConst {
@@ -405,14 +404,17 @@ impl<'tcx> Context for TablesWrapper<'tcx> {
         let val_tree = ty::ValTree::from_raw_bytes(tcx, bytes);
 
         let ct = ty::Const::new_value(tcx, val_tree, ty);
-        super::convert::mir_const_from_ty_const(&mut *tables, ct, ty)
+        let mir_ct = mir::Const::from_ty_const(ct, ty, tcx);
+        mir_ct.stable(&mut *tables)
     }
 
     fn new_const_bool(&self, value: bool) -> MirConst {
         let mut tables = self.0.borrow_mut();
         let ct = ty::Const::from_bool(tables.tcx, value);
         let ty = tables.tcx.types.bool;
-        super::convert::mir_const_from_ty_const(&mut *tables, ct, ty)
+
+        let mir_ct = mir::Const::from_ty_const(ct, ty, tables.tcx);
+        mir_ct.stable(&mut *tables)
     }
 
     fn try_new_const_uint(&self, value: u128, uint_ty: UintTy) -> Result<MirConst, Error> {
@@ -426,7 +428,8 @@ impl<'tcx> Context for TablesWrapper<'tcx> {
             Error::new(format!("Value overflow: cannot convert `{value}` to `{ty}`."))
         })?;
         let ct = ty::Const::new_value(tables.tcx, ValTree::from_scalar_int(scalar), ty);
-        Ok(super::convert::mir_const_from_ty_const(&mut *tables, ct, ty))
+        let mir_ct = mir::Const::from_ty_const(ct, ty, tables.tcx);
+        Ok(mir_ct.stable(&mut *tables))
     }
     fn try_new_ty_const_uint(
         &self,

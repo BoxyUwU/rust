@@ -1239,7 +1239,6 @@ impl Allocation {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ConstantKind {
-    Ty(TyConst),
     Allocated(Allocation),
     Unevaluated(UnevaluatedConst),
     Param(ParamConst),

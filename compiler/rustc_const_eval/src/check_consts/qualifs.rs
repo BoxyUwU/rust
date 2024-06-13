@@ -5,7 +5,6 @@
 use rustc_errors::ErrorGuaranteed;
 use rustc_hir::LangItem;
 use rustc_infer::infer::TyCtxtInferExt;
-use rustc_middle::bug;
 use rustc_middle::mir;
 use rustc_middle::mir::*;
 use rustc_middle::traits::BuiltinImplSource;
@@ -357,17 +356,7 @@ where
 
     // Check the qualifs of the value of `const` items.
     let uneval = match constant.const_ {
-        Const::Ty(_, ct)
-            if matches!(
-                ct.kind(),
-                ty::ConstKind::Param(_) | ty::ConstKind::Error(_) | ty::ConstKind::Value(_, _)
-            ) =>
-        {
-            None
-        }
-        Const::Ty(_, c) => {
-            bug!("expected ConstKind::Param or ConstKind::Value here, found {:?}", c)
-        }
+        Const::Param(_, _) | Const::Error(_) | Const::Valtree(_, _) => None,
         Const::Unevaluated(uv, _) => Some(uv),
         Const::Val(..) => None,
     };

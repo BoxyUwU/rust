@@ -263,9 +263,7 @@ impl<'a, 'tcx> Visitor<'tcx> for MarkUsedGenericParams<'a, 'tcx> {
 
     fn visit_constant(&mut self, ct: &mir::ConstOperand<'tcx>, location: Location) {
         match ct.const_ {
-            mir::Const::Ty(_, c) => {
-                c.visit_with(self);
-            }
+            mir::Const::Error(_) => (),
             mir::Const::Unevaluated(mir::UnevaluatedConst { def, args: _, promoted }, ty) => {
                 // Avoid considering `T` unused when constants are of the form:
                 //   `<Self as Foo<T>>::foo::promoted[p]`
@@ -280,7 +278,14 @@ impl<'a, 'tcx> Visitor<'tcx> for MarkUsedGenericParams<'a, 'tcx> {
 
                 Visitor::visit_ty(self, ty, TyContext::Location(location));
             }
-            mir::Const::Val(_, ty) => Visitor::visit_ty(self, ty, TyContext::Location(location)),
+            mir::Const::Param(param_ct, ty) => {
+                Visitor::visit_ty(self, ty, TyContext::Location(location));
+                debug!(?param_ct);
+                self.unused_parameters.mark_used(param_ct.index);
+            }
+            mir::Const::Valtree(_, ty) | mir::Const::Val(_, ty) => {
+                Visitor::visit_ty(self, ty, TyContext::Location(location))
+            }
         }
     }
 

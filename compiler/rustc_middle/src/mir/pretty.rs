@@ -1313,20 +1313,9 @@ impl<'tcx> Visitor<'tcx> for ExtraComments<'tcx> {
             };
 
             let val = match const_ {
-                Const::Ty(_, ct) => match ct.kind() {
-                    ty::ConstKind::Param(p) => format!("ty::Param({p})"),
-                    ty::ConstKind::Unevaluated(uv) => {
-                        format!("ty::Unevaluated({}, {:?})", self.tcx.def_path_str(uv.def), uv.args,)
-                    }
-                    ty::ConstKind::Value(_, val) => format!("ty::Valtree({})", fmt_valtree(&val)),
-                    // No `ty::` prefix since we also use this to represent errors from `mir::Unevaluated`.
-                    ty::ConstKind::Error(_) => "Error".to_string(),
-                    // These variants shouldn't exist in the MIR.
-                    ty::ConstKind::Placeholder(_)
-                    | ty::ConstKind::Infer(_)
-                    | ty::ConstKind::Expr(_)
-                    | ty::ConstKind::Bound(..) => bug!("unexpected MIR constant: {:?}", const_),
-                },
+                Const::Param(p, _) => format!("Param({p})"),
+                Const::Valtree(val, _) => format!("ty::Valtree({})", fmt_valtree(&val)),
+                Const::Error(_) => "Error".to_string(),
                 Const::Unevaluated(uv, _) => {
                     format!(
                         "Unevaluated({}, {:?}, {:?})",
@@ -1417,7 +1406,10 @@ pub fn write_allocations<'tcx>(
     impl<'tcx> Visitor<'tcx> for CollectAllocIds {
         fn visit_constant(&mut self, c: &ConstOperand<'tcx>, _: Location) {
             match c.const_ {
-                Const::Ty(_, _) | Const::Unevaluated(..) => {}
+                Const::Error(_)
+                | Const::Param(_, _)
+                | Const::Valtree(_, _)
+                | Const::Unevaluated(..) => {}
                 Const::Val(val, _) => {
                     self.0.extend(alloc_ids_from_const_val(val));
                 }
