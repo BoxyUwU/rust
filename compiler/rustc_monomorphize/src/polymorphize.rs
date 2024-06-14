@@ -281,7 +281,7 @@ impl<'a, 'tcx> Visitor<'tcx> for MarkUsedGenericParams<'a, 'tcx> {
             mir::Const::Param(param_ct, ty) => {
                 Visitor::visit_ty(self, ty, TyContext::Location(location));
                 debug!(?param_ct);
-                self.unused_parameters.mark_used(param_ct.index);
+                self.unused_parameters.mark_used(param_ct.param_const().index);
             }
             mir::Const::Valtree(_, ty) | mir::Const::Val(_, ty) => {
                 Visitor::visit_ty(self, ty, TyContext::Location(location))

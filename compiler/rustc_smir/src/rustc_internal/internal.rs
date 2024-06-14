@@ -256,7 +256,7 @@ impl RustcInternal for MirConst {
                 rustc_middle::mir::Const::Valtree(tcx.lift(val).unwrap(), tcx.lift(ty).unwrap())
             }
             rustc_middle::mir::Const::Param(param, ty) => {
-                rustc_middle::mir::Const::Param(param, tcx.lift(ty).unwrap())
+                rustc_middle::mir::Const::Param(tcx.lift(param).unwrap(), tcx.lift(ty).unwrap())
             }
             rustc_middle::mir::Const::Unevaluated(uneval, ty) => {
                 rustc_middle::mir::Const::Unevaluated(

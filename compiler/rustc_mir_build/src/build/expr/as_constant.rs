@@ -81,7 +81,7 @@ pub(crate) fn as_constant_inner<'tcx>(
             ConstOperand { user_ty, span, const_ }
         }
         ExprKind::ConstParam { param, def_id: _ } => {
-            let const_ = Const::Param(param, expr.ty);
+            let const_ = Const::Param(mir::ConstIsParam::new(param, tcx), expr.ty);
 
             ConstOperand { user_ty: None, span, const_ }
         }

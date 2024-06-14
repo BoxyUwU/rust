@@ -1313,7 +1313,7 @@ impl<'tcx> Visitor<'tcx> for ExtraComments<'tcx> {
             };
 
             let val = match const_ {
-                Const::Param(p, _) => format!("Param({p})"),
+                Const::Param(p, _) => format!("Param({})", p.param_const()),
                 Const::Valtree(val, _) => format!("ty::Valtree({})", fmt_valtree(&val)),
                 Const::Error(_) => "Error".to_string(),
                 Const::Unevaluated(uv, _) => {

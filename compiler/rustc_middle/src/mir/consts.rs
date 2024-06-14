@@ -5,6 +5,7 @@ use rustc_macros::{HashStable, Lift, TyDecodable, TyEncodable, TypeFoldable, Typ
 use rustc_session::{config::RemapPathScopeComponents, RemapFileNameExt};
 use rustc_span::{ErrorGuaranteed, Span, DUMMY_SP};
 use rustc_target::abi::{HasDataLayout, Size};
+use rustc_type_ir::fold::TypeFoldable;
 
 use crate::mir::interpret::{alloc_range, AllocId, ConstAllocation, ErrorHandled, Scalar};
 use crate::mir::{pretty_print_const_value, Promoted};
@@ -199,10 +200,28 @@ impl<'tcx> ConstValue<'tcx> {
 /// Constants
 
 #[derive(Clone, Copy, PartialEq, Eq, TyEncodable, TyDecodable, Hash, HashStable, Debug)]
-#[derive(TypeFoldable, TypeVisitable, Lift)]
+#[derive(TypeVisitable, Lift)]
+
+pub struct ConstIsParam<'tcx>(ty::Const<'tcx>);
+
+impl<'tcx> ConstIsParam<'tcx> {
+    pub fn param_const(self) -> ParamConst {
+        match self.0.kind() {
+            ty::ParamCt(param_ct) => param_ct,
+            _ => bug!("Invalid `ConstKind` for `ConstIsParam`: {:?}", self),
+        }
+    }
+
+    pub fn new(param: ParamConst, tcx: TyCtxt<'tcx>) -> ConstIsParam<'tcx> {
+        ConstIsParam(ty::Const::new_param(tcx, param))
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, TyEncodable, TyDecodable, Hash, HashStable, Debug)]
+#[derive(TypeVisitable, Lift)]
 pub enum Const<'tcx> {
     /// FIXME(BoxyUwU): We should remove this `Ty` and look up the type via `ParamEnv`
-    Param(ParamConst, Ty<'tcx>),
+    Param(ConstIsParam<'tcx>, Ty<'tcx>),
 
     Error(ErrorGuaranteed),
 
@@ -221,6 +240,30 @@ pub enum Const<'tcx> {
     // FIXME(BoxyUwU): This should only be used to represent patterns it is a bug if present
     // elsewhere in the mir. Try removing this variant at some point.
     Valtree(ty::ValTree<'tcx>, Ty<'tcx>),
+}
+
+impl<'tcx> TypeFoldable<TyCtxt<'tcx>> for Const<'tcx> {
+    fn try_fold_with<F: rustc_type_ir::fold::FallibleTypeFolder<TyCtxt<'tcx>>>(
+        self,
+        folder: &mut F,
+    ) -> Result<Self, F::Error> {
+        Ok(match self {
+            Const::Param(const_is_param, ty) => {
+                let folded_param = folder.try_fold_const(const_is_param.0)?;
+                Const::from_ty_const(folded_param, ty, folder.interner())
+            }
+            Const::Unevaluated(uv, ty) => {
+                Const::Unevaluated(uv.try_fold_with(folder)?, ty.try_fold_with(folder)?)
+            }
+            Const::Error(e) => Const::Error(e),
+            Const::Val(val, ty) => {
+                Const::Val(val.try_fold_with(folder)?, ty.try_fold_with(folder)?)
+            }
+            Const::Valtree(val, ty) => {
+                Const::Valtree(val.try_fold_with(folder)?, ty.try_fold_with(folder)?)
+            }
+        })
+    }
 }
 
 impl<'tcx> Const<'tcx> {
@@ -450,7 +493,7 @@ impl<'tcx> Const<'tcx> {
             }
             ty::ConstKind::Error(e) => Self::Error(e),
             ty::ConstKind::Expr(..) | ty::ConstKind::Unevaluated(..) => todo!(),
-            ty::ConstKind::Param(param_ct) => Self::Param(param_ct, ty),
+            ty::ConstKind::Param(param_ct) => Self::Param(ConstIsParam::new(param_ct, tcx), ty),
             ty::ConstKind::Bound(..)
             | ty::ConstKind::Placeholder(..)
             | ty::ConstKind::Infer(..) => unreachable!(""),
@@ -520,7 +563,7 @@ impl<'tcx> UnevaluatedConst<'tcx> {
 impl<'tcx> Display for Const<'tcx> {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> fmt::Result {
         match *self {
-            Const::Param(param_ct, _) => write!(fmt, "{}", param_ct.name),
+            Const::Param(const_is_param, _) => write!(fmt, "{}", const_is_param.param_const().name),
             Const::Error(_) => write!(fmt, "{{const error}}"),
             Const::Val(val, ty) => pretty_print_const_value(val, ty, fmt),
             Const::Valtree(val, ty) => pretty_print_valtree(val, ty, fmt, true),

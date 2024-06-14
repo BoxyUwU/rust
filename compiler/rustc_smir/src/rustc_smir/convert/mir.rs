@@ -732,7 +732,8 @@ impl<'tcx> Stable<'tcx> for rustc_middle::mir::Const<'tcx> {
         let id = tables.intern_mir_const(tables.tcx.lift(*self).unwrap());
         match *self {
             mir::Const::Param(param_ct, ty) => {
-                let kind = stable_mir::ty::ConstantKind::Param(param_ct.stable(tables));
+                let kind =
+                    stable_mir::ty::ConstantKind::Param(param_ct.param_const().stable(tables));
                 let ty = ty.stable(tables);
                 MirConst::new(kind, ty, id)
             }
