@@ -122,6 +122,8 @@ pub use self::typeck_results::{
     TypeckResults, UserType, UserTypeAnnotationIndex,
 };
 
+pub(crate) use consts::UnevaluatedConstEvalExt;
+
 pub mod abstract_const;
 pub mod adjustment;
 pub mod cast;

@@ -227,11 +227,15 @@ pub enum Const<'tcx> {
 
     /// An unevaluated mir constant which is not part of the type system.
     ///
-    /// Note that `Ty(ty::ConstKind::Unevaluated)` and this variant are *not* identical! `Ty` will
-    /// always flow through a valtree, so all data not captured in the valtree is lost. This variant
-    /// directly uses the evaluated result of the given constant, including e.g. data stored in
-    /// padding.
+    /// Note that `TypeSystemUnevaluated` and this variant are *not* identical! `TypeSystemUnevaluated`
+    /// will always flow through a valtree, so all data not captured in the valtree is lost. This variant
+    /// directly uses the evaluated result of the given constant, including e.g. data stored in padding.
     Unevaluated(UnevaluatedConst<'tcx>, Ty<'tcx>),
+    /// An unevaluated constant from the type system.
+    ///
+    /// Must go through a `ValTree` when evaluated in order to erase padding and reference addresses
+    /// as these details are erased for const arguments.
+    TypeSystemUnevaluated(ty::UnevaluatedConst<'tcx>, Ty<'tcx>),
 
     /// This constant cannot go back into the type system, as it represents
     /// something the type system cannot handle (e.g. pointers).
@@ -254,6 +258,9 @@ impl<'tcx> TypeFoldable<TyCtxt<'tcx>> for Const<'tcx> {
             }
             Const::Unevaluated(uv, ty) => {
                 Const::Unevaluated(uv.try_fold_with(folder)?, ty.try_fold_with(folder)?)
+            }
+            Const::TypeSystemUnevaluated(uv, ty) => {
+                Const::TypeSystemUnevaluated(uv.try_fold_with(folder)?, ty.try_fold_with(folder)?)
             }
             Const::Error(e) => Const::Error(e),
             Const::Val(val, ty) => {
@@ -288,6 +295,7 @@ impl<'tcx> Const<'tcx> {
             Const::Param(_, ty)
             | Const::Valtree(_, ty)
             | Const::Val(_, ty)
+            | Const::TypeSystemUnevaluated(_, ty)
             | Const::Unevaluated(_, ty) => *ty,
         }
     }
@@ -302,6 +310,7 @@ impl<'tcx> Const<'tcx> {
             Const::Val(..) => false, // already a value, cannot error
             Const::Valtree(_, _) => false,
             Const::Unevaluated(..) => true,
+            Const::TypeSystemUnevaluated(..) => true,
         }
     }
 
@@ -317,6 +326,7 @@ impl<'tcx> Const<'tcx> {
             Const::Valtree(valtree, ty) if ty.is_primitive() => Some(valtree.unwrap_leaf().into()),
             Const::Valtree(_, _) => None,
             Const::Unevaluated(..) => None,
+            Const::TypeSystemUnevaluated(..) => None,
         }
     }
 
@@ -332,6 +342,7 @@ impl<'tcx> Const<'tcx> {
             Const::Valtree(valtree, ty) if ty.is_primitive() => Some(valtree.unwrap_leaf()),
             Const::Valtree(_, _) => None,
             Const::Unevaluated(..) => None,
+            Const::TypeSystemUnevaluated(..) => None,
             Const::Error(_) => None,
             Const::Param(_, _) => None,
         }
@@ -360,6 +371,15 @@ impl<'tcx> Const<'tcx> {
             Const::Unevaluated(uneval, _) => {
                 // FIXME: We might want to have a `try_eval`-like function on `Unevaluated`
                 tcx.const_eval_resolve(param_env, uneval, span)
+            }
+            Const::TypeSystemUnevaluated(uv, ty) => {
+                use ty::UnevaluatedConstEvalExt;
+
+                let (param_env, uv) = uv.prepare_for_eval(tcx, param_env);
+                match tcx.const_eval_resolve_for_typeck(param_env, uv, span)? {
+                    Some(valtree) => Ok(tcx.valtree_to_const_val((ty, valtree))),
+                    None => bug!("mrow"),
+                }
             }
             Const::Val(val, _) => Ok(val),
             Const::Error(e) => Err(ErrorHandled::Reported(ReportedErrorInfo::from(e), span)),
@@ -515,6 +535,8 @@ impl<'tcx> Const<'tcx> {
             Const::Param(..) => true,
 
             Const::Unevaluated(..) => false,
+            Const::TypeSystemUnevaluated(..) => false,
+
             // If the same slice appears twice in the MIR, we cannot guarantee that we will
             // give the same `AllocId` to the data.
             Const::Val(ConstValue::Slice { .. }, _) => false,
@@ -567,6 +589,11 @@ impl<'tcx> Display for Const<'tcx> {
             Const::Error(_) => write!(fmt, "{{const error}}"),
             Const::Val(val, ty) => pretty_print_const_value(val, ty, fmt),
             Const::Valtree(val, ty) => pretty_print_valtree(val, ty, fmt, true),
+            Const::TypeSystemUnevaluated(uv, _) => ty::tls::with(move |tcx| {
+                let uv = tcx.lift(uv).unwrap();
+                let instance = with_no_trimmed_paths!(tcx.def_path_str_with_args(uv.def, uv.args));
+                write!(fmt, "{instance}")
+            }),
             // FIXME(valtrees): Correctly print mir constants.
             Const::Unevaluated(c, _ty) => {
                 ty::tls::with(move |tcx| {
