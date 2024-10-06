@@ -72,17 +72,33 @@ help: add `#![feature(adt_const_params)]` to the crate attributes to enable more
 LL + #![feature(adt_const_params)]
    |
 
+<<<<<<< HEAD
 error: maximum number of nodes exceeded in constant v20::v17::<v10, v2>::{constant#0}
   --> $DIR/unevaluated-const-ice-119731.rs:28:37
+||||||| parent of 883a4baff18 (Begin to use `ConstArgKind::Path` for all paths, not just params)
+error: maximum number of nodes exceeded in constant v20::v17::<v10, v2>::{constant#0}
+  --> $DIR/unevaluated-const-ice-119731.rs:27:37
+=======
+error: maximum number of nodes exceeded in constant v20::v2
+  --> $DIR/unevaluated-const-ice-119731.rs:11:5
+>>>>>>> 883a4baff18 (Begin to use `ConstArgKind::Path` for all paths, not just params)
    |
-LL |     impl<const v10: usize> v17<v10, v2> {
-   |                                     ^^
+LL |     const v2: v11 = [[256; v4]; v4];
+   |     ^^^^^^^^^^^^^
 
+<<<<<<< HEAD
 error: maximum number of nodes exceeded in constant v20::v17::<v10, v2>::{constant#0}
   --> $DIR/unevaluated-const-ice-119731.rs:28:37
+||||||| parent of 883a4baff18 (Begin to use `ConstArgKind::Path` for all paths, not just params)
+error: maximum number of nodes exceeded in constant v20::v17::<v10, v2>::{constant#0}
+  --> $DIR/unevaluated-const-ice-119731.rs:27:37
+=======
+error: maximum number of nodes exceeded in constant v20::v2
+  --> $DIR/unevaluated-const-ice-119731.rs:11:5
+>>>>>>> 883a4baff18 (Begin to use `ConstArgKind::Path` for all paths, not just params)
    |
-LL |     impl<const v10: usize> v17<v10, v2> {
-   |                                     ^^
+LL |     const v2: v11 = [[256; v4]; v4];
+   |     ^^^^^^^^^^^^^
    |
    = note: duplicate diagnostic emitted due to `-Z deduplicate-diagnostics=no`
 
