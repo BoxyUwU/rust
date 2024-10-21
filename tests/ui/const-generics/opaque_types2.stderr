@@ -10,29 +10,29 @@ note: ...which requires computing type of opaque `Foo::{opaque#0}`...
 LL | type Foo = impl Sized;
    |            ^^^^^^^^^^
 note: ...which requires type-checking `bar`...
-  --> $DIR/opaque_types2.rs:9:1
+  --> $DIR/opaque_types2.rs:10:1
    |
 LL | / fn bar()
 LL | | where
 LL | |     Foo:,
    | |_________^
 note: ...which requires evaluating type-level constant...
-  --> $DIR/opaque_types2.rs:7:1
+  --> $DIR/opaque_types2.rs:8:1
    |
 LL | const C: Foo = 42;
    | ^^^^^^^^^^^^
 note: ...which requires const-evaluating + checking `C`...
-  --> $DIR/opaque_types2.rs:7:1
+  --> $DIR/opaque_types2.rs:8:1
    |
 LL | const C: Foo = 42;
    | ^^^^^^^^^^^^
 note: ...which requires caching mir of `C` for CTFE...
-  --> $DIR/opaque_types2.rs:7:1
+  --> $DIR/opaque_types2.rs:8:1
    |
 LL | const C: Foo = 42;
    | ^^^^^^^^^^^^
 note: ...which requires elaborating drops for `C`...
-  --> $DIR/opaque_types2.rs:7:1
+  --> $DIR/opaque_types2.rs:8:1
    |
 LL | const C: Foo = 42;
    | ^^^^^^^^^^^^
