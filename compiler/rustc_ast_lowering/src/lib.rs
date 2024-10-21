@@ -2143,10 +2143,11 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
         // FIXME(min_generic_const_args): for now we only lower params to ConstArgKind::Path
         if let Some(res) = maybe_res
             && let ExprKind::Path(qself, path) = &expr.kind
-            && let Res::Def(DefKind::ConstParam, _) = res
             // FIXME(min_generic_const_args): only allow one-segment const paths for now
             && let Res::Def(
-                DefKind::ConstParam | DefKind::Const | DefKind::Ctor(_, CtorKind::Const),
+                DefKind::ConstParam
+                | DefKind::Const
+                | DefKind::Ctor(_, CtorKind::Const),
                 _,
             ) = res
             && path.is_potential_trivial_const_arg()
