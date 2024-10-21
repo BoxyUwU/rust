@@ -30,7 +30,7 @@ use rustc_errors::{
     Applicability, Diag, DiagCtxtHandle, ErrorGuaranteed, FatalError, struct_span_code_err,
 };
 use rustc_hir as hir;
-use rustc_hir::def::{CtorOf, DefKind, Namespace, Res};
+use rustc_hir::def::{CtorKind, CtorOf, DefKind, Namespace, Res};
 use rustc_hir::def_id::{DefId, LocalDefId};
 use rustc_hir::{GenericArg, GenericArgs, HirId};
 use rustc_infer::infer::{InferCtxt, TyCtxtInferExt};
@@ -2098,16 +2098,73 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
                 qpath.span(),
                 "fn's cannot be used as const args",
             ),
-            hir::QPath::Resolved(_, path @ &hir::Path { res: Res::Def(_, did), .. }) => {
-                let (item_segment, _) = path.segments.split_last().unwrap();
-                let args = self.lower_generic_args_of_path_segment(path.span, did, item_segment);
-                ty::Const::new_unevaluated(tcx, ty::UnevaluatedConst::new(did, args))
+            // hir::QPath::Resolved(_, path @ &hir::Path { res: Res::Def(_, did), .. }) => {
+            //     let (item_segment, _) = path.segments.split_last().unwrap();
+            //     let args = self.lower_generic_args_of_path_segment(path.span, did, item_segment);
+            //     ty::Const::new_unevaluated(tcx, ty::UnevaluatedConst::new(did, args))
+            // }
+            // // TODO: type-relative paths
+            // _ => ty::Const::new_error_with_message(
+            //     tcx,
+            //     qpath.span(),
+            //     "Const::lower_const_arg_path: invalid qpath",
+            // ),
+            hir::QPath::Resolved(maybe_qself, path) => {
+                debug!(?maybe_qself, ?path);
+                let opt_self_ty = maybe_qself.as_ref().map(|qself| self.lower_ty(qself));
+                self.lower_const_path_resolved(opt_self_ty, path, hir_id)
             }
+
             // TODO: type-relative paths
+            // hir::QPath::TypeRelative(qself, segment) => {
+            //     debug!(?qself, ?segment);
+            //     let ty = self.lower_ty(qself);
+            //     self.lower_assoc_path(hir_ty.hir_id, hir_ty.span, ty, qself, segment, false)
+            //         .map(|(ty, _, _)| ty)
+            //         .unwrap_or_else(|guar| Ty::new_error(tcx, guar))
+            // }
             _ => ty::Const::new_error_with_message(
                 tcx,
                 qpath.span(),
                 "Const::lower_const_arg_path: invalid qpath",
+            ),
+        }
+    }
+
+    fn lower_const_path_resolved(
+        &self,
+        opt_self_ty: Option<Ty<'tcx>>,
+        path: &hir::Path<'tcx>,
+        hir_id: HirId,
+    ) -> Const<'tcx> {
+        let tcx = self.tcx();
+        let span = path.span;
+        match path.res {
+            Res::Def(DefKind::ConstParam, def_id) => {
+                assert_eq!(opt_self_ty, None);
+                let _ = self.prohibit_generic_args(
+                    path.segments.iter(),
+                    GenericsArgsErrExtend::Param(def_id),
+                );
+                self.lower_const_arg_param(def_id, hir_id)
+            }
+            Res::Def(DefKind::Const | DefKind::Ctor(_, CtorKind::Const), did) => {
+                assert_eq!(opt_self_ty, None);
+                let _ = self.prohibit_generic_args(
+                    path.segments.split_last().unwrap().1.iter(),
+                    GenericsArgsErrExtend::None,
+                );
+                let args = self.lower_generic_args_of_path_segment(
+                    span,
+                    did,
+                    path.segments.last().unwrap(),
+                );
+                ty::Const::new_unevaluated(tcx, ty::UnevaluatedConst::new(did, args))
+            }
+            // TODO: DefKind::AssocConst?
+            _ => Const::new_error(
+                tcx,
+                tcx.dcx().span_delayed_bug(span, "invalid Res for const path"),
             ),
         }
     }
