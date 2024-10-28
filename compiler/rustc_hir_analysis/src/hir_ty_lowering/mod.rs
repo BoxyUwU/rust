@@ -2040,23 +2040,24 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
     ///
     /// Early-bound const parameters get lowered to [`ty::ConstKind::Param`]
     /// and late-bound ones to [`ty::ConstKind::Bound`].
-    pub(crate) fn lower_const_param(&self, hir_id: HirId) -> Const<'tcx> {
+    pub(crate) fn lower_const_param(&self, param_def_id: DefId, path_hir_id: HirId) -> Const<'tcx> {
         let tcx = self.tcx();
-        match tcx.named_bound_var(hir_id) {
-            Some(rbv::ResolvedArg::EarlyBound(def_id)) => {
+
+        match tcx.named_bound_var(path_hir_id) {
+            Some(rbv::ResolvedArg::EarlyBound(_)) => {
                 // Find the name and index of the const parameter by indexing the generics of
                 // the parent item and construct a `ParamConst`.
-                let item_def_id = tcx.local_parent(def_id);
+                let item_def_id = tcx.parent(param_def_id);
                 let generics = tcx.generics_of(item_def_id);
-                let index = generics.param_def_id_to_index[&def_id.to_def_id()];
-                let name = tcx.item_name(def_id.to_def_id());
+                let index = generics.param_def_id_to_index[&param_def_id];
+                let name = tcx.item_name(param_def_id);
                 ty::Const::new_param(tcx, ty::ParamConst::new(index, name))
             }
             Some(rbv::ResolvedArg::LateBound(debruijn, index, _)) => {
                 ty::Const::new_bound(tcx, debruijn, ty::BoundVar::from_u32(index))
             }
             Some(rbv::ResolvedArg::Error(guar)) => ty::Const::new_error(tcx, guar),
-            arg => bug!("unexpected bound var resolution for {:?}: {arg:?}", hir_id),
+            arg => bug!("unexpected bound var resolution for {:?}: {arg:?}", path_hir_id),
         }
     }
 
@@ -2085,10 +2086,9 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
     fn lower_const_arg_path(&self, qpath: hir::QPath<'tcx>, hir_id: HirId) -> Const<'tcx> {
         let tcx = self.tcx();
 
-        // TODO: handle path args properly
         match qpath {
             hir::QPath::Resolved(_, &hir::Path { res: Res::Def(DefKind::ConstParam, did), .. }) => {
-                self.lower_const_arg_param(did, hir_id)
+                self.lower_const_param(did, hir_id)
             }
             hir::QPath::Resolved(
                 _,
@@ -2098,31 +2098,11 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
                 qpath.span(),
                 "fn's cannot be used as const args",
             ),
-            // hir::QPath::Resolved(_, path @ &hir::Path { res: Res::Def(_, did), .. }) => {
-            //     let (item_segment, _) = path.segments.split_last().unwrap();
-            //     let args = self.lower_generic_args_of_path_segment(path.span, did, item_segment);
-            //     ty::Const::new_unevaluated(tcx, ty::UnevaluatedConst::new(did, args))
-            // }
-            // // TODO: type-relative paths
-            // _ => ty::Const::new_error_with_message(
-            //     tcx,
-            //     qpath.span(),
-            //     "Const::lower_const_arg_path: invalid qpath",
-            // ),
             hir::QPath::Resolved(maybe_qself, path) => {
                 debug!(?maybe_qself, ?path);
                 let opt_self_ty = maybe_qself.as_ref().map(|qself| self.lower_ty(qself));
                 self.lower_const_path_resolved(opt_self_ty, path, hir_id)
             }
-
-            // TODO: type-relative paths
-            // hir::QPath::TypeRelative(qself, segment) => {
-            //     debug!(?qself, ?segment);
-            //     let ty = self.lower_ty(qself);
-            //     self.lower_assoc_path(hir_ty.hir_id, hir_ty.span, ty, qself, segment, false)
-            //         .map(|(ty, _, _)| ty)
-            //         .unwrap_or_else(|guar| Ty::new_error(tcx, guar))
-            // }
             _ => ty::Const::new_error_with_message(
                 tcx,
                 qpath.span(),
@@ -2146,7 +2126,7 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
                     path.segments.iter(),
                     GenericsArgsErrExtend::Param(def_id),
                 );
-                self.lower_const_arg_param(def_id, hir_id)
+                self.lower_const_param(def_id, hir_id)
             }
             Res::Def(DefKind::Const | DefKind::Ctor(_, CtorKind::Const), did) => {
                 assert_eq!(opt_self_ty, None);
@@ -2161,34 +2141,10 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
                 );
                 ty::Const::new_unevaluated(tcx, ty::UnevaluatedConst::new(did, args))
             }
-            // TODO: DefKind::AssocConst?
             _ => Const::new_error(
                 tcx,
                 tcx.dcx().span_delayed_bug(span, "invalid Res for const path"),
             ),
-        }
-    }
-
-    /// Lower a const param to a [`Const`]. This is only meant as a helper for [`Self::lower_const_arg_path`].
-    /// FIXME: dedup with lower_const_param
-    fn lower_const_arg_param(&self, param_def_id: DefId, path_hir_id: HirId) -> Const<'tcx> {
-        let tcx = self.tcx();
-
-        match tcx.named_bound_var(path_hir_id) {
-            Some(rbv::ResolvedArg::EarlyBound(_)) => {
-                // Find the name and index of the const parameter by indexing the generics of
-                // the parent item and construct a `ParamConst`.
-                let item_def_id = tcx.parent(param_def_id);
-                let generics = tcx.generics_of(item_def_id);
-                let index = generics.param_def_id_to_index[&param_def_id];
-                let name = tcx.item_name(param_def_id);
-                ty::Const::new_param(tcx, ty::ParamConst::new(index, name))
-            }
-            Some(rbv::ResolvedArg::LateBound(debruijn, index, _)) => {
-                ty::Const::new_bound(tcx, debruijn, ty::BoundVar::from_u32(index))
-            }
-            Some(rbv::ResolvedArg::Error(guar)) => ty::Const::new_error(tcx, guar),
-            arg => bug!("unexpected bound var resolution for {:?}: {arg:?}", path_hir_id),
         }
     }
 
@@ -2387,7 +2343,7 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
                                         .type_of(def_id)
                                         .no_bound_vars()
                                         .expect("const parameter types cannot be generic");
-                                    let ct = self.lower_const_param(expr.hir_id);
+                                    let ct = self.lower_const_param(def_id, expr.hir_id);
                                     (ct, ty)
                                 }
 
