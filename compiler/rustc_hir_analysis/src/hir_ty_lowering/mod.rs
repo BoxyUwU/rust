@@ -2126,7 +2126,7 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
             _ => ty::Const::new_error_with_message(
                 tcx,
                 qpath.span(),
-                "Const::lower_const_arg_path: invalid qpath",
+                format!("Const::lower_const_arg_path: invalid qpath {qpath:?}"),
             ),
         }
     }

@@ -2131,13 +2131,13 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
         } else {
             &anon.value
         };
-        if let ExprKind::Path(qself, path) = &expr.kind
-            // FIXME(min_generic_const_args): we only allow one-segment const paths for now
+        // FIXME(min_generic_const_args): we only allow one-segment const paths for now
+        if let ExprKind::Path(None, path) = &expr.kind
             && path.is_potential_trivial_const_arg()
         {
             let qpath = self.lower_qpath(
                 expr.id,
-                qself,
+                &None,
                 path,
                 ParamMode::Optional,
                 AllowReturnTypeNotation::No,

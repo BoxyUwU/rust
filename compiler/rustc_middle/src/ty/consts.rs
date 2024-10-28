@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use rustc_data_structures::intern::Interned;
 use rustc_error_messages::MultiSpan;
 use rustc_hir::def::{DefKind, Res};
@@ -141,7 +143,7 @@ impl<'tcx> Const<'tcx> {
     pub fn new_error_with_message<S: Into<MultiSpan>>(
         tcx: TyCtxt<'tcx>,
         span: S,
-        msg: &'static str,
+        msg: impl Into<Cow<'static, str>>,
     ) -> Const<'tcx> {
         let reported = tcx.dcx().span_delayed_bug(span, msg);
         Const::new_error(tcx, reported)
