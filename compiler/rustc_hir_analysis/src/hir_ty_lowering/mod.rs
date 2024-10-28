@@ -2156,7 +2156,7 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
         }
     }
 
-    /// Lower a type from the HIR to our internal notion of a type given some extra data for diagnostics.
+    /// Lower a type from the HIR to our internal notion of a type.
     #[instrument(level = "debug", skip(self), ret)]
     pub fn lower_ty(&self, hir_ty: &hir::Ty<'tcx>) -> Ty<'tcx> {
         let tcx = self.tcx();
