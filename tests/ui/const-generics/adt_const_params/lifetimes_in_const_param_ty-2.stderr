@@ -1,0 +1,15 @@
+error[E0741]: `&'static [u8]` can't be used as a const parameter type
+  --> $DIR/lifetimes_in_const_param_ty-2.rs:12:24
+   |
+LL | struct Catter<const A: &'static [u8]>;
+   |                        ^^^^^^^^^^^^^
+
+error[E0741]: `&'static [u8]` can't be used as a const parameter type
+  --> $DIR/lifetimes_in_const_param_ty-2.rs:14:15
+   |
+LL | impl<const A: &'static [u8]> Catter<A>
+   |               ^^^^^^^^^^^^^
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0741`.

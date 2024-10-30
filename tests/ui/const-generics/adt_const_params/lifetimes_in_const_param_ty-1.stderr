@@ -1,0 +1,63 @@
+error[E0412]: cannot find type `Inner` in this scope
+  --> $DIR/lifetimes_in_const_param_ty-1.rs:9:56
+   |
+LL |     impl<const A: &'static str, const B: &'static str> Inner<A, B>
+   |                                                        ^^^^^ not found in this scope
+
+error[E0741]: `&'static str` can't be used as a const parameter type
+  --> $DIR/lifetimes_in_const_param_ty-1.rs:9:19
+   |
+LL |     impl<const A: &'static str, const B: &'static str> Inner<A, B>
+   |                   ^^^^^^^^^^^^
+
+error[E0741]: `&'static str` can't be used as a const parameter type
+  --> $DIR/lifetimes_in_const_param_ty-1.rs:9:42
+   |
+LL |     impl<const A: &'static str, const B: &'static str> Inner<A, B>
+   |                                          ^^^^^^^^^^^^
+
+error[E0308]: mismatched types
+  --> $DIR/lifetimes_in_const_param_ty-1.rs:4:27
+   |
+LL | const fn concat_strs() -> &'static str {
+   |          -----------      ^^^^^^^^^^^^ expected `&str`, found `()`
+   |          |
+   |          implicitly returns `()` as its body has no tail or `return` expression
+
+error[E0308]: mismatched types
+  --> $DIR/lifetimes_in_const_param_ty-1.rs:6:84
+   |
+LL |     const fn concat_arr<const M: usize, const N: usize>(a: [u8; M], b: [u8; N]) -> [u8; M + N] {}
+   |              ----------                                                            ^^^^^^^^^^^ expected `[u8; M + N]`, found `()`
+   |              |
+   |              implicitly returns `()` as its body has no tail or `return` expression
+   |
+note: consider returning one of these bindings
+  --> $DIR/lifetimes_in_const_param_ty-1.rs:6:57
+   |
+LL |     const fn concat_arr<const M: usize, const N: usize>(a: [u8; M], b: [u8; N]) -> [u8; M + N] {}
+   |                                                         ^           ^
+
+warning: type annotations needed
+  --> $DIR/lifetimes_in_const_param_ty-1.rs:20:35
+   |
+LL |                 A.as_ptr().cast().read(),
+   |                                   ^^^^
+   |
+   = warning: this is accepted in the current edition (Rust 2015) but is a hard error in Rust 2018!
+   = note: for more information, see issue #46906 <https://github.com/rust-lang/rust/issues/46906>
+   = note: `#[warn(tyvar_behind_raw_pointer)]` on by default
+
+warning: type annotations needed
+  --> $DIR/lifetimes_in_const_param_ty-1.rs:23:35
+   |
+LL |                 B.as_ptr().cast().read(),
+   |                                   ^^^^
+   |
+   = warning: this is accepted in the current edition (Rust 2015) but is a hard error in Rust 2018!
+   = note: for more information, see issue #46906 <https://github.com/rust-lang/rust/issues/46906>
+
+error: aborting due to 5 previous errors; 2 warnings emitted
+
+Some errors have detailed explanations: E0308, E0412, E0741.
+For more information about an error, try `rustc --explain E0308`.
