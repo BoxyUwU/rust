@@ -2052,6 +2052,9 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
         }
     }
 
+    /// Used when lowering a type argument that turned out to actually be a const argument.
+    ///
+    /// Only use for that purpose since otherwise it will create a duplicate def.
     #[instrument(level = "debug", skip(self))]
     fn lower_const_path_to_const_arg(
         &mut self,
@@ -2068,6 +2071,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
                 path,
                 ParamMode::Optional,
                 AllowReturnTypeNotation::No,
+                // FIXME(min_generic_const_args): update for `fn foo() -> Bar<FOO<impl Trait>>` support
                 ImplTraitContext::Disallowed(ImplTraitPosition::Path),
                 None,
             );
@@ -2080,6 +2084,9 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
             let span = self.lower_span(span);
 
             // Add a definition for the in-band const def.
+            // We're lowering a const argument that was originally thought to be a type argument,
+            // so the def collector didn't create the def ahead of time. That's why we have to do
+            // it here.
             let def_id =
                 self.create_def(parent_def_id, node_id, kw::Empty, DefKind::AnonConst, span);
             let hir_id = self.lower_node_id(node_id);
@@ -2141,6 +2148,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
                 path,
                 ParamMode::Optional,
                 AllowReturnTypeNotation::No,
+                // FIXME(min_generic_const_args): update for `fn foo() -> Bar<FOO<impl Trait>>` support
                 ImplTraitContext::Disallowed(ImplTraitPosition::Path),
                 None,
             );
