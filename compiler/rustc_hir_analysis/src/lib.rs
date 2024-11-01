@@ -229,7 +229,7 @@ pub fn lower_ty<'tcx>(tcx: TyCtxt<'tcx>, hir_ty: &hir::Ty<'tcx>) -> Ty<'tcx> {
     collect::ItemCtxt::new(tcx, env_def_id.def_id).lower_ty(hir_ty)
 }
 
-/// This is for rustdoc and clippy.
+/// This is for rustdoc.
 pub fn lower_const_arg<'tcx>(
     tcx: TyCtxt<'tcx>,
     hir_ct: &hir::ConstArg<'tcx>,

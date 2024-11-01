@@ -1807,6 +1807,7 @@ fn const_param_default<'tcx>(
         ),
     };
     let icx = ItemCtxt::new(tcx, def_id);
+    // FIXME(const_generics): investigate which places do and don't need const ty feeding
     let ct = icx.lowerer().lower_const_arg(default_ct, FeedConstTy::No);
     ty::EarlyBinder::bind(ct)
 }

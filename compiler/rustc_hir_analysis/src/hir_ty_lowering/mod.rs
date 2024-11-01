@@ -2076,38 +2076,19 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
             tcx.feed_anon_const_type(anon.def_id, tcx.type_of(param_def_id));
         }
 
+        let hir_id = const_arg.hir_id;
         match const_arg.kind {
-            hir::ConstArgKind::Path(qpath) => self.lower_const_arg_path(qpath, const_arg.hir_id),
-            hir::ConstArgKind::Anon(anon) => Const::from_anon_const(tcx, anon.def_id),
-        }
-    }
-
-    /// Lower a const path to a [`Const`].
-    fn lower_const_arg_path(&self, qpath: hir::QPath<'tcx>, hir_id: HirId) -> Const<'tcx> {
-        let tcx = self.tcx();
-
-        match qpath {
-            hir::QPath::Resolved(_, &hir::Path { res: Res::Def(DefKind::ConstParam, did), .. }) => {
-                self.lower_const_param(did, hir_id)
-            }
-            hir::QPath::Resolved(
-                _,
-                &hir::Path { res: Res::Def(DefKind::Fn | DefKind::AssocFn, _), .. },
-            ) => ty::Const::new_error_with_message(
-                tcx,
-                qpath.span(),
-                "fn's cannot be used as const args",
-            ),
-            hir::QPath::Resolved(maybe_qself, path) => {
+            hir::ConstArgKind::Path(hir::QPath::Resolved(maybe_qself, path)) => {
                 debug!(?maybe_qself, ?path);
                 let opt_self_ty = maybe_qself.as_ref().map(|qself| self.lower_ty(qself));
                 self.lower_const_path_resolved(opt_self_ty, path, hir_id)
             }
-            _ => ty::Const::new_error_with_message(
+            hir::ConstArgKind::Path(qpath) => ty::Const::new_error_with_message(
                 tcx,
                 qpath.span(),
-                format!("Const::lower_const_arg_path: invalid qpath {qpath:?}"),
+                format!("Const::lower_const_arg: invalid qpath {qpath:?}"),
             ),
+            hir::ConstArgKind::Anon(anon) => Const::from_anon_const(tcx, anon.def_id),
         }
     }
 
@@ -2141,7 +2122,53 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
                 );
                 ty::Const::new_unevaluated(tcx, ty::UnevaluatedConst::new(did, args))
             }
-            _ => Const::new_error(
+            Res::Def(DefKind::Fn | DefKind::AssocFn, _) => ty::Const::new_error_with_message(
+                tcx,
+                span,
+                "fn items cannot be used as const args",
+            ),
+
+            // Exhaustive match to be clear about what exactly we're considering to be
+            // an invalid Res for a const path.
+            Res::Def(
+                DefKind::Mod
+                | DefKind::Static { .. }
+                | DefKind::Enum
+                | DefKind::Variant
+                | DefKind::Ctor(CtorOf::Variant, CtorKind::Fn)
+                | DefKind::Struct
+                | DefKind::Ctor(CtorOf::Struct, CtorKind::Fn)
+                | DefKind::OpaqueTy
+                | DefKind::TyAlias
+                | DefKind::TraitAlias
+                | DefKind::AssocTy
+                | DefKind::Union
+                | DefKind::Trait
+                | DefKind::ForeignTy
+                | DefKind::AssocConst
+                | DefKind::TyParam
+                | DefKind::Macro(_)
+                | DefKind::LifetimeParam
+                | DefKind::Use
+                | DefKind::ForeignMod
+                | DefKind::AnonConst
+                | DefKind::InlineConst
+                | DefKind::Field
+                | DefKind::Impl { .. }
+                | DefKind::Closure
+                | DefKind::ExternCrate
+                | DefKind::GlobalAsm
+                | DefKind::SyntheticCoroutineBody,
+                _,
+            )
+            | Res::PrimTy(_)
+            | Res::SelfTyParam { .. }
+            | Res::SelfTyAlias { .. }
+            | Res::SelfCtor(_)
+            | Res::Local(_)
+            | Res::ToolMod
+            | Res::NonMacroAttr(_)
+            | Res::Err => Const::new_error(
                 tcx,
                 tcx.dcx().span_delayed_bug(span, "invalid Res for const path"),
             ),
