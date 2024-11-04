@@ -2109,7 +2109,10 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
                 );
                 self.lower_const_param(def_id, hir_id)
             }
-            Res::Def(DefKind::Const | DefKind::Ctor(_, CtorKind::Const), did) => {
+            Res::Def(
+                DefKind::Const | DefKind::Static { .. } | DefKind::Ctor(_, CtorKind::Const),
+                did,
+            ) => {
                 assert_eq!(opt_self_ty, None);
                 let _ = self.prohibit_generic_args(
                     path.segments.split_last().unwrap().1.iter(),
@@ -2132,7 +2135,6 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
             // an invalid Res for a const path.
             Res::Def(
                 DefKind::Mod
-                | DefKind::Static { .. }
                 | DefKind::Enum
                 | DefKind::Variant
                 | DefKind::Ctor(CtorOf::Variant, CtorKind::Fn)
