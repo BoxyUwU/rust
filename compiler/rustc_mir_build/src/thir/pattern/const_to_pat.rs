@@ -81,12 +81,54 @@ impl<'tcx> ConstToPat<'tcx> {
         ty.is_structural_eq_shallow(self.infcx.tcx)
     }
 
+    /// Returns the evaluated constant as a valtree;
+    /// if that fails due to a valtree-incompatible type, indicate which type that is
+    /// by returning `Err(Left(bad_type))`.
+    #[inline]
+    fn eval_ty_const_to_valtree_for_pat(
+        &self,
+        ct: ty::Const<'tcx>,
+    ) -> Result<(Ty<'tcx>, ValTree<'tcx>), Either<Ty<'tcx>, ErrorHandled>> {
+        assert!(!ct.has_escaping_bound_vars(), "escaping vars in {ct:?}");
+        match ct.kind() {
+            ty::ConstKind::Unevaluated(unevaluated) => {
+                let param_env =
+                    self.tcx().erase_regions(self.param_env).with_reveal_all_normalized(self.tcx());
+                let unevaluated = self.tcx().erase_regions(unevaluated);
+
+                // try to resolve e.g. associated constants to their definition on an impl, and then
+                // evaluate the const.
+                match self.infcx.tcx.const_eval_resolve_for_typeck(
+                    param_env,
+                    unevaluated,
+                    self.span,
+                ) {
+                    Ok(Ok(c)) => Ok((
+                        self.tcx()
+                            .type_of(unevaluated.def)
+                            .instantiate(self.infcx.tcx, unevaluated.args),
+                        c,
+                    )),
+                    Ok(Err(bad_ty)) => Err(Either::Left(bad_ty)),
+                    Err(err) => Err(Either::Right(err)),
+                }
+            }
+            ty::ConstKind::Value(ty, val) => Ok((ty, val)),
+            ty::ConstKind::Error(g) => Err(Either::Right(g.into())),
+            ty::ConstKind::Param(_)
+            | ty::ConstKind::Infer(_)
+            | ty::ConstKind::Bound(_, _)
+            | ty::ConstKind::Placeholder(_)
+            | ty::ConstKind::Expr(_) => Err(Either::Right(ErrorHandled::TooGeneric(self.span))),
+        }
+    }
+
     fn to_pat(&mut self, c: ty::Const<'tcx>, ty: Ty<'tcx>) -> Box<Pat<'tcx>> {
         trace!(self.treat_byte_string_as_slice);
         let pat_from_kind = |kind| Box::new(Pat { span: self.span, ty, kind });
 
         // Get a valtree. If that fails, this const is definitely not valid for use as a pattern.
-        let valtree = match c.eval_valtree(self.tcx(), self.param_env, self.span) {
+        let valtree = match self.eval_ty_const_to_valtree_for_pat(c) {
             Ok((_, valtree)) => valtree,
             Err(Either::Right(e)) => {
                 let err = match e {

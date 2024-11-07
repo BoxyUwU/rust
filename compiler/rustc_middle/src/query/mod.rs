@@ -2315,6 +2315,10 @@ rustc_queries! {
         desc { "whether the item should be made inlinable across crates" }
         separate_provide_extern
     }
+
+    query should_avoid_evaluating_const(key: ty::CanonicalQueryInput<TyCtxt<'tcx>, ty::ParamEnvAnd<'tcx, ty::Const<'tcx>>>) -> bool {
+        desc { "whether evaluating `ct` could lead to ICEs in ctfe due to ill formed arguments" }
+    }
 }
 
 rustc_query_append! { define_callbacks! }

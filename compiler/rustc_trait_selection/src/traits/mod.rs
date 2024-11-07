@@ -27,6 +27,8 @@ use std::fmt::Debug;
 use std::ops::ControlFlow;
 
 use rustc_errors::ErrorGuaranteed;
+use rustc_hir::def::DefKind;
+use rustc_infer::infer::canonical::OriginalQueryValues;
 pub use rustc_infer::traits::*;
 use rustc_middle::query::Providers;
 use rustc_middle::span_bug;
@@ -37,8 +39,8 @@ use rustc_middle::ty::{
     self, GenericArgs, GenericArgsRef, Ty, TyCtxt, TypeFolder, TypeSuperVisitable, TypingMode,
     Upcast,
 };
-use rustc_span::Span;
 use rustc_span::def_id::DefId;
+use rustc_span::{DUMMY_SP, Span};
 use tracing::{debug, instrument};
 
 pub use self::coherence::{
@@ -366,11 +368,20 @@ pub fn normalize_param_env_or_error<'tcx>(
                     if c.has_escaping_bound_vars() {
                         return ty::Const::new_misc_error(self.0);
                     }
+
                     // While it is pretty sus to be evaluating things with an empty param env, it
                     // should actually be okay since without `feature(generic_const_exprs)` the only
                     // const arguments that have a non-empty param env are array repeat counts. These
                     // do not appear in the type system though.
-                    c.normalize_internal(self.0, ty::ParamEnv::empty())
+                    if let ty::ConstKind::Unevaluated(uv) = c.kind()
+                        && self.0.def_kind(uv.def) == DefKind::AnonConst
+                    {
+                        let infcx = self.0.infer_ctxt().build(TypingMode::non_body_analysis());
+                        return evaluate_const(self.0, &infcx, c, ty::ParamEnv::empty())
+                            .unwrap_or(c);
+                    }
+
+                    c
                 }
             }
 
@@ -472,6 +483,99 @@ pub fn normalize_param_env_or_error<'tcx>(
     predicates.extend(outlives_predicates);
     debug!("normalize_param_env_or_error: final predicates={:?}", predicates);
     ty::ParamEnv::new(tcx.mk_clauses(&predicates), unnormalized_env.reveal())
+}
+
+// FIXME: this should really not be `pub` as it should only be called by normalization internals
+pub fn evaluate_const<'tcx>(
+    tcx: TyCtxt<'tcx>,
+    infcx: &InferCtxt<'tcx>,
+    ct: ty::Const<'tcx>,
+    param_env: ty::ParamEnv<'tcx>,
+) -> Option<ty::Const<'tcx>> {
+    match ct.kind() {
+        ty::ConstKind::Unevaluated(uv) => {
+            // FIXME: when `generic_const_exprs` and the `const_evaluatable_unchecked` fcw is removed,
+            // replace this match statement with the following:
+            // ```
+            // if ct.has_non_region_param() || ct.has_non_region_infer() {
+            //     return None;
+            // }
+            // ```
+            match tcx.thir_abstract_const(uv.def) {
+                Ok(Some(ac)) => {
+                    let ac = tcx.expand_abstract_consts(ac.instantiate(tcx, uv.args));
+                    if ac.has_non_region_param() || ac.has_non_region_infer() {
+                        return None;
+                    }
+                }
+                // Special case anon consts on stable as the `const_evaluatable_unchecked` fcw means
+                // that array repeat exprs have anon consts with full generics even though they should
+                // not be able to use them in practice.
+                Ok(None)
+                    if tcx.def_kind(uv.def) == DefKind::AnonConst
+                        && !tcx.features().generic_const_exprs() => {}
+                // Not reachable on stable, only encountered under feature gates allowing generics in
+                // type system constants, e.g. `feature(generic_const_exprs)`
+                Ok(None) if ct.has_non_region_param() || ct.has_non_region_infer() => return None,
+                Ok(None) => (),
+                Err(e) => return Some(ty::Const::new_error(tcx, e)),
+            }
+
+            // Canonicalize in case there are any region inference variables
+            let input =
+                infcx.canonicalize_query(param_env.and(ct), &mut OriginalQueryValues::default());
+            if tcx.should_avoid_evaluating_const(input) {
+                return None;
+            }
+
+            let env = tcx.erase_regions(param_env).with_reveal_all_normalized(tcx);
+            let erased_uv = tcx.erase_regions(uv);
+
+            let normalized_ct = match tcx.const_eval_resolve_for_typeck(env, erased_uv, DUMMY_SP) {
+                Ok(Ok(val)) => {
+                    ty::Const::new_value(tcx, val, tcx.type_of(uv.def).instantiate(tcx, uv.args))
+                }
+
+                Ok(Err(_)) => {
+                    let e = tcx.dcx().delayed_bug(
+                        "Type system constant with non valtree'able type evaluated but no error emitted",
+                    );
+                    return Some(ty::Const::new_error(tcx, e));
+                }
+                Err(rustc_middle::mir::interpret::ErrorHandled::Reported(info, _)) => {
+                    return Some(ty::Const::new_error(tcx, info.into()));
+                }
+                Err(_) => return Some(ct),
+            };
+
+            Some(normalized_ct)
+        }
+        _ => None,
+    }
+}
+
+fn should_avoid_evaluating_const<'tcx>(
+    tcx: TyCtxt<'tcx>,
+    canonical: ty::CanonicalQueryInput<TyCtxt<'tcx>, ty::ParamEnvAnd<'tcx, ty::Const<'tcx>>>,
+) -> bool {
+    let (infcx, env_and_ct, _) = tcx.infer_ctxt().build_with_canonical(DUMMY_SP, &canonical);
+    let (env, ct) = env_and_ct.into_parts();
+
+    let ocx = ObligationCtxt::new(&infcx);
+
+    let obligations =
+        wf::unnormalized_obligations(&infcx, env, ct.into()).unwrap().into_iter().filter(|o| {
+            !matches!(
+                o.predicate.kind().skip_binder(),
+                ty::PredicateKind::Clause(ty::ClauseKind::ConstEvaluatable(_))
+            )
+        });
+
+    ocx.register_obligations(obligations);
+
+    // We don't care about region errors as CTFE erases regions and these predicates
+    // are checked properly elsewhere.
+    !ocx.select_all_or_error().is_empty()
 }
 
 /// Normalizes the predicates and checks whether they hold in an empty environment. If this
@@ -608,6 +712,7 @@ pub fn provide(providers: &mut Providers) {
         specialization_enabled_in: specialize::specialization_enabled_in,
         instantiate_and_check_impossible_predicates,
         is_impossible_associated_item,
+        should_avoid_evaluating_const,
         ..*providers
     };
 }
