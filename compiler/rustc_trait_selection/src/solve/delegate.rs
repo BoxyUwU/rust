@@ -77,21 +77,12 @@ impl<'tcx> rustc_next_trait_solver::delegate::SolverDelegate for SolverDelegate<
         self.0.leak_check(max_input_universe, None).map_err(|_| NoSolution)
     }
 
-    fn try_const_eval_resolve(
+    fn evaluate_const(
         &self,
         param_env: ty::ParamEnv<'tcx>,
-        unevaluated: ty::UnevaluatedConst<'tcx>,
-    ) -> Option<ty::Const<'tcx>> {
-        use rustc_middle::mir::interpret::ErrorHandled;
-        match self.const_eval_resolve(param_env, unevaluated, DUMMY_SP) {
-            Ok(Ok(val)) => Some(ty::Const::new_value(
-                self.tcx,
-                val,
-                self.tcx.type_of(unevaluated.def).instantiate(self.tcx, unevaluated.args),
-            )),
-            Ok(Err(_)) | Err(ErrorHandled::TooGeneric(_)) => None,
-            Err(ErrorHandled::Reported(e, _)) => Some(ty::Const::new_error(self.tcx, e.into())),
-        }
+        ct: ty::Const<'tcx>,
+    ) -> Result<ty::Const<'tcx>, ()> {
+        crate::traits::try_evaluate_const(self.tcx, &self.0, ct, param_env).map_err(|_| ())
     }
 
     fn well_formed_goals(

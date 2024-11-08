@@ -35,7 +35,7 @@ use rustc_span::hygiene::DesugaringKind;
 use rustc_span::symbol::kw;
 use rustc_trait_selection::error_reporting::infer::need_type_info::TypeAnnotationNeeded;
 use rustc_trait_selection::traits::{
-    self, NormalizeExt, ObligationCauseCode, StructurallyNormalizeExt,
+    self, EvaluateConstErr, NormalizeExt, ObligationCauseCode, StructurallyNormalizeExt,
 };
 use tracing::{debug, instrument};
 
@@ -1492,7 +1492,6 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             }
         } else if self.tcx.features().generic_const_exprs() {
             rustc_trait_selection::traits::evaluate_const(self.tcx, &self.infcx, ct, self.param_env)
-                .unwrap_or(ct)
         } else {
             ct
         }

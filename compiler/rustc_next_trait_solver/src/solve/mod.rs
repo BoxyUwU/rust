@@ -142,8 +142,8 @@ where
         Goal { param_env, predicate: ct }: Goal<I, I::Const>,
     ) -> QueryResult<I> {
         match ct.kind() {
-            ty::ConstKind::Unevaluated(uv) => {
-                // We never return `NoSolution` here as `try_const_eval_resolve` emits an
+            ty::ConstKind::Unevaluated(_) => {
+                // We never return `NoSolution` here as `evaluate_const` emits an
                 // error itself when failing to evaluate, so emitting an additional fulfillment
                 // error in that case is unnecessary noise. This may change in the future once
                 // evaluation failures are allowed to impact selection, e.g. generic const
@@ -151,7 +151,7 @@ where
 
                 // FIXME(generic_const_exprs): Implement handling for generic
                 // const expressions here.
-                if let Some(_normalized) = self.try_const_eval_resolve(param_env, uv) {
+                if let Ok(_normalized) = self.evaluate_const(param_env, ct) {
                     self.evaluate_added_goals_and_make_canonical_response(Certainty::Yes)
                 } else {
                     self.evaluate_added_goals_and_make_canonical_response(Certainty::AMBIGUOUS)

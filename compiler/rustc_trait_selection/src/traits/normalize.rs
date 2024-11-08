@@ -418,10 +418,7 @@ impl<'a, 'b, 'tcx> TypeFolder<TyCtxt<'tcx>> for AssocTypeNormalizer<'a, 'b, 'tcx
                 self.selcx.infcx,
                 &mut self.universes,
                 constant,
-                |constant| {
-                    super::evaluate_const(tcx, self.selcx.infcx, constant, self.param_env)
-                        .unwrap_or(constant)
-                },
+                |constant| super::evaluate_const(tcx, self.selcx.infcx, constant, self.param_env),
             )
             .super_fold_with(self)
         }

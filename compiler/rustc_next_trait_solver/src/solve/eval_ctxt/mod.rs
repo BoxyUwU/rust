@@ -998,15 +998,12 @@ where
         first
     }
 
-    // Try to evaluate a const, or return `None` if the const is too generic.
-    // This doesn't mean the const isn't evaluatable, though, and should be treated
-    // as an ambiguity rather than no-solution.
-    pub(super) fn try_const_eval_resolve(
+    pub(super) fn evaluate_const(
         &self,
         param_env: I::ParamEnv,
-        unevaluated: ty::UnevaluatedConst<I>,
-    ) -> Option<I::Const> {
-        self.delegate.try_const_eval_resolve(param_env, unevaluated)
+        ct: I::Const,
+    ) -> Result<I::Const, ()> {
+        self.delegate.evaluate_const(param_env, ct).map_err(|_| ())
     }
 
     pub(super) fn is_transmutable(

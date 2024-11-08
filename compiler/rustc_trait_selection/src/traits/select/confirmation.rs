@@ -405,7 +405,6 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         if self.tcx().features().generic_const_exprs() {
             assume =
                 crate::traits::evaluate_const(self.tcx(), self.infcx, assume, obligation.param_env)
-                    .unwrap_or(assume)
         }
         let Some(assume) =
             rustc_transmute::Assume::from_const(self.infcx.tcx, obligation.param_env, assume)

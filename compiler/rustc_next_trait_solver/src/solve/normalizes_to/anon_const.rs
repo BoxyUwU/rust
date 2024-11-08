@@ -1,3 +1,4 @@
+use rustc_type_ir::inherent::*;
 use rustc_type_ir::{self as ty, Interner};
 use tracing::instrument;
 
@@ -14,9 +15,12 @@ where
         &mut self,
         goal: Goal<I, ty::NormalizesTo<I>>,
     ) -> QueryResult<I> {
-        if let Some(normalized_const) = self.try_const_eval_resolve(
+        if let Ok(normalized_const) = self.evaluate_const(
             goal.param_env,
-            ty::UnevaluatedConst::new(goal.predicate.alias.def_id, goal.predicate.alias.args),
+            Const::new_unevaluated(
+                self.cx(),
+                ty::UnevaluatedConst::new(goal.predicate.alias.def_id, goal.predicate.alias.args),
+            ),
         ) {
             self.instantiate_normalizes_to_term(goal, normalized_const.into());
             self.evaluate_added_goals_and_make_canonical_response(Certainty::Yes)

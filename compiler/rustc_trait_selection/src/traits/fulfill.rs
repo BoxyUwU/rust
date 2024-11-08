@@ -26,6 +26,7 @@ use super::{
 };
 use crate::error_reporting::InferCtxtErrorExt;
 use crate::infer::{InferCtxt, TyOrConstInferVar};
+use crate::traits::EvaluateConstErr;
 use crate::traits::normalize::normalize_with_depth_to;
 use crate::traits::project::{PolyProjectionObligation, ProjectionCacheKeyExt as _};
 use crate::traits::query::evaluate_obligation::InferCtxtExt;
@@ -662,30 +663,29 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
 
                     let stalled_on = &mut pending_obligation.stalled_on;
 
-                    let mut evaluate = |c: Const<'tcx>| {
-                        if let ty::ConstKind::Unevaluated(unevaluated) = c.kind() {
-                            match self.selcx.infcx.try_const_eval_resolve(
-                                obligation.param_env,
-                                unevaluated,
-                                obligation.cause.span,
-                            ) {
-                                Ok(val) => Ok(val),
-                                Err(e) => {
-                                    match e {
-                                        ErrorHandled::TooGeneric(..) => {
+                    let mut evaluate =
+                        |c: Const<'tcx>| {
+                            if let ty::ConstKind::Unevaluated(unevaluated) = c.kind() {
+                                match super::try_evaluate_const(
+                                    tcx,
+                                    self.selcx.infcx,
+                                    c,
+                                    obligation.param_env,
+                                ) {
+                                    Ok(val) => Ok(val),
+                                    Err(e) => {
+                                        if let EvaluateConstErr::HasGenericsOrInfers = e {
                                             stalled_on.extend(unevaluated.args.iter().filter_map(
                                                 TyOrConstInferVar::maybe_from_generic_arg,
                                             ));
                                         }
-                                        _ => {}
+                                        Err(e)
                                     }
-                                    Err(e)
                                 }
+                            } else {
+                                Ok(c)
                             }
-                        } else {
-                            Ok(c)
-                        }
-                    };
+                        };
 
                     match (evaluate(c1), evaluate(c2)) {
                         (Ok(c1), Ok(c2)) => {
@@ -707,14 +707,20 @@ impl<'a, 'tcx> ObligationProcessor for FulfillProcessor<'a, 'tcx> {
                                 }
                             }
                         }
-                        (Err(ErrorHandled::Reported(reported, _)), _)
-                        | (_, Err(ErrorHandled::Reported(reported, _))) => ProcessResult::Error(
-                            FulfillmentErrorCode::Select(SelectionError::NotConstEvaluatable(
-                                NotConstEvaluatable::Error(reported.into()),
-                            )),
-                        ),
-                        (Err(ErrorHandled::TooGeneric(_)), _)
-                        | (_, Err(ErrorHandled::TooGeneric(_))) => {
+                        (Err(EvaluateConstErr::InvalidConstParamTy(e)), _)
+                        | (_, Err(EvaluateConstErr::InvalidConstParamTy(e))) => {
+                            ProcessResult::Error(FulfillmentErrorCode::Select(
+                                SelectionError::NotConstEvaluatable(NotConstEvaluatable::Error(e)),
+                            ))
+                        }
+                        (Err(EvaluateConstErr::CTFEFailure(e)), _)
+                        | (_, Err(EvaluateConstErr::CTFEFailure(e))) => {
+                            ProcessResult::Error(FulfillmentErrorCode::Select(
+                                SelectionError::NotConstEvaluatable(NotConstEvaluatable::Error(e)),
+                            ))
+                        }
+                        (Err(EvaluateConstErr::HasGenericsOrInfers), _)
+                        | (_, Err(EvaluateConstErr::HasGenericsOrInfers)) => {
                             if c1.has_non_region_infer() || c2.has_non_region_infer() {
                                 ProcessResult::Unchanged
                             } else {

@@ -344,7 +344,6 @@ impl<'a, 'tcx> FallibleTypeFolder<TyCtxt<'tcx>> for QueryNormalizer<'a, 'tcx> {
             constant,
             |constant| {
                 crate::traits::evaluate_const(self.infcx.tcx, &self.infcx, constant, self.param_env)
-                    .unwrap_or(constant)
             },
         );
         debug!(?constant, ?self.param_env);

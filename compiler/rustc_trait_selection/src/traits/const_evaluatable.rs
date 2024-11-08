@@ -19,6 +19,7 @@ use rustc_middle::ty::{self, TyCtxt, TypeVisitable, TypeVisitableExt, TypeVisito
 use rustc_span::{DUMMY_SP, Span};
 use tracing::{debug, instrument};
 
+use super::EvaluateConstErr;
 use crate::traits::ObligationCtxt;
 
 /// Check if a given constant can be evaluated.
@@ -69,15 +70,18 @@ pub fn is_const_evaluatable<'tcx>(
                 tcx.dcx().span_bug(span, "evaluating `ConstKind::Expr` is not currently supported");
             }
             ty::ConstKind::Unevaluated(uv) => {
-                let concrete = infcx.const_eval_resolve(param_env, uv, span);
+                let concrete =
+                    crate::traits::try_evaluate_const(tcx, infcx, unexpanded_ct, param_env);
                 match concrete {
-                    Err(ErrorHandled::TooGeneric(_)) => {
+                    Err(EvaluateConstErr::HasGenericsOrInfers) => {
                         Err(NotConstEvaluatable::Error(infcx.dcx().span_delayed_bug(
                             span,
                             "Missing value for constant, but no error reported?",
                         )))
                     }
-                    Err(ErrorHandled::Reported(e, _)) => Err(NotConstEvaluatable::Error(e.into())),
+                    Err(
+                        EvaluateConstErr::CTFEFailure(e) | EvaluateConstErr::InvalidConstParamTy(e),
+                    ) => Err(NotConstEvaluatable::Error(e.into())),
                     Ok(_) => Ok(()),
                 }
             }
@@ -100,7 +104,7 @@ pub fn is_const_evaluatable<'tcx>(
         // and hopefully soon change this to an error.
         //
         // See #74595 for more details about this.
-        let concrete = infcx.const_eval_resolve(param_env, uv, span);
+        let concrete = crate::traits::try_evaluate_const(tcx, infcx, unexpanded_ct, param_env);
         match concrete {
             // If we're evaluating a generic foreign constant, under a nightly compiler while
             // the current crate does not enable `feature(generic_const_exprs)`, abort
@@ -130,7 +134,7 @@ pub fn is_const_evaluatable<'tcx>(
                     .emit()
             }
 
-            Err(ErrorHandled::TooGeneric(_)) => {
+            Err(EvaluateConstErr::HasGenericsOrInfers) => {
                 let err = if uv.has_non_region_infer() {
                     NotConstEvaluatable::MentionsInfer
                 } else if uv.has_non_region_param() {
@@ -145,7 +149,9 @@ pub fn is_const_evaluatable<'tcx>(
 
                 Err(err)
             }
-            Err(ErrorHandled::Reported(e, _)) => Err(NotConstEvaluatable::Error(e.into())),
+            Err(EvaluateConstErr::CTFEFailure(e) | EvaluateConstErr::InvalidConstParamTy(e)) => {
+                Err(NotConstEvaluatable::Error(e.into()))
+            }
             Ok(_) => Ok(()),
         }
     }
