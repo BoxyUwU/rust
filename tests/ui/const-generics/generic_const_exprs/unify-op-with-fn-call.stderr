@@ -59,12 +59,6 @@ LL + #[derive(ConstParamTy)]
 LL | struct Foo(u8);
    |
 
-error[E0284]: type annotations needed: cannot normalize `foo2<N>::{constant#0}`
-  --> $DIR/unify-op-with-fn-call.rs:29:28
-   |
-LL | fn foo2<const N: usize>(a: Evaluatable2<{ N + N }>) {
-   |                            ^^^^^^^^^^^^^^^^^^^^^^^ cannot normalize `foo2<N>::{constant#0}`
-
 error[E0015]: cannot call non-const fn `<Foo as Add>::add` in constants
   --> $DIR/unify-op-with-fn-call.rs:21:13
    |
@@ -81,13 +75,7 @@ LL |     bar2::<{ std::ops::Add::add(N, N) }>();
    |
    = note: calls in constants are limited to constant functions, tuple structs and tuple variants
 
-error[E0284]: type annotations needed: cannot normalize `foo2<N>::{constant#0}`
-  --> $DIR/unify-op-with-fn-call.rs:30:12
-   |
-LL |     bar2::<{ std::ops::Add::add(N, N) }>();
-   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ cannot normalize `foo2<N>::{constant#0}`
+error: aborting due to 8 previous errors
 
-error: aborting due to 10 previous errors
-
-Some errors have detailed explanations: E0015, E0284, E0741.
+Some errors have detailed explanations: E0015, E0741.
 For more information about an error, try `rustc --explain E0015`.
