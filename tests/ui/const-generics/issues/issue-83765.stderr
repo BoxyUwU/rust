@@ -1,5 +1,5 @@
 error[E0308]: method not compatible with trait
-  --> $DIR/issue-83765.rs:51:5
+  --> $DIR/issue-83765.rs:47:5
    |
 LL |     fn size(&self) -> [usize; DIM] {
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Self::DIM`, found `DIM`
@@ -8,7 +8,7 @@ LL |     fn size(&self) -> [usize; DIM] {
               found constant `DIM`
 
 error[E0308]: method not compatible with trait
-  --> $DIR/issue-83765.rs:58:5
+  --> $DIR/issue-83765.rs:55:5
    |
 LL |     fn bget(&self, index: [usize; DIM]) -> Option<Self::Element> {
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Self::DIM`, found `DIM`
@@ -17,7 +17,7 @@ LL |     fn bget(&self, index: [usize; DIM]) -> Option<Self::Element> {
               found constant `DIM`
 
 error[E0308]: method not compatible with trait
-  --> $DIR/issue-83765.rs:82:5
+  --> $DIR/issue-83765.rs:84:5
    |
 LL |     fn size(&self) -> [usize; DIM] {
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Self::DIM`, found `DIM`
@@ -26,7 +26,7 @@ LL |     fn size(&self) -> [usize; DIM] {
               found constant `DIM`
 
 error[E0308]: method not compatible with trait
-  --> $DIR/issue-83765.rs:92:5
+  --> $DIR/issue-83765.rs:96:5
    |
 LL |     fn bget(&self, index: [usize; DIM]) -> Option<Self::Element> {
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Self::DIM`, found `DIM`
@@ -35,13 +35,13 @@ LL |     fn bget(&self, index: [usize; DIM]) -> Option<Self::Element> {
               found constant `DIM`
 
 error: unconstrained generic constant
-  --> $DIR/issue-83765.rs:60:13
+  --> $DIR/issue-83765.rs:58:13
    |
 LL |         if !self.inbounds(index) {
    |             ^^^^
    |
 note: required by a bound in `TensorSize::inbounds`
-  --> $DIR/issue-83765.rs:18:39
+  --> $DIR/issue-83765.rs:14:39
    |
 LL |     fn inbounds(&self, index: [usize; Self::DIM]) -> bool {
    |                                       ^^^^^^^^^ required by this bound in `TensorSize::inbounds`
@@ -51,7 +51,7 @@ LL |     fn bget(&self, index: [usize; DIM]) -> Option<Self::Element> where [();
    |                                                                  ++++++++++++++++++++++
 
 error[E0308]: mismatched types
-  --> $DIR/issue-83765.rs:60:27
+  --> $DIR/issue-83765.rs:58:27
    |
 LL |         if !self.inbounds(index) {
    |                           ^^^^^ expected `Self::DIM`, found `DIM`
@@ -66,7 +66,7 @@ LL |         let size = self.size();
    |                         ^^^^
    |
 note: required by a bound in `TensorSize::size`
-  --> $DIR/issue-83765.rs:17:31
+  --> $DIR/issue-83765.rs:13:31
    |
 LL |     fn size(&self) -> [usize; Self::DIM];
    |                               ^^^^^^^^^ required by this bound in `TensorSize::size`
@@ -76,7 +76,7 @@ LL |     fn bget(&self, index: [usize; DIM]) -> Option<Self::Element> where [();
    |                                                                  ++++++++++++++++++++++
 
 error[E0277]: the trait bound `[usize; T::DIM]: Default` is not satisfied
-  --> $DIR/issue-83765.rs:64:41
+  --> $DIR/issue-83765.rs:65:41
    |
 LL |         let newindex: [usize; T::DIM] = Default::default();
    |                                         ^^^^^^^^^^^^^^^^^^ the trait `Default` is not implemented for `[usize; T::DIM]`
@@ -87,13 +87,13 @@ LL | impl<'a, T: Broadcastable, const DIM: usize> Broadcastable for LazyUpdim<'a
    |                                                                                                  ++++++++++++++++++++++++++++++
 
 error: unconstrained generic constant
-  --> $DIR/issue-83765.rs:84:24
+  --> $DIR/issue-83765.rs:86:24
    |
 LL |         self.reference.size()
    |                        ^^^^
    |
 note: required by a bound in `TensorSize::size`
-  --> $DIR/issue-83765.rs:17:31
+  --> $DIR/issue-83765.rs:13:31
    |
 LL |     fn size(&self) -> [usize; Self::DIM];
    |                               ^^^^^^^^^ required by this bound in `TensorSize::size`
@@ -103,7 +103,7 @@ LL |     fn size(&self) -> [usize; DIM] where [(); Self::DIM]: {
    |                                    ++++++++++++++++++++++
 
 error[E0308]: mismatched types
-  --> $DIR/issue-83765.rs:84:9
+  --> $DIR/issue-83765.rs:86:9
    |
 LL |         self.reference.size()
    |         ^^^^^^^^^^^^^^^^^^^^^ expected `DIM`, found `Self::DIM`
@@ -112,13 +112,13 @@ LL |         self.reference.size()
               found constant `Self::DIM`
 
 error: unconstrained generic constant
-  --> $DIR/issue-83765.rs:94:9
+  --> $DIR/issue-83765.rs:98:9
    |
 LL |         self.reference.bget(index).map(&self.closure)
    |         ^^^^^^^^^^^^^^
    |
 note: required by a bound in `Broadcastable::bget`
-  --> $DIR/issue-83765.rs:25:35
+  --> $DIR/issue-83765.rs:21:35
    |
 LL |     fn bget(&self, index: [usize; Self::DIM]) -> Option<Self::Element>;
    |                                   ^^^^^^^^^ required by this bound in `Broadcastable::bget`
@@ -128,7 +128,7 @@ LL |     fn bget(&self, index: [usize; DIM]) -> Option<Self::Element> where [();
    |                                                                  ++++++++++++++++++++++
 
 error[E0308]: mismatched types
-  --> $DIR/issue-83765.rs:94:29
+  --> $DIR/issue-83765.rs:98:29
    |
 LL |         self.reference.bget(index).map(&self.closure)
    |                             ^^^^^ expected `Self::DIM`, found `DIM`
