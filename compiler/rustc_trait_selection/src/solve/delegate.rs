@@ -15,7 +15,7 @@ use rustc_span::{DUMMY_SP, ErrorGuaranteed, Span};
 use rustc_type_ir::TypingMode;
 use rustc_type_ir::solve::{Certainty, NoSolution};
 
-use crate::traits::specialization_graph;
+use crate::traits::{EvaluateConstErr, specialization_graph};
 
 #[repr(transparent)]
 pub struct SolverDelegate<'tcx>(InferCtxt<'tcx>);
@@ -82,7 +82,12 @@ impl<'tcx> rustc_next_trait_solver::delegate::SolverDelegate for SolverDelegate<
         param_env: ty::ParamEnv<'tcx>,
         ct: ty::Const<'tcx>,
     ) -> Result<ty::Const<'tcx>, ()> {
-        crate::traits::try_evaluate_const(self.tcx, &self.0, ct, param_env).map_err(|_| ())
+        match crate::traits::try_evaluate_const(self.tcx, &self.0, ct, param_env) {
+            Ok(ct) => Ok(ct),
+            Err(EvaluateConstErr::CTFEFailure(e)) => Ok(ty::Const::new_error(self.tcx, e)),
+            Err(EvaluateConstErr::InvalidConstParamTy(_)) => Err(()),
+            Err(EvaluateConstErr::HasGenericsOrInfers) => Err(()),
+        }
     }
 
     fn well_formed_goals(

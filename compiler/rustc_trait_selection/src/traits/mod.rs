@@ -515,6 +515,9 @@ pub fn try_evaluate_const<'tcx>(
     ct: ty::Const<'tcx>,
     param_env: ty::ParamEnv<'tcx>,
 ) -> Result<ty::Const<'tcx>, EvaluateConstErr> {
+    let ct = infcx.resolve_vars_if_possible(ct);
+    debug!(?ct);
+
     match ct.kind() {
         ty::ConstKind::Value(..) => Ok(ct),
         ty::ConstKind::Error(e) => Err(EvaluateConstErr::CTFEFailure(e)),
@@ -524,13 +527,9 @@ pub fn try_evaluate_const<'tcx>(
         | ty::ConstKind::Placeholder(_)
         | ty::ConstKind::Expr(_) => Err(EvaluateConstErr::HasGenericsOrInfers),
         ty::ConstKind::Unevaluated(uv) => {
-            // FIXME: when `generic_const_exprs` is removed, replace all of this with just:
-            // ```
-            // if ct.has_non_region_param() || ct.has_non_region_infer() {
-            //     return None;
-            // }
-            // ```
-            let (args, param_env) = if tcx.features().generic_const_exprs() {
+            let (args, param_env) = if tcx.features().generic_const_exprs()
+                && uv.has_non_region_infer()
+            {
                 // `feature(generic_const_exprs)` causes anon consts to inherit all parent generics. This can cause
                 // inference variables and generic parameters to show up in `ty::Const` even though the anon const
                 // does not actually make use of them. We handle this case specially and attempt to evaluate anyway.
@@ -547,15 +546,11 @@ pub fn try_evaluate_const<'tcx>(
                             (replace_param_and_infer_args_with_placeholder(tcx, uv.args), param_env)
                         }
                     }
-                    // `Ok(None)` only implies fully concreteness if its an anon const as we will also
-                    // return `Ok(None)` for `<T as Trait>::ASSOC`
-                    Ok(None) if tcx.def_kind(uv.def) == DefKind::AnonConst => {
+                    Err(_) | Ok(None) => {
                         let args = GenericArgs::identity_for_item(tcx, uv.def);
                         let param_env = tcx.param_env(uv.def);
                         (args, param_env)
                     }
-                    Ok(None) => (uv.args, param_env),
-                    Err(e) => return Err(EvaluateConstErr::CTFEFailure(e)),
                 }
             } else {
                 if (uv.has_non_region_param() || uv.has_non_region_infer())
@@ -569,11 +564,13 @@ pub fn try_evaluate_const<'tcx>(
             let uv = ty::UnevaluatedConst::new(uv.def, args);
 
             // Canonicalize in case there are any region inference variables
-            // let input =
-            //     infcx.canonicalize_query(param_env.and(ct), &mut OriginalQueryValues::default());
-            // if !tcx.features().generic_const_exprs() && tcx.should_avoid_evaluating_const(input) {
-            //     return Err(EvaluateConstErr::HasGenericsOrInfers);
-            // }
+            if !tcx.features().generic_const_exprs() {
+                // let input = infcx
+                //     .canonicalize_query(param_env.and(ct), &mut OriginalQueryValues::default());
+                // if tcx.should_avoid_evaluating_const(input) {
+                //     return Err(EvaluateConstErr::HasGenericsOrInfers);
+                // }
+            }
 
             let env = tcx.erase_regions(param_env).with_reveal_all_normalized(tcx);
             let erased_uv = tcx.erase_regions(uv);
