@@ -27,7 +27,6 @@ use std::fmt::Debug;
 use std::ops::ControlFlow;
 
 use rustc_errors::ErrorGuaranteed;
-use rustc_hir::def::DefKind;
 pub use rustc_infer::traits::*;
 use rustc_middle::query::Providers;
 use rustc_middle::span_bug;
@@ -372,9 +371,7 @@ pub fn normalize_param_env_or_error<'tcx>(
                     // should actually be okay since without `feature(generic_const_exprs)` the only
                     // const arguments that have a non-empty param env are array repeat counts. These
                     // do not appear in the type system though.
-                    if let ty::ConstKind::Unevaluated(uv) = c.kind()
-                        && self.0.def_kind(uv.def) == DefKind::AnonConst
-                    {
+                    if let ty::ConstKind::Unevaluated(_) = c.kind() {
                         let infcx = self.0.infer_ctxt().build(TypingMode::non_body_analysis());
                         let c = evaluate_const(&infcx, c, ty::ParamEnv::empty());
                         // We should never wind up with any `infcx` local state when normalizing anon consts
