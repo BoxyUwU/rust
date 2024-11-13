@@ -2109,10 +2109,7 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
                 );
                 self.lower_const_param(def_id, hir_id)
             }
-            Res::Def(
-                DefKind::Const | DefKind::Static { .. } | DefKind::Ctor(_, CtorKind::Const),
-                did,
-            ) => {
+            Res::Def(DefKind::Const | DefKind::Ctor(_, CtorKind::Const), did) => {
                 assert_eq!(opt_self_ty, None);
                 let _ = self.prohibit_generic_args(
                     path.segments.split_last().unwrap().1.iter(),
@@ -2124,6 +2121,9 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
                     path.segments.last().unwrap(),
                 );
                 ty::Const::new_unevaluated(tcx, ty::UnevaluatedConst::new(did, args))
+            }
+            Res::Def(DefKind::Static { .. }, _) => {
+                span_bug!(span, "use of bare `static` ConstArgKind::Path's not yet supported")
             }
             // FIXME(const_generics): create real const to allow fn items as const paths
             Res::Def(DefKind::Fn | DefKind::AssocFn, _) => ty::Const::new_error_with_message(
