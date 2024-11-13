@@ -2063,8 +2063,13 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
         ty_id: NodeId,
         span: Span,
     ) -> &'hir hir::ConstArg<'hir> {
+        let tcx = self.tcx;
+
         // FIXME(min_generic_const_args): we only allow one-segment const paths for now
-        let ct_kind = if path.is_potential_trivial_const_arg() {
+        let ct_kind = if path.is_potential_trivial_const_arg()
+            && (tcx.features().min_generic_const_args()
+                || matches!(res, Res::Def(DefKind::ConstParam, _)))
+        {
             let qpath = self.lower_qpath(
                 ty_id,
                 &None,
@@ -2127,6 +2132,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
 
     #[instrument(level = "debug", skip(self))]
     fn lower_anon_const_to_const_arg_direct(&mut self, anon: &AnonConst) -> hir::ConstArg<'hir> {
+        let tcx = self.tcx;
         // Unwrap a block, so that e.g. `{ P }` is recognised as a parameter. Const arguments
         // currently have to be wrapped in curly brackets, so it's necessary to special-case.
         let expr = if let ExprKind::Block(block, _) = &anon.value.kind
@@ -2138,9 +2144,13 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
         } else {
             &anon.value
         };
+        let maybe_res =
+            self.resolver.get_partial_res(expr.id).and_then(|partial_res| partial_res.full_res());
         // FIXME(min_generic_const_args): we only allow one-segment const paths for now
         if let ExprKind::Path(None, path) = &expr.kind
             && path.is_potential_trivial_const_arg()
+            && (tcx.features().min_generic_const_args()
+                || matches!(maybe_res, Some(Res::Def(DefKind::ConstParam, _))))
         {
             let qpath = self.lower_qpath(
                 expr.id,

@@ -1,4 +1,4 @@
-// check-pass
+//@ check-pass
 
 pub static STATIC: u32 = 0;
 pub struct Foo<const N: u32>;
