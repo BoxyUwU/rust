@@ -1,0 +1,29 @@
+error[E0391]: cycle detected when building an abstract representation for `lib::<impl at $DIR/issue-97007.rs:51:5: 51:81>::proceed_to::{constant#0}`
+  --> $DIR/issue-97007.rs:54:25
+   |
+LL |         ) -> Walk<NEXT, { walk(REMAINING, CURRENT, NEXT) }> {
+   |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: ...which requires building THIR for `lib::<impl at $DIR/issue-97007.rs:51:5: 51:81>::proceed_to::{constant#0}`...
+  --> $DIR/issue-97007.rs:54:25
+   |
+LL |         ) -> Walk<NEXT, { walk(REMAINING, CURRENT, NEXT) }> {
+   |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+note: ...which requires type-checking `lib::<impl at $DIR/issue-97007.rs:51:5: 51:81>::proceed_to::{constant#0}`...
+  --> $DIR/issue-97007.rs:54:25
+   |
+LL |         ) -> Walk<NEXT, { walk(REMAINING, CURRENT, NEXT) }> {
+   |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = note: ...which again requires building an abstract representation for `lib::<impl at $DIR/issue-97007.rs:51:5: 51:81>::proceed_to::{constant#0}`, completing the cycle
+note: cycle used when checking that `lib::<impl at $DIR/issue-97007.rs:51:5: 51:81>::proceed_to` is well-formed
+  --> $DIR/issue-97007.rs:52:9
+   |
+LL | /         pub fn proceed_to<const NEXT: usize>(
+LL | |             self,
+LL | |         ) -> Walk<NEXT, { walk(REMAINING, CURRENT, NEXT) }> {
+   | |___________________________________________________________^
+   = note: see https://rustc-dev-guide.rust-lang.org/overview.html#queries and https://rustc-dev-guide.rust-lang.org/query.html for more information
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0391`.

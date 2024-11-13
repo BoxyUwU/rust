@@ -25,7 +25,7 @@ LL | trait Trait<const N: dyn Trait = bar> {
    |             ^^^^^^^^^^^^^^^^^^^^^^^^ `Trait` cannot be made into an object
    |
 note: for a trait to be "dyn-compatible" it needs to allow building a vtable to allow the call to be resolvable dynamically; for more information visit <https://doc.rust-lang.org/reference/items/traits.html#object-safety>
-  --> $DIR/not_wf_param_in_rpitit.rs:9:14
+  --> $DIR/not_wf_param_in_rpitit.rs:8:14
    |
 LL | trait Trait<const N: dyn Trait = bar> {
    |       ----- this trait cannot be made into an object...
@@ -48,7 +48,7 @@ LL | trait Trait<const N: dyn Trait = bar> {
    |             ^^^^^^^^^^^^^^^^^^^^^^^^ `Trait` cannot be made into an object
    |
 note: for a trait to be "dyn-compatible" it needs to allow building a vtable to allow the call to be resolvable dynamically; for more information visit <https://doc.rust-lang.org/reference/items/traits.html#object-safety>
-  --> $DIR/not_wf_param_in_rpitit.rs:9:14
+  --> $DIR/not_wf_param_in_rpitit.rs:8:14
    |
 LL | trait Trait<const N: dyn Trait = bar> {
    |       ----- this trait cannot be made into an object...

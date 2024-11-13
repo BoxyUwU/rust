@@ -7,8 +7,8 @@
 struct U;
 
 struct S<const N: U>()
+//~^ ERROR: `U` must implement `ConstParamTy` to be used as the type of a const generic parameter
 where
     S<{ U }>:;
-//~^ ERROR: overflow evaluating the requirement `S<{ U }> well-formed`
 
 fn main() {}

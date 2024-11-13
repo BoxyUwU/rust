@@ -5,7 +5,6 @@ trait Trait<const N: dyn Trait = bar> {
     //~| ERROR: cycle detected when computing type of `Trait::N`
     //~| ERROR: the trait `Trait` cannot be made into an object
     //~| ERROR: the trait `Trait` cannot be made into an object
-    //~| ERROR: the trait `Trait` cannot be made into an object
     async fn a() {}
 }
 

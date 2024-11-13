@@ -1,5 +1,5 @@
 error[E0403]: the name `N` is already used for a generic parameter in this item's generic parameters
-  --> $DIR/ice-hir-wf-check-anon-const-issue-122199.rs:11:18
+  --> $DIR/ice-hir-wf-check-anon-const-issue-122199.rs:8:18
    |
 LL | trait Trait<const N: Trait = bar> {
    |                   - first use of `N`
@@ -14,13 +14,13 @@ LL | trait Trait<const N: Trait = bar> {
    |                              ^^^ not found in this scope
 
 error[E0423]: expected value, found builtin type `u32`
-  --> $DIR/ice-hir-wf-check-anon-const-issue-122199.rs:11:29
+  --> $DIR/ice-hir-wf-check-anon-const-issue-122199.rs:8:29
    |
 LL |     fn fnc<const N: Trait = u32>(&self) -> Trait {
    |                             ^^^ not a value
 
 error[E0425]: cannot find value `bar` in this scope
-  --> $DIR/ice-hir-wf-check-anon-const-issue-122199.rs:23:9
+  --> $DIR/ice-hir-wf-check-anon-const-issue-122199.rs:17:9
    |
 LL |         bar
    |         ^^^ not found in this scope
@@ -54,13 +54,13 @@ LL | trait Trait<const N: Trait = bar> {
    = note: see https://rustc-dev-guide.rust-lang.org/overview.html#queries and https://rustc-dev-guide.rust-lang.org/query.html for more information
 
 error: defaults for const parameters are only allowed in `struct`, `enum`, `type`, or `trait` definitions
-  --> $DIR/ice-hir-wf-check-anon-const-issue-122199.rs:11:12
+  --> $DIR/ice-hir-wf-check-anon-const-issue-122199.rs:8:12
    |
 LL |     fn fnc<const N: Trait = u32>(&self) -> Trait {
    |            ^^^^^^^^^^^^^^^^^^^^
 
 warning: trait objects without an explicit `dyn` are deprecated
-  --> $DIR/ice-hir-wf-check-anon-const-issue-122199.rs:11:21
+  --> $DIR/ice-hir-wf-check-anon-const-issue-122199.rs:8:21
    |
 LL |     fn fnc<const N: Trait = u32>(&self) -> Trait {
    |                     ^^^^^
@@ -73,7 +73,7 @@ LL |     fn fnc<const N: dyn Trait = u32>(&self) -> Trait {
    |                     +++
 
 warning: trait objects without an explicit `dyn` are deprecated
-  --> $DIR/ice-hir-wf-check-anon-const-issue-122199.rs:11:44
+  --> $DIR/ice-hir-wf-check-anon-const-issue-122199.rs:8:44
    |
 LL |     fn fnc<const N: Trait = u32>(&self) -> Trait {
    |                                            ^^^^^
@@ -92,7 +92,7 @@ LL | trait Trait<const N: Trait = bar> {
    |             ^^^^^^^^^^^^^^^^^^^^ `Trait` cannot be made into an object
    |
 note: for a trait to be "dyn-compatible" it needs to allow building a vtable to allow the call to be resolvable dynamically; for more information visit <https://doc.rust-lang.org/reference/items/traits.html#object-safety>
-  --> $DIR/ice-hir-wf-check-anon-const-issue-122199.rs:11:8
+  --> $DIR/ice-hir-wf-check-anon-const-issue-122199.rs:8:8
    |
 LL | trait Trait<const N: Trait = bar> {
    |       ----- this trait cannot be made into an object...
@@ -102,7 +102,7 @@ LL |     fn fnc<const N: Trait = u32>(&self) -> Trait {
    = help: consider moving `fnc` to another trait
 
 error: associated item referring to unboxed trait object for its own trait
-  --> $DIR/ice-hir-wf-check-anon-const-issue-122199.rs:11:44
+  --> $DIR/ice-hir-wf-check-anon-const-issue-122199.rs:8:44
    |
 LL | trait Trait<const N: Trait = bar> {
    |       ----- in this trait
@@ -122,7 +122,7 @@ LL | trait Trait<const N: Trait = bar> {
    |             ^^^^^^^^^^^^^^^^^^^^ `Trait` cannot be made into an object
    |
 note: for a trait to be "dyn-compatible" it needs to allow building a vtable to allow the call to be resolvable dynamically; for more information visit <https://doc.rust-lang.org/reference/items/traits.html#object-safety>
-  --> $DIR/ice-hir-wf-check-anon-const-issue-122199.rs:11:8
+  --> $DIR/ice-hir-wf-check-anon-const-issue-122199.rs:8:8
    |
 LL | trait Trait<const N: Trait = bar> {
    |       ----- this trait cannot be made into an object...

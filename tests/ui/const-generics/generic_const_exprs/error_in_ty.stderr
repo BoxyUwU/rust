@@ -7,7 +7,7 @@ LL | pub struct A<const z: [usize; x]> {}
    |                    similarly named const parameter `z` defined here
 
 error[E0592]: duplicate definitions with name `B`
-  --> $DIR/error_in_ty.rs:12:5
+  --> $DIR/error_in_ty.rs:10:5
    |
 LL |     pub const fn B() {}
    |     ^^^^^^^^^^^^^^^^ duplicate definitions for `B`

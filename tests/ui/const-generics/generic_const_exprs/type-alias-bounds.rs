@@ -21,7 +21,6 @@ fn ct_unused_0() {
     const DATA: i32 = 0;
     #[cfg(neg)]
     let _: AliasConstUnused<String>;
-    //[neg]~^ ERROR the trait bound `String: Copy` is not satisfied
 }
 
 fn ct_unused_1() {

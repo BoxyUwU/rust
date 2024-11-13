@@ -1,5 +1,3 @@
-//@ check-pass
-
 #![feature(adt_const_params, generic_const_exprs)]
 #![allow(incomplete_features)]
 
@@ -54,6 +52,7 @@ mod lib {
         pub fn proceed_to<const NEXT: usize>(
             self,
         ) -> Walk<NEXT, { walk(REMAINING, CURRENT, NEXT) }> {
+            //~^ ERROR cycle detected when building an abstract representation for
             Walk { _p: () }
         }
     }

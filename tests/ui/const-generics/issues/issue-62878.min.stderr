@@ -7,7 +7,7 @@ LL | fn foo<const N: usize, const A: [u8; N]>() {}
    = note: const parameters may not be used in the type of const parameters
 
 error[E0747]: type provided when a constant was expected
-  --> $DIR/issue-62878.rs:10:11
+  --> $DIR/issue-62878.rs:9:11
    |
 LL |     foo::<_, { [1] }>();
    |           ^
