@@ -2125,6 +2125,7 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
                 );
                 ty::Const::new_unevaluated(tcx, ty::UnevaluatedConst::new(did, args))
             }
+            // FIXME(const_generics): create real const to allow fn items as const paths
             Res::Def(DefKind::Fn | DefKind::AssocFn, _) => ty::Const::new_error_with_message(
                 tcx,
                 span,
@@ -2170,10 +2171,7 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
             | Res::Local(_)
             | Res::ToolMod
             | Res::NonMacroAttr(_)
-            | Res::Err => Const::new_error(
-                tcx,
-                tcx.dcx().span_delayed_bug(span, "invalid Res for const path"),
-            ),
+            | Res::Err => Const::new_error_with_message(tcx, span, "invalid Res for const path"),
         }
     }
 

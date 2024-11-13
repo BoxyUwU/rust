@@ -43,7 +43,7 @@ use rustc_hir::PredicateOrigin;
 use rustc_hir::def::{CtorKind, DefKind, Res};
 use rustc_hir::def_id::{DefId, DefIdMap, DefIdSet, LOCAL_CRATE, LocalDefId};
 use rustc_hir_analysis::hir_ty_lowering::FeedConstTy;
-use rustc_hir_analysis::{lower_const_arg, lower_ty};
+use rustc_hir_analysis::{lower_const_arg_for_rustdoc, lower_ty};
 use rustc_middle::metadata::Reexport;
 use rustc_middle::middle::resolve_bound_vars as rbv;
 use rustc_middle::ty::{self, AdtKind, GenericArgsRef, Ty, TyCtxt, TypeVisitableExt, TypingMode};
@@ -437,7 +437,7 @@ fn clean_hir_term<'tcx>(term: &hir::Term<'tcx>, cx: &mut DocContext<'tcx>) -> Te
     match term {
         hir::Term::Ty(ty) => Term::Type(clean_ty(ty, cx)),
         hir::Term::Const(c) => {
-            let ct = lower_const_arg(cx.tcx, c, FeedConstTy::No);
+            let ct = lower_const_arg_for_rustdoc(cx.tcx, c, FeedConstTy::No);
             Term::Constant(clean_middle_const(ty::Binder::dummy(ct), cx))
         }
     }
@@ -625,8 +625,9 @@ fn clean_generic_param<'tcx>(
         hir::GenericParamKind::Const { ty, default, synthetic } => {
             (param.name.ident().name, GenericParamDefKind::Const {
                 ty: Box::new(clean_ty(ty, cx)),
-                default: default
-                    .map(|ct| Box::new(lower_const_arg(cx.tcx, ct, FeedConstTy::No).to_string())),
+                default: default.map(|ct| {
+                    Box::new(lower_const_arg_for_rustdoc(cx.tcx, ct, FeedConstTy::No).to_string())
+                }),
                 synthetic,
             })
         }
@@ -1813,7 +1814,7 @@ pub(crate) fn clean_ty<'tcx>(ty: &hir::Ty<'tcx>, cx: &mut DocContext<'tcx>) -> T
                     // `const_eval_poly` tries to first substitute generic parameters which
                     // results in an ICE while manually constructing the constant and using `eval`
                     // does nothing for `ConstKind::Param`.
-                    let ct = lower_const_arg(cx.tcx, const_arg, FeedConstTy::No);
+                    let ct = lower_const_arg_for_rustdoc(cx.tcx, const_arg, FeedConstTy::No);
                     let ct = if let hir::ConstArgKind::Anon(hir::AnonConst { def_id, .. }) =
                         const_arg.kind
                     {

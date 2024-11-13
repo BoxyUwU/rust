@@ -185,6 +185,7 @@ impl<'tcx> rustc_type_ir::inherent::Const<TyCtxt<'tcx>> for Const<'tcx> {
 }
 
 impl<'tcx> Const<'tcx> {
+    // FIXME: move this and try_from_lit to hir_ty_lowering like lower_const_arg/from_const_arg
     /// Literals and const generic parameters are eagerly converted to a constant, everything else
     /// becomes `Unevaluated`.
     #[instrument(skip(tcx), level = "debug")]

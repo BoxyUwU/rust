@@ -230,7 +230,8 @@ pub fn lower_ty<'tcx>(tcx: TyCtxt<'tcx>, hir_ty: &hir::Ty<'tcx>) -> Ty<'tcx> {
 }
 
 /// This is for rustdoc.
-pub fn lower_const_arg<'tcx>(
+// FIXME(const_generics): having special methods for rustdoc in `rustc_hir_analysis` is cursed
+pub fn lower_const_arg_for_rustdoc<'tcx>(
     tcx: TyCtxt<'tcx>,
     hir_ct: &hir::ConstArg<'tcx>,
     feed: FeedConstTy,
