@@ -882,7 +882,7 @@ impl<'a, 'tcx> Promoter<'a, 'tcx> {
             };
 
             // Use the underlying local for this (necessarily interior) borrow.
-            debug_assert!(region.is_erased());
+            assert!(region.is_erased());
             let ty = local_decls[place.local].ty;
             let span = statement.source_info.span;
 

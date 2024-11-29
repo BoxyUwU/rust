@@ -46,7 +46,7 @@ impl<'a, 'tcx> ProjectionIter<'a, 'tcx> {
         let last = if place.as_local().is_none() {
             Some(place)
         } else {
-            debug_assert!(deref_chain.is_empty());
+            assert!(deref_chain.is_empty());
             None
         };
 

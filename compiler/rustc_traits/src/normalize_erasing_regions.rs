@@ -40,9 +40,9 @@ fn try_normalize_after_erasing_regions<'tcx, T: TypeFoldable<TyCtxt<'tcx>> + Par
             // It's unclear when `resolve_vars` would have an effect in a
             // fresh `InferCtxt`. If this assert does trigger, it will give
             // us a test case.
-            debug_assert_eq!(normalized_value, resolved_value);
+            assert_eq!(normalized_value, resolved_value);
             let erased = infcx.tcx.erase_regions(resolved_value);
-            debug_assert!(!erased.has_infer(), "{erased:?}");
+            assert!(!erased.has_infer(), "{erased:?}");
             Ok(erased)
         }
         Err(NoSolution) => Err(NoSolution),

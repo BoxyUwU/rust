@@ -280,7 +280,7 @@ pub fn strip_shebang(input: &str) -> Option<usize> {
 /// problem with a `RawStr`/`RawByteStr` with a `None` field.
 #[inline]
 pub fn validate_raw_str(input: &str, prefix_len: u32) -> Result<(), RawStrError> {
-    debug_assert!(!input.is_empty());
+    assert!(!input.is_empty());
     let mut cursor = Cursor::new(input);
     // Move past the leading `r` or `br`.
     for _ in 0..prefix_len {
@@ -471,7 +471,7 @@ impl Cursor<'_> {
     }
 
     fn line_comment(&mut self) -> TokenKind {
-        debug_assert!(self.prev() == '/' && self.first() == '/');
+        assert!(self.prev() == '/' && self.first() == '/');
         self.bump();
 
         let doc_style = match self.first() {
@@ -487,7 +487,7 @@ impl Cursor<'_> {
     }
 
     fn block_comment(&mut self) -> TokenKind {
-        debug_assert!(self.prev() == '/' && self.first() == '*');
+        assert!(self.prev() == '/' && self.first() == '*');
         self.bump();
 
         let doc_style = match self.first() {
@@ -524,13 +524,13 @@ impl Cursor<'_> {
     }
 
     fn whitespace(&mut self) -> TokenKind {
-        debug_assert!(is_whitespace(self.prev()));
+        assert!(is_whitespace(self.prev()));
         self.eat_while(is_whitespace);
         Whitespace
     }
 
     fn raw_ident(&mut self) -> TokenKind {
-        debug_assert!(self.prev() == 'r' && self.first() == '#' && is_id_start(self.second()));
+        assert!(self.prev() == 'r' && self.first() == '#' && is_id_start(self.second()));
         // Eat "#" symbol.
         self.bump();
         // Eat the identifier part of RawIdent.
@@ -539,7 +539,7 @@ impl Cursor<'_> {
     }
 
     fn ident_or_unknown_prefix(&mut self) -> TokenKind {
-        debug_assert!(is_id_start(self.prev()));
+        assert!(is_id_start(self.prev()));
         // Start is already eaten, eat the rest of identifier.
         self.eat_while(is_id_continue);
         // Known prefixes must have been handled earlier. So if
@@ -606,7 +606,7 @@ impl Cursor<'_> {
     }
 
     fn number(&mut self, first_digit: char) -> LiteralKind {
-        debug_assert!('0' <= self.prev() && self.prev() <= '9');
+        assert!('0' <= self.prev() && self.prev() <= '9');
         let mut base = Base::Decimal;
         if first_digit == '0' {
             // Attempt to parse encoding base.
@@ -679,7 +679,7 @@ impl Cursor<'_> {
     }
 
     fn lifetime_or_char(&mut self) -> TokenKind {
-        debug_assert!(self.prev() == '\'');
+        assert!(self.prev() == '\'');
 
         let can_be_a_lifetime = if self.second() == '\'' {
             // It's surely not a lifetime.
@@ -745,7 +745,7 @@ impl Cursor<'_> {
     }
 
     fn single_quoted_string(&mut self) -> bool {
-        debug_assert!(self.prev() == '\'');
+        assert!(self.prev() == '\'');
         // Check if it's a one-symbol literal.
         if self.second() == '\'' && self.first() != '\\' {
             self.bump();
@@ -788,7 +788,7 @@ impl Cursor<'_> {
     /// Eats double-quoted string and returns true
     /// if string is terminated.
     fn double_quoted_string(&mut self) -> bool {
-        debug_assert!(self.prev() == '"');
+        assert!(self.prev() == '"');
         while let Some(c) = self.bump() {
             match c {
                 '"' => {
@@ -814,7 +814,7 @@ impl Cursor<'_> {
     /// guarded string is not found. It is the caller's
     /// responsibility to do so.
     pub fn guarded_double_quoted_string(&mut self) -> Option<GuardedStr> {
-        debug_assert!(self.prev() != '#');
+        assert!(self.prev() != '#');
 
         let mut n_start_hashes: u32 = 0;
         while self.first() == '#' {
@@ -826,7 +826,7 @@ impl Cursor<'_> {
             return None;
         }
         self.bump();
-        debug_assert!(self.prev() == '"');
+        assert!(self.prev() == '"');
 
         // Lex the string itself as a normal string literal
         // so we can recover that for older editions later.
@@ -872,7 +872,7 @@ impl Cursor<'_> {
     }
 
     fn raw_string_unvalidated(&mut self, prefix_len: u32) -> Result<u32, RawStrError> {
-        debug_assert!(self.prev() == 'r');
+        assert!(self.prev() == 'r');
         let start_pos = self.pos_within_token();
         let mut possible_terminator_offset = None;
         let mut max_hashes = 0;
@@ -970,7 +970,7 @@ impl Cursor<'_> {
     /// Eats the float exponent. Returns true if at least one digit was met,
     /// and returns false otherwise.
     fn eat_float_exponent(&mut self) -> bool {
-        debug_assert!(self.prev() == 'e' || self.prev() == 'E');
+        assert!(self.prev() == 'e' || self.prev() == 'E');
         if self.first() == '-' || self.first() == '+' {
             self.bump();
         }

@@ -368,7 +368,7 @@ impl<'sess> OnDiskCache<'sess> {
     pub fn store_side_effects(&self, dep_node_index: DepNodeIndex, side_effects: QuerySideEffects) {
         let mut current_side_effects = self.current_side_effects.borrow_mut();
         let prev = current_side_effects.insert(dep_node_index, side_effects);
-        debug_assert!(prev.is_none());
+        assert!(prev.is_none());
     }
 
     /// Return whether the cached query result can be decoded.
@@ -389,7 +389,7 @@ impl<'sess> OnDiskCache<'sess> {
         T: for<'a> Decodable<CacheDecoder<'a, 'tcx>>,
     {
         let opt_value = self.load_indexed(tcx, dep_node_index, &self.query_result_index);
-        debug_assert_eq!(opt_value.is_some(), self.loadable_from_disk(dep_node_index));
+        assert_eq!(opt_value.is_some(), self.loadable_from_disk(dep_node_index));
         opt_value
     }
 
@@ -549,7 +549,7 @@ impl<'a, 'tcx> TyDecoder for CacheDecoder<'a, 'tcx> {
     where
         F: FnOnce(&mut Self) -> R,
     {
-        debug_assert!(pos < self.opaque.len());
+        assert!(pos < self.opaque.len());
 
         let new_opaque = self.opaque.split_at(pos);
         let old_opaque = mem::replace(&mut self.opaque, new_opaque);
@@ -620,7 +620,7 @@ impl<'a, 'tcx> SpanDecoder for CacheDecoder<'a, 'tcx> {
                     expn_id.expn_data().hash_stable(&mut hcx, &mut hasher);
                     hasher.finish()
                 });
-                debug_assert_eq!(hash.local_hash(), local_hash);
+                assert_eq!(hash.local_hash(), local_hash);
             }
 
             expn_id
@@ -629,7 +629,7 @@ impl<'a, 'tcx> SpanDecoder for CacheDecoder<'a, 'tcx> {
             self.tcx.expn_hash_to_expn_id(krate, index_guess, hash)
         };
 
-        debug_assert_eq!(expn_id.krate, krate);
+        assert_eq!(expn_id.krate, krate);
         expn_id
     }
 
@@ -654,7 +654,7 @@ impl<'a, 'tcx> SpanDecoder for CacheDecoder<'a, 'tcx> {
 
             return span;
         } else {
-            debug_assert_eq!(tag, TAG_FULL_SPAN);
+            assert_eq!(tag, TAG_FULL_SPAN);
         }
 
         let file_lo_index = SourceFileIndex::decode(self);

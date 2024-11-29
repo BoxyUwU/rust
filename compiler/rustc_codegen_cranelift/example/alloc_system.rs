@@ -114,7 +114,7 @@ mod platform {
         unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
             let header = get_header(ptr);
             let err = HeapFree(GetProcessHeap(), 0, header.0 as LPVOID);
-            debug_assert!(err != 0, "Failed to free heap memory: {}", GetLastError());
+            assert!(err != 0, "Failed to free heap memory: {}", GetLastError());
         }
         #[inline]
         unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {

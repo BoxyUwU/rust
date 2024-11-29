@@ -262,7 +262,7 @@ fn mangle_name(name: &str) -> String {
     name.replace(
         |char: char| {
             if !char.is_alphanumeric() && char != '_' {
-                debug_assert!(
+                assert!(
                     "$.*".contains(char),
                     "Unsupported char in function name {}: {}",
                     name,

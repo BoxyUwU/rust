@@ -405,7 +405,7 @@ pub fn structurally_relate_tys<I: Interner, R: TypeRelation<I>>(
 
         (ty::Param(a_p), ty::Param(b_p)) if a_p.index() == b_p.index() => {
             // FIXME: Put this back
-            //debug_assert_eq!(a_p.name(), b_p.name(), "param types with same index differ in name");
+            //assert_eq!(a_p.name(), b_p.name(), "param types with same index differ in name");
             Ok(a)
         }
 
@@ -598,7 +598,7 @@ pub fn structurally_relate_consts<I: Interner, R: TypeRelation<I>>(
 
         (ty::ConstKind::Param(a_p), ty::ConstKind::Param(b_p)) if a_p.index() == b_p.index() => {
             // FIXME: Put this back
-            // debug_assert_eq!(a_p.name, b_p.name, "param types with same index differ in name");
+            // assert_eq!(a_p.name, b_p.name, "param types with same index differ in name");
             true
         }
         (ty::ConstKind::Placeholder(p1), ty::ConstKind::Placeholder(p2)) => p1 == p2,
@@ -608,7 +608,7 @@ pub fn structurally_relate_consts<I: Interner, R: TypeRelation<I>>(
         // and is the better alternative to waiting until `generic_const_exprs` can
         // be stabilized.
         (ty::ConstKind::Unevaluated(au), ty::ConstKind::Unevaluated(bu)) if au.def == bu.def => {
-            if cfg!(debug_assertions) {
+            if true {
                 let a_ty = cx.type_of(au.def).instantiate(cx, au.args);
                 let b_ty = cx.type_of(bu.def).instantiate(cx, bu.args);
                 assert_eq!(a_ty, b_ty);

@@ -20,7 +20,7 @@ pub(super) fn partially_check_layout<'tcx>(cx: &LayoutCx<'tcx>, layout: &TyAndLa
         bug!("size is too large, in the following layout:\n{layout:#?}");
     }
 
-    if !cfg!(debug_assertions) {
+    if !true {
         // Stop here, the rest is kind of expensive.
         return;
     }

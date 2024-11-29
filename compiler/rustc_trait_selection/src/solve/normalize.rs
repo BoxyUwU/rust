@@ -176,7 +176,7 @@ where
     #[instrument(level = "trace", skip(self), ret)]
     fn try_fold_ty(&mut self, ty: Ty<'tcx>) -> Result<Ty<'tcx>, Self::Error> {
         let infcx = self.at.infcx;
-        debug_assert_eq!(ty, infcx.shallow_resolve(ty));
+        assert_eq!(ty, infcx.shallow_resolve(ty));
         if !ty.has_aliases() {
             return Ok(ty);
         }
@@ -203,7 +203,7 @@ where
     #[instrument(level = "trace", skip(self), ret)]
     fn try_fold_const(&mut self, ct: ty::Const<'tcx>) -> Result<ty::Const<'tcx>, Self::Error> {
         let infcx = self.at.infcx;
-        debug_assert_eq!(ct, infcx.shallow_resolve_const(ct));
+        assert_eq!(ct, infcx.shallow_resolve_const(ct));
         if !ct.has_aliases() {
             return Ok(ct);
         }

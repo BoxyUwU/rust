@@ -24,7 +24,7 @@ impl<'psess, 'src> Lexer<'psess, 'src> {
                 token::OpenDelim(delim) => {
                     // Invisible delimiters cannot occur here because `TokenTreesReader` parses
                     // code directly from strings, with no macro expansion involved.
-                    debug_assert!(!matches!(delim, Delimiter::Invisible(_)));
+                    assert!(!matches!(delim, Delimiter::Invisible(_)));
                     buf.push(match self.lex_token_tree_open_delim(delim) {
                         Ok(val) => val,
                         Err(errs) => return (open_spacing, TokenStream::new(buf), Err(errs)),
@@ -33,7 +33,7 @@ impl<'psess, 'src> Lexer<'psess, 'src> {
                 token::CloseDelim(delim) => {
                     // Invisible delimiters cannot occur here because `TokenTreesReader` parses
                     // code directly from strings, with no macro expansion involved.
-                    debug_assert!(!matches!(delim, Delimiter::Invisible(_)));
+                    assert!(!matches!(delim, Delimiter::Invisible(_)));
                     return (
                         open_spacing,
                         TokenStream::new(buf),

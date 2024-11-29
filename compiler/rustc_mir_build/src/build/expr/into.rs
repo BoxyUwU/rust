@@ -525,7 +525,7 @@ impl<'a, 'tcx> Builder<'a, 'tcx> {
             | ExprKind::UpvarRef { .. }
             | ExprKind::PlaceTypeAscription { .. }
             | ExprKind::ValueTypeAscription { .. } => {
-                debug_assert!(Category::of(&expr.kind) == Some(Category::Place));
+                assert!(Category::of(&expr.kind) == Some(Category::Place));
 
                 let place = unpack!(block = this.as_place(block, expr_id));
                 let rvalue = Rvalue::Use(this.consume_by_copy_or_move(place));
@@ -533,7 +533,7 @@ impl<'a, 'tcx> Builder<'a, 'tcx> {
                 block.unit()
             }
             ExprKind::Index { .. } | ExprKind::Deref { .. } | ExprKind::Field { .. } => {
-                debug_assert_eq!(Category::of(&expr.kind), Some(Category::Place));
+                assert_eq!(Category::of(&expr.kind), Some(Category::Place));
 
                 // Create a "fake" temporary variable so that we check that the
                 // value is Sized. Usually, this is caught in type checking, but
@@ -584,7 +584,7 @@ impl<'a, 'tcx> Builder<'a, 'tcx> {
             | ExprKind::ThreadLocalRef(_)
             | ExprKind::StaticRef { .. }
             | ExprKind::OffsetOf { .. } => {
-                debug_assert!(match Category::of(&expr.kind).unwrap() {
+                assert!(match Category::of(&expr.kind).unwrap() {
                     // should be handled above
                     Category::Rvalue(RvalueFunc::Into) => false,
 

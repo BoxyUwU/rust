@@ -28,7 +28,7 @@ fn normalize_canonicalized_projection_ty<'tcx>(
     tcx.infer_ctxt().enter_canonical_trait_query(
         &goal,
         |ocx, ParamEnvAnd { param_env, value: goal }| {
-            debug_assert!(!ocx.infcx.next_trait_solver());
+            assert!(!ocx.infcx.next_trait_solver());
             let selcx = &mut SelectionContext::new(ocx.infcx);
             let cause = ObligationCause::dummy();
             let mut obligations = PredicateObligations::new();

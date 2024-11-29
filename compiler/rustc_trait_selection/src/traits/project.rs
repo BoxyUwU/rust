@@ -332,7 +332,7 @@ pub(super) fn opt_normalize_projection_term<'a, 'b, 'tcx>(
     obligations: &mut PredicateObligations<'tcx>,
 ) -> Result<Option<Term<'tcx>>, InProgress> {
     let infcx = selcx.infcx;
-    debug_assert!(!selcx.infcx.next_trait_solver());
+    assert!(!selcx.infcx.next_trait_solver());
     let projection_term = infcx.resolve_vars_if_possible(projection_term);
     let cache_key = ProjectionCacheKey::new(projection_term, param_env);
 
@@ -1421,7 +1421,7 @@ fn confirm_future_candidate<'cx, 'tcx>(
         coroutine_sig,
     );
 
-    debug_assert_eq!(tcx.associated_item(obligation.predicate.def_id).name, sym::Output);
+    assert_eq!(tcx.associated_item(obligation.predicate.def_id).name, sym::Output);
 
     let predicate = ty::ProjectionPredicate {
         projection_term: ty::AliasTerm::new_from_args(
@@ -1467,7 +1467,7 @@ fn confirm_iterator_candidate<'cx, 'tcx>(
         gen_sig,
     );
 
-    debug_assert_eq!(tcx.associated_item(obligation.predicate.def_id).name, sym::Item);
+    assert_eq!(tcx.associated_item(obligation.predicate.def_id).name, sym::Item);
 
     let predicate = ty::ProjectionPredicate {
         projection_term: ty::AliasTerm::new_from_args(
@@ -1513,7 +1513,7 @@ fn confirm_async_iterator_candidate<'cx, 'tcx>(
         gen_sig,
     );
 
-    debug_assert_eq!(tcx.associated_item(obligation.predicate.def_id).name, sym::Item);
+    assert_eq!(tcx.associated_item(obligation.predicate.def_id).name, sym::Item);
 
     let ty::Adt(_poll_adt, args) = *yield_ty.kind() else {
         bug!();

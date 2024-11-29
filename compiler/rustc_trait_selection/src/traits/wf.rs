@@ -90,7 +90,7 @@ pub fn unnormalized_obligations<'tcx>(
     param_env: ty::ParamEnv<'tcx>,
     arg: GenericArg<'tcx>,
 ) -> Option<PredicateObligations<'tcx>> {
-    debug_assert_eq!(arg, infcx.resolve_vars_if_possible(arg));
+    assert_eq!(arg, infcx.resolve_vars_if_possible(arg));
 
     // However, if `arg` IS an unresolved inference variable, returns `None`,
     // because we are not able to make any progress at all. This is to prevent
@@ -575,7 +575,7 @@ impl<'a, 'tcx> WfPredicates<'a, 'tcx> {
 
         let predicates = predicates.instantiate(self.tcx(), args);
         trace!("{:#?}", predicates);
-        debug_assert_eq!(predicates.predicates.len(), origins.len());
+        assert_eq!(predicates.predicates.len(), origins.len());
 
         iter::zip(predicates, origins.into_iter().rev())
             .map(|((pred, span), origin_def_id)| {

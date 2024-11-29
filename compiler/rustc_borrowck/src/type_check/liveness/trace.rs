@@ -343,7 +343,7 @@ impl<'a, 'typeck, 'b, 'tcx> LivenessResults<'a, 'typeck, 'b, 'tcx> {
         // Find the drops where `local` is initialized.
         for drop_point in self.cx.local_use_map.drops(local) {
             let location = self.cx.elements.to_location(drop_point);
-            debug_assert_eq!(self.cx.body.terminator_loc(location.block), location,);
+            assert_eq!(self.cx.body.terminator_loc(location.block), location,);
 
             if self.cx.initialized_at_terminator(location.block, mpi)
                 && self.drop_live_at.insert(drop_point)
@@ -383,13 +383,13 @@ impl<'a, 'typeck, 'b, 'tcx> LivenessResults<'a, 'typeck, 'b, 'tcx> {
 
         // We are only invoked with terminators where `mpi` is
         // drop-live on entry.
-        debug_assert!(self.drop_live_at.contains(term_point));
+        assert!(self.drop_live_at.contains(term_point));
 
         // Otherwise, scan backwards through the statements in the
         // block. One of them may be either a definition or use
         // live point.
         let term_location = self.cx.elements.to_location(term_point);
-        debug_assert_eq!(self.cx.body.terminator_loc(term_location.block), term_location,);
+        assert_eq!(self.cx.body.terminator_loc(term_location.block), term_location,);
         let block = term_location.block;
         let entry_point = self.cx.elements.entry_point(term_location.block);
         for p in (entry_point..term_point).rev() {

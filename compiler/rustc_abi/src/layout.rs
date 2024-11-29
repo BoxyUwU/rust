@@ -177,7 +177,7 @@ impl<Cx: HasDataLayout> LayoutCalculator<Cx> {
                         let alt_tail_space =
                             alt_layout.size.bytes() - alt_head_space - alt_niche_len;
 
-                        debug_assert_eq!(layout.size.bytes(), alt_layout.size.bytes());
+                        assert_eq!(layout.size.bytes(), alt_layout.size.bytes());
 
                         let prefer_alt_layout =
                             alt_head_space > head_space && alt_head_space > tail_space;
@@ -1244,7 +1244,7 @@ impl<Cx: HasDataLayout> LayoutCalculator<Cx> {
         let memory_index = if optimize_field_order {
             inverse_memory_index.invert_bijective_mapping()
         } else {
-            debug_assert!(inverse_memory_index.iter().copied().eq(fields.indices()));
+            assert!(inverse_memory_index.iter().copied().eq(fields.indices()));
             inverse_memory_index.into_iter().map(|it| it.index() as u32).collect()
         };
         let size = min_size.align_to(align.abi);

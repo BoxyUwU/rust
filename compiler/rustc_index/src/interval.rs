@@ -133,7 +133,7 @@ impl<I: Idx> IntervalSet<I> {
             }
             true
         };
-        debug_assert!(
+        assert!(
             self.check_invariants(),
             "wrong intervals after insert {start:?}..={end:?} to {self:?}"
         );
@@ -227,7 +227,7 @@ impl<I: Idx> IntervalSet<I> {
         if let Some(end) = self.domain.checked_sub(1) {
             self.map.push((0, end.try_into().unwrap()));
         }
-        debug_assert!(self.check_invariants());
+        assert!(self.check_invariants());
     }
 
     pub fn union(&mut self, other: &IntervalSet<I>) -> bool
@@ -245,7 +245,7 @@ impl<I: Idx> IntervalSet<I> {
         for range in other.iter_intervals() {
             did_insert |= self.insert_range(range);
         }
-        debug_assert!(self.check_invariants());
+        assert!(self.check_invariants());
         did_insert
     }
 

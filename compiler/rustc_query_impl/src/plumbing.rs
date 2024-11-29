@@ -191,7 +191,7 @@ pub(super) fn encode_all_query_results<'tcx>(
 }
 
 pub fn query_key_hash_verify_all<'tcx>(tcx: TyCtxt<'tcx>) {
-    if tcx.sess().opts.unstable_opts.incremental_verify_ich || cfg!(debug_assertions) {
+    if tcx.sess().opts.unstable_opts.incremental_verify_ich || true {
         tcx.sess.time("query_key_hash_verify_all", || {
             for verify in super::QUERY_KEY_HASH_VERIFY.iter() {
                 verify(tcx);
@@ -413,7 +413,7 @@ fn try_load_from_on_disk_cache<'tcx, Q>(query: Q, tcx: TyCtxt<'tcx>, dep_node: D
 where
     Q: QueryConfig<QueryCtxt<'tcx>>,
 {
-    debug_assert!(tcx.dep_graph.is_green(&dep_node));
+    assert!(tcx.dep_graph.is_green(&dep_node));
 
     let key = Q::Key::recover(tcx, &dep_node).unwrap_or_else(|| {
         panic!("Failed to recover key for {:?} with hash {}", dep_node, dep_node.hash)
@@ -472,7 +472,7 @@ where
     // each CGU, right after partitioning. This way `try_mark_green` will always
     // hit the cache instead of having to go through `force_from_dep_node`.
     // This assertion makes sure, we actually keep applying the solution above.
-    debug_assert!(
+    assert!(
         dep_node.kind != dep_kinds::codegen_unit,
         "calling force_from_dep_node() on dep_kinds::codegen_unit"
     );

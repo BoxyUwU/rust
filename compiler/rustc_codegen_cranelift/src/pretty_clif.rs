@@ -105,7 +105,7 @@ impl CommentWriter {
     }
 
     pub(crate) fn add_global_comment<S: Into<String>>(&mut self, comment: S) {
-        debug_assert!(self.enabled);
+        assert!(self.enabled);
         self.global_comments.push(comment.into());
     }
 
@@ -114,7 +114,7 @@ impl CommentWriter {
         entity: E,
         comment: S,
     ) {
-        debug_assert!(self.enabled);
+        assert!(self.enabled);
 
         use std::collections::hash_map::Entry;
         match self.entity_comments.entry(entity.into()) {

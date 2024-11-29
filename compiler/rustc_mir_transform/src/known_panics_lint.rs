@@ -522,7 +522,7 @@ impl<'mir, 'tcx> ConstPropagator<'mir, 'tcx> {
     }
 
     fn ensure_not_propagated(&self, local: Local) {
-        if cfg!(debug_assertions) {
+        if true {
             let val = self.get_const(local.into());
             assert!(
                 matches!(val, Some(Value::Uninit))
@@ -827,12 +827,12 @@ impl<'tcx> Visitor<'tcx> for ConstPropagator<'_, 'tcx> {
         // The order in which we remove consts does not matter.
         #[allow(rustc::potential_query_instability)]
         for local in written_only_inside_own_block_locals.drain() {
-            debug_assert_eq!(self.can_const_prop[local], ConstPropMode::OnlyInsideOwnBlock);
+            assert_eq!(self.can_const_prop[local], ConstPropMode::OnlyInsideOwnBlock);
             self.remove_const(local);
         }
         self.written_only_inside_own_block_locals = written_only_inside_own_block_locals;
 
-        if cfg!(debug_assertions) {
+        if true {
             for (local, &mode) in self.can_const_prop.iter_enumerated() {
                 match mode {
                     ConstPropMode::FullConstProp => {}

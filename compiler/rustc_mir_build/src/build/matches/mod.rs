@@ -1427,7 +1427,7 @@ impl<'tcx> MatchTreeSubBranch<'tcx> {
         candidate: Candidate<'_, 'tcx>,
         parent_data: &Vec<PatternExtraData<'tcx>>,
     ) -> Self {
-        debug_assert!(candidate.match_pairs.is_empty());
+        assert!(candidate.match_pairs.is_empty());
         MatchTreeSubBranch {
             span: candidate.extra_data.span,
             success_block: candidate.pre_binding_block.unwrap(),
@@ -1843,7 +1843,7 @@ impl<'a, 'tcx> Builder<'a, 'tcx> {
 
         // Postprocess subcandidates, and process any leftover match pairs.
         // (Only the last candidate can possibly have more match pairs.)
-        debug_assert!({
+        assert!({
             let mut all_except_last = candidates_to_expand.iter().rev().skip(1);
             all_except_last.all(|candidate| candidate.match_pairs.is_empty())
         });
@@ -2030,7 +2030,7 @@ impl<'a, 'tcx> Builder<'a, 'tcx> {
         let remaining_match_pairs = mem::take(&mut candidate.match_pairs);
         // We're testing match pairs that remained after an `Or`, so the remaining
         // pairs should all be `Or` too, due to the sorting invariant.
-        debug_assert!(
+        assert!(
             remaining_match_pairs
                 .iter()
                 .all(|match_pair| matches!(match_pair.test_case, TestCase::Or { .. }))

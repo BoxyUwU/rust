@@ -305,11 +305,11 @@ impl<'body, 'tcx> VnState<'body, 'tcx> {
             // Grow `evaluated` and `rev_locals` here to amortize the allocations.
             let evaluated = self.eval_to_const(index);
             let _index = self.evaluated.push(evaluated);
-            debug_assert_eq!(index, _index);
+            assert_eq!(index, _index);
             // No need to push to `rev_locals` if we finished listing assignments.
             if self.next_opaque.is_some() {
                 let _index = self.rev_locals.push(SmallVec::new());
-                debug_assert_eq!(index, _index);
+                assert_eq!(index, _index);
             }
         }
         index
@@ -362,7 +362,7 @@ impl<'body, 'tcx> VnState<'body, 'tcx> {
             let disambiguator = *next_opaque;
             *next_opaque += 1;
             // `disambiguator: 0` means deterministic.
-            debug_assert_ne!(disambiguator, 0);
+            assert_ne!(disambiguator, 0);
             disambiguator
         };
         Some(self.insert(Value::Constant { value, disambiguator }))
@@ -371,14 +371,14 @@ impl<'body, 'tcx> VnState<'body, 'tcx> {
     fn insert_bool(&mut self, flag: bool) -> VnIndex {
         // Booleans are deterministic.
         let value = Const::from_bool(self.tcx, flag);
-        debug_assert!(value.is_deterministic());
+        assert!(value.is_deterministic());
         self.insert(Value::Constant { value, disambiguator: 0 })
     }
 
     fn insert_scalar(&mut self, scalar: Scalar, ty: Ty<'tcx>) -> VnIndex {
         // Scalars are deterministic.
         let value = Const::from_scalar(self.tcx, scalar, ty);
-        debug_assert!(value.is_deterministic());
+        assert!(value.is_deterministic());
         self.insert(Value::Constant { value, disambiguator: 0 })
     }
 
@@ -1589,7 +1589,7 @@ impl<'tcx> VnState<'_, 'tcx> {
         // deterministic, adding an additional mention of it in MIR will not give the same value as
         // the former mention.
         if let Value::Constant { value, disambiguator: 0 } = *self.get(index) {
-            debug_assert!(value.is_deterministic());
+            assert!(value.is_deterministic());
             return Some(ConstOperand { span: DUMMY_SP, user_ty: None, const_: value });
         }
 

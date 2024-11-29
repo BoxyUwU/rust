@@ -80,7 +80,7 @@ impl<Prov: Provenance> MemPlace<Prov> {
         meta: MemPlaceMeta<Prov>,
         ecx: &InterpCx<'tcx, M>,
     ) -> InterpResult<'tcx, Self> {
-        debug_assert!(
+        assert!(
             !meta.has_meta() || self.meta.has_meta(),
             "cannot use `offset_with_meta` to add metadata to a place"
         );
@@ -268,7 +268,7 @@ impl<'tcx, Prov: Provenance> Projectable<'tcx, Prov> for PlaceTy<'tcx, Prov> {
         match self.as_mplace_or_local() {
             Left(mplace) => mplace.meta(),
             Right(_) => {
-                debug_assert!(self.layout.is_sized(), "unsized locals should live in memory");
+                assert!(self.layout.is_sized(), "unsized locals should live in memory");
                 MemPlaceMeta::None
             }
         }
@@ -285,7 +285,7 @@ impl<'tcx, Prov: Provenance> Projectable<'tcx, Prov> for PlaceTy<'tcx, Prov> {
         interp_ok(match self.as_mplace_or_local() {
             Left(mplace) => mplace.offset_with_meta(offset, mode, meta, layout, ecx)?.into(),
             Right((local, old_offset, locals_addr, _)) => {
-                debug_assert!(layout.is_sized(), "unsized locals should live in memory");
+                assert!(layout.is_sized(), "unsized locals should live in memory");
                 assert_matches!(meta, MemPlaceMeta::None); // we couldn't store it anyway...
                 // `Place::Local` are always in-bounds of their surrounding local, so we can just
                 // check directly if this remains in-bounds. This cannot actually be violated since
@@ -533,7 +533,7 @@ where
 
         trace!("{:?}", self.dump_place(&place));
         // Sanity-check the type we ended up with.
-        if cfg!(debug_assertions) {
+        if true {
             let normalized_place_ty = self
                 .instantiate_from_current_frame_and_normalize_erasing_regions(
                     mir_place.ty(&self.frame().body.local_decls, *self.tcx).ty,
@@ -576,8 +576,8 @@ where
                     // FIMXE: there are cases where we could still avoid allocating an mplace.
                     Left(place.force_mplace(self)?)
                 } else {
-                    debug_assert_eq!(locals_addr, self.frame().locals_addr());
-                    debug_assert_eq!(self.layout_of_local(self.frame(), local, None)?, layout);
+                    assert_eq!(locals_addr, self.frame().locals_addr());
+                    assert_eq!(self.layout_of_local(self.frame(), local, None)?, layout);
                     match self.frame_mut().locals[local].access_mut()? {
                         Operand::Indirect(mplace) => {
                             // The local is in memory.
@@ -657,7 +657,7 @@ where
                 // Double-check that the value we are storing and the local fit to each other.
                 // Things can ge wrong in quite weird ways when this is violated.
                 // Unfortunately this is too expensive to do in release builds.
-                if cfg!(debug_assertions) {
+                if true {
                     src.assert_matches_abi(
                         local_layout.backend_repr,
                         "invalid immediate for given destination place",
@@ -913,7 +913,7 @@ where
         let Some((dest_size, _)) = self.size_and_align_of_mplace(&dest)? else {
             span_bug!(self.cur_span(), "copy_op needs (dynamically) sized values")
         };
-        if cfg!(debug_assertions) {
+        if true {
             let src_size = self.size_and_align_of_mplace(&src)?.unwrap().0;
             assert_eq!(src_size, dest_size, "Cannot copy differently-sized data");
         } else {
@@ -945,7 +945,7 @@ where
     ) -> InterpResult<'tcx, MPlaceTy<'tcx, M::Provenance>> {
         let mplace = match place.place {
             Place::Local { local, offset, locals_addr } => {
-                debug_assert_eq!(locals_addr, self.frame().locals_addr());
+                assert_eq!(locals_addr, self.frame().locals_addr());
                 let whole_local = match self.frame_mut().locals[local].access_mut()? {
                     &mut Operand::Immediate(local_val) => {
                         // We need to make an allocation.

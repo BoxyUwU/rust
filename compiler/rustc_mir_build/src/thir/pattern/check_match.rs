@@ -505,7 +505,7 @@ impl<'p, 'tcx> MatchVisitor<'p, 'tcx> {
                 // the for loop pattern is not irrefutable
                 let pat = &self.thir[snd_arm].pattern;
                 // `pat` should be `Some(<pat_field>)` from a desugared for loop.
-                debug_assert_eq!(pat.span.desugaring_kind(), Some(DesugaringKind::ForLoop));
+                assert_eq!(pat.span.desugaring_kind(), Some(DesugaringKind::ForLoop));
                 let PatKind::Variant { ref subpatterns, .. } = pat.kind else { bug!() };
                 let [pat_field] = &subpatterns[..] else { bug!() };
                 self.check_binding_is_irrefutable(

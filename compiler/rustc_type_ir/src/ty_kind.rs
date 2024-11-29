@@ -413,7 +413,7 @@ impl<I: Interner> AliasTy<I> {
     /// then this function would return a `T: StreamingIterator` trait reference and
     /// `['a]` as the own args.
     pub fn trait_ref_and_own_args(self, interner: I) -> (ty::TraitRef<I>, I::GenericArgsSlice) {
-        debug_assert_eq!(self.kind(interner), AliasTyKind::Projection);
+        assert_eq!(self.kind(interner), AliasTyKind::Projection);
         interner.trait_ref_and_own_args_for_alias(self.def_id, self.args)
     }
 
@@ -446,7 +446,7 @@ impl<I: Interner> AliasTy<I> {
         impl_args: I::GenericArgs,
         interner: I,
     ) -> I::GenericArgs {
-        debug_assert_eq!(self.kind(interner), AliasTyKind::Inherent);
+        assert_eq!(self.kind(interner), AliasTyKind::Inherent);
         interner.mk_args_from_iter(impl_args.iter().chain(self.args.iter().skip(1)))
     }
 }

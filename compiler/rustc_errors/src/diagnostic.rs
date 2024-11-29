@@ -916,12 +916,12 @@ impl<'a, G: EmissionGuarantee> Diag<'a, G> {
             .collect::<Vec<_>>();
 
         assert!(!parts.is_empty());
-        debug_assert_eq!(
+        assert_eq!(
             parts.iter().find(|part| part.span.is_empty() && part.snippet.is_empty()),
             None,
             "Span must not be empty and have no suggestion",
         );
-        debug_assert_eq!(
+        assert_eq!(
             parts.array_windows().find(|[a, b]| a.span.overlaps(b.span)),
             None,
             "suggestion must not have overlapping parts",
@@ -1003,7 +1003,7 @@ impl<'a, G: EmissionGuarantee> Diag<'a, G> {
         applicability: Applicability,
         style: SuggestionStyle,
     ) -> &mut Self {
-        debug_assert!(
+        assert!(
             !(sp.is_empty() && suggestion.to_string().is_empty()),
             "Span must not be empty and have no suggestion"
         );
@@ -1070,7 +1070,7 @@ impl<'a, G: EmissionGuarantee> Diag<'a, G> {
         let substitutions = suggestions
             .into_iter()
             .map(|snippet| {
-                debug_assert!(
+                assert!(
                     !(sp.is_empty() && snippet.is_empty()),
                     "Span must not be empty and have no suggestion"
                 );
@@ -1107,12 +1107,12 @@ impl<'a, G: EmissionGuarantee> Diag<'a, G> {
                 parts.sort_unstable_by_key(|part| part.span);
 
                 assert!(!parts.is_empty());
-                debug_assert_eq!(
+                assert_eq!(
                     parts.iter().find(|part| part.span.is_empty() && part.snippet.is_empty()),
                     None,
                     "Span must not be empty and have no suggestion",
                 );
-                debug_assert_eq!(
+                assert_eq!(
                     parts.array_windows().find(|[a, b]| a.span.overlaps(b.span)),
                     None,
                     "suggestion must not have overlapping parts",

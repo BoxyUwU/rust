@@ -38,7 +38,7 @@ pub(crate) fn unsized_info<'tcx>(
             let b_principal_def_id = data_b.principal_def_id();
             if data_a.principal_def_id() == b_principal_def_id || b_principal_def_id.is_none() {
                 // A NOP cast that doesn't actually change anything, should be allowed even with invalid vtables.
-                debug_assert!(
+                assert!(
                     validate_trivial_unsize(fx.tcx, data_a, data_b),
                     "NOP unsize vtable changed principal trait ref: {data_a} -> {data_b}"
                 );

@@ -924,7 +924,7 @@ impl<'a, 'tcx> ProbeContext<'a, 'tcx> {
                 }
             }
         } else {
-            debug_assert!(self.tcx.is_trait(trait_def_id));
+            assert!(self.tcx.is_trait(trait_def_id));
             if self.tcx.trait_is_auto(trait_def_id) {
                 return;
             }

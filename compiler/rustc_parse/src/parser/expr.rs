@@ -499,7 +499,7 @@ impl<'a> Parser<'a> {
             self.err_dotdotdot_syntax(self.token.span);
         }
 
-        debug_assert!(
+        assert!(
             self.token.is_range_separator(),
             "parse_prefix_range_expr: token {:?} is not DotDot/DotDotEq",
             self.token

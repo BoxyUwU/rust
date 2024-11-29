@@ -924,7 +924,7 @@ impl<'tcx> PatRange<'tcx> {
         typing_env: ty::TypingEnv<'tcx>,
     ) -> Option<bool> {
         use Ordering::*;
-        debug_assert_eq!(self.ty, value.ty());
+        assert_eq!(self.ty, value.ty());
         let ty = self.ty;
         let value = PatRangeBoundary::Finite(value);
         // For performance, it's important to only do the second comparison if necessary.
@@ -948,7 +948,7 @@ impl<'tcx> PatRange<'tcx> {
         typing_env: ty::TypingEnv<'tcx>,
     ) -> Option<bool> {
         use Ordering::*;
-        debug_assert_eq!(self.ty, other.ty);
+        assert_eq!(self.ty, other.ty);
         // For performance, it's important to only do the second comparison if necessary.
         Some(
             match other.lo.compare_with(self.hi, self.ty, tcx, typing_env)? {

@@ -1,4 +1,4 @@
-use std::assert_matches::debug_assert_matches;
+use std::assert_matches::assert_matches;
 
 use rustc_abi::FieldIdx;
 use rustc_ast::InlineAsmTemplatePiece;
@@ -478,14 +478,14 @@ impl<'a, 'tcx> InlineAsmCtxt<'a, 'tcx> {
                 }
                 // Typeck has checked that Const operands are integers.
                 hir::InlineAsmOperand::Const { anon_const } => {
-                    debug_assert_matches!(
+                    assert_matches!(
                         self.tcx.type_of(anon_const.def_id).instantiate_identity().kind(),
                         ty::Error(_) | ty::Int(_) | ty::Uint(_)
                     );
                 }
                 // Typeck has checked that SymFn refers to a function.
                 hir::InlineAsmOperand::SymFn { anon_const } => {
-                    debug_assert_matches!(
+                    assert_matches!(
                         self.tcx.type_of(anon_const.def_id).instantiate_identity().kind(),
                         ty::Error(_) | ty::FnDef(..)
                     );

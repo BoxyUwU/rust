@@ -725,7 +725,7 @@ impl<'tcx> IntoIterator for InstantiatedPredicates<'tcx> {
     type IntoIter = std::iter::Zip<std::vec::IntoIter<Clause<'tcx>>, std::vec::IntoIter<Span>>;
 
     fn into_iter(self) -> Self::IntoIter {
-        debug_assert_eq!(self.predicates.len(), self.spans.len());
+        assert_eq!(self.predicates.len(), self.spans.len());
         std::iter::zip(self.predicates, self.spans)
     }
 }
@@ -739,7 +739,7 @@ impl<'a, 'tcx> IntoIterator for &'a InstantiatedPredicates<'tcx> {
     >;
 
     fn into_iter(self) -> Self::IntoIter {
-        debug_assert_eq!(self.predicates.len(), self.spans.len());
+        assert_eq!(self.predicates.len(), self.spans.len());
         std::iter::zip(self.predicates.iter().copied(), self.spans.iter().copied())
     }
 }
@@ -1104,7 +1104,7 @@ impl<'tcx> TypingEnv<'tcx> {
         // solver, at which point we can readd this assert. As of writing this comment, this is
         // only used by `fn layout_is_pointer_like` when calling `layout_of`.
         //
-        // debug_assert!(!value.has_placeholders());
+        // assert!(!value.has_placeholders());
         PseudoCanonicalInput { typing_env: self, value }
     }
 }
@@ -1315,7 +1315,7 @@ impl PartialEq for VariantDef {
         let res = lhs_def_id == rhs_def_id;
 
         // Double check that implicit assumption detailed above.
-        if cfg!(debug_assertions) && res {
+        if true && res {
             let deep = self.ctor == other.ctor
                 && self.name == other.name
                 && self.discr == other.discr
@@ -1383,7 +1383,7 @@ impl PartialEq for FieldDef {
         let res = lhs_did == rhs_did;
 
         // Double check that implicit assumption detailed above.
-        if cfg!(debug_assertions) && res {
+        if true && res {
             let deep =
                 self.name == other.name && self.vis == other.vis && self.safety == other.safety;
             assert!(deep, "FieldDef for the same def-id has differing data");
@@ -1761,7 +1761,7 @@ impl<'tcx> TyCtxt<'tcx> {
         if let Some(did) = did.as_local() {
             self.hir().attrs(self.local_def_id_to_hir_id(did)).iter().filter(filter_fn)
         } else {
-            debug_assert!(rustc_feature::encode_cross_crate(attr));
+            assert!(rustc_feature::encode_cross_crate(attr));
             self.item_attrs(did).iter().filter(filter_fn)
         }
     }
@@ -1790,7 +1790,7 @@ impl<'tcx> TyCtxt<'tcx> {
         } else {
             // we filter out unstable diagnostic attributes before
             // encoding attributes
-            debug_assert!(rustc_feature::encode_cross_crate(attr));
+            assert!(rustc_feature::encode_cross_crate(attr));
             self.item_attrs(did)
                 .iter()
                 .find(|a| matches!(a.path().as_ref(), [sym::diagnostic, a] if *a == attr))
@@ -1814,7 +1814,7 @@ impl<'tcx> TyCtxt<'tcx> {
     }
 
     pub fn get_attr(self, did: impl Into<DefId>, attr: Symbol) -> Option<&'tcx ast::Attribute> {
-        if cfg!(debug_assertions) && !rustc_feature::is_valid_for_get_attr(attr) {
+        if true && !rustc_feature::is_valid_for_get_attr(attr) {
             let did: DefId = did.into();
             bug!("get_attr: unexpected called with DefId `{:?}`, attr `{:?}`", did, attr);
         } else {

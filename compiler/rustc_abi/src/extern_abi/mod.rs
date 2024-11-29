@@ -305,7 +305,7 @@ impl Abi {
             RiscvInterruptM => 33,
             RiscvInterruptS => 34,
         };
-        debug_assert!(
+        assert!(
             AbiDatas
                 .iter()
                 .enumerate()

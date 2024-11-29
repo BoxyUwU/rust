@@ -467,7 +467,7 @@ impl<'tcx> Body<'tcx> {
     pub fn local_kind(&self, local: Local) -> LocalKind {
         let index = local.as_usize();
         if index == 0 {
-            debug_assert!(
+            assert!(
                 self.local_decls[local].mutability == Mutability::Mut,
                 "return place should be mutable"
             );

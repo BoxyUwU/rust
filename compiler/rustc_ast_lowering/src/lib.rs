@@ -479,7 +479,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
         def_kind: DefKind,
         span: Span,
     ) -> LocalDefId {
-        debug_assert_ne!(node_id, ast::DUMMY_NODE_ID);
+        assert_ne!(node_id, ast::DUMMY_NODE_ID);
         assert!(
             self.opt_local_def_id(node_id).is_none(),
             "adding a def'n for node-id {:?} and def kind {:?} but a previous def'n exists: {:?}",
@@ -549,14 +549,14 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
         #[cfg(debug_assertions)]
         {
             let _old = self.node_id_to_local_id.insert(owner, hir::ItemLocalId::ZERO);
-            debug_assert_eq!(_old, None);
+            assert_eq!(_old, None);
         }
 
         let item = f(self);
-        debug_assert_eq!(def_id, item.def_id().def_id);
+        assert_eq!(def_id, item.def_id().def_id);
         // `f` should have consumed all the elements in these vectors when constructing `item`.
-        debug_assert!(self.impl_trait_defs.is_empty());
-        debug_assert!(self.impl_trait_bounds.is_empty());
+        assert!(self.impl_trait_defs.is_empty());
+        assert!(self.impl_trait_bounds.is_empty());
         let info = self.make_owner_info(item);
 
         self.attrs = current_attrs;
@@ -573,7 +573,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
         self.impl_trait_defs = current_impl_trait_defs;
         self.impl_trait_bounds = current_impl_trait_bounds;
 
-        debug_assert!(!self.children.iter().any(|(id, _)| id == &def_id));
+        assert!(!self.children.iter().any(|(id, _)| id == &def_id));
         self.children.push((def_id, hir::MaybeOwner::Owner(info)));
     }
 
@@ -844,9 +844,9 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
         if attrs.is_empty() {
             &[]
         } else {
-            debug_assert_eq!(id.owner, self.current_hir_id_owner);
+            assert_eq!(id.owner, self.current_hir_id_owner);
             let ret = self.arena.alloc_from_iter(attrs.iter().map(|a| self.lower_attr(a)));
-            debug_assert!(!ret.is_empty());
+            assert!(!ret.is_empty());
             self.attrs.insert(id.local_id, ret);
             ret
         }
@@ -874,10 +874,10 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
     }
 
     fn alias_attrs(&mut self, id: HirId, target_id: HirId) {
-        debug_assert_eq!(id.owner, self.current_hir_id_owner);
-        debug_assert_eq!(target_id.owner, self.current_hir_id_owner);
+        assert_eq!(id.owner, self.current_hir_id_owner);
+        assert_eq!(target_id.owner, self.current_hir_id_owner);
         if let Some(&a) = self.attrs.get(&target_id.local_id) {
-            debug_assert!(!a.is_empty());
+            assert!(!a.is_empty());
             self.attrs.insert(id.local_id, a);
         }
     }
@@ -1183,7 +1183,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
                     let id = if let Some(LifetimeRes::ElidedAnchor { start, end }) =
                         self.resolver.get_lifetime_res(t.id)
                     {
-                        debug_assert_eq!(start.plus(1), end);
+                        assert_eq!(start.plus(1), end);
                         start
                     } else {
                         self.next_node_id()
@@ -1199,7 +1199,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
                     let id = if let Some(LifetimeRes::ElidedAnchor { start, end }) =
                         self.resolver.get_lifetime_res(t.id)
                     {
-                        debug_assert_eq!(start.plus(1), end);
+                        assert_eq!(start.plus(1), end);
                         start
                     } else {
                         self.next_node_id()
@@ -2194,7 +2194,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
     ) -> hir::Stmt<'hir> {
         let hir_id = self.next_id();
         if let Some(a) = attrs {
-            debug_assert!(!a.is_empty());
+            assert!(!a.is_empty());
             self.attrs.insert(hir_id.local_id, a);
         }
         let local = hir::LetStmt {

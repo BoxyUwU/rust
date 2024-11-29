@@ -535,7 +535,7 @@ impl<'a, 'tcx> Builder<'a, 'tcx> {
             | ExprKind::ValueTypeAscription { .. } => {
                 // these do not have corresponding `Rvalue` variants,
                 // so make an operand and then return that
-                debug_assert!(!matches!(
+                assert!(!matches!(
                     Category::of(&expr.kind),
                     Some(Category::Rvalue(RvalueFunc::AsRvalue) | Category::Constant)
                 ));
@@ -777,12 +777,12 @@ impl<'a, 'tcx> Builder<'a, 'tcx> {
                             &[ProjectionElem::Deref, ProjectionElem::Field(upvar_index, _), ..],
                     } => {
                         // Not in a closure
-                        debug_assert!(
+                        assert!(
                             local == ty::CAPTURE_STRUCT_LOCAL,
                             "Expected local to be Local(1), found {local:?}"
                         );
                         // Not in a closure
-                        debug_assert!(
+                        assert!(
                             this.upvars.len() > upvar_index.index(),
                             "Unexpected capture place, upvars={:#?}, upvar_index={:?}",
                             this.upvars,

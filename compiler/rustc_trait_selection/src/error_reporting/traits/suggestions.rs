@@ -1,6 +1,6 @@
 // ignore-tidy-filelength
 
-use std::assert_matches::debug_assert_matches;
+use std::assert_matches::assert_matches;
 use std::borrow::Cow;
 use std::iter;
 use std::path::PathBuf;
@@ -4369,7 +4369,7 @@ impl<'a, 'tcx> TypeErrCtxt<'a, 'tcx> {
             // for example `Iterator::Item` is at this point in the chain.
             let args = GenericArgs::for_item(self.tcx, proj.def_id, |param, _| {
                 if param.index == 0 {
-                    debug_assert_matches!(param.kind, ty::GenericParamDefKind::Type { .. });
+                    assert_matches!(param.kind, ty::GenericParamDefKind::Type { .. });
                     return prev_ty.into();
                 }
                 self.var_for_def(span, param)

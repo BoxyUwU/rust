@@ -1335,7 +1335,7 @@ fn ice_path() -> &'static Option<PathBuf> {
 }
 
 fn ice_path_with_config(config: Option<&UnstableOptions>) -> &'static Option<PathBuf> {
-    if ICE_PATH.get().is_some() && config.is_some() && cfg!(debug_assertions) {
+    if ICE_PATH.get().is_some() && config.is_some() && true {
         tracing::warn!(
             "ICE_PATH has already been initialized -- files may be emitted at unintended paths"
         )

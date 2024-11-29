@@ -72,13 +72,13 @@ pub(super) fn index_hir<'hir>(
 impl<'a, 'hir> NodeCollector<'a, 'hir> {
     #[instrument(level = "debug", skip(self))]
     fn insert(&mut self, span: Span, hir_id: HirId, node: Node<'hir>) {
-        debug_assert_eq!(self.owner, hir_id.owner);
-        debug_assert_ne!(hir_id.local_id.as_u32(), 0);
-        debug_assert_ne!(hir_id.local_id, self.parent_node);
+        assert_eq!(self.owner, hir_id.owner);
+        assert_ne!(hir_id.local_id.as_u32(), 0);
+        assert_ne!(hir_id.local_id, self.parent_node);
 
         // Make sure that the DepNode of some node coincides with the HirId
         // owner of that node.
-        if cfg!(debug_assertions) && hir_id.owner != self.owner {
+        if true && hir_id.owner != self.owner {
             span_bug!(
                 span,
                 "inconsistent HirId at `{:?}` for `{:?}`: \
@@ -102,7 +102,7 @@ impl<'a, 'hir> NodeCollector<'a, 'hir> {
     }
 
     fn with_parent<F: FnOnce(&mut Self)>(&mut self, parent_node_id: HirId, f: F) {
-        debug_assert_eq!(parent_node_id.owner, self.owner);
+        assert_eq!(parent_node_id.owner, self.owner);
         let parent_node = self.parent_node;
         self.parent_node = parent_node_id.local_id;
         f(self);
@@ -139,7 +139,7 @@ impl<'a, 'hir> Visitor<'hir> for NodeCollector<'a, 'hir> {
     }
 
     fn visit_nested_body(&mut self, id: BodyId) {
-        debug_assert_eq!(id.hir_id.owner, self.owner);
+        assert_eq!(id.hir_id.owner, self.owner);
         let body = self.bodies[&id.hir_id.local_id];
         self.visit_body(body);
     }
@@ -154,7 +154,7 @@ impl<'a, 'hir> Visitor<'hir> for NodeCollector<'a, 'hir> {
 
     #[instrument(level = "debug", skip(self))]
     fn visit_item(&mut self, i: &'hir Item<'hir>) {
-        debug_assert_eq!(i.owner_id, self.owner);
+        assert_eq!(i.owner_id, self.owner);
         self.with_parent(i.hir_id(), |this| {
             if let ItemKind::Struct(struct_def, _) = &i.kind {
                 // If this is a tuple or unit-like struct, register the constructor.
@@ -168,7 +168,7 @@ impl<'a, 'hir> Visitor<'hir> for NodeCollector<'a, 'hir> {
 
     #[instrument(level = "debug", skip(self))]
     fn visit_foreign_item(&mut self, fi: &'hir ForeignItem<'hir>) {
-        debug_assert_eq!(fi.owner_id, self.owner);
+        assert_eq!(fi.owner_id, self.owner);
         self.with_parent(fi.hir_id(), |this| {
             intravisit::walk_foreign_item(this, fi);
         });
@@ -187,7 +187,7 @@ impl<'a, 'hir> Visitor<'hir> for NodeCollector<'a, 'hir> {
 
     #[instrument(level = "debug", skip(self))]
     fn visit_trait_item(&mut self, ti: &'hir TraitItem<'hir>) {
-        debug_assert_eq!(ti.owner_id, self.owner);
+        assert_eq!(ti.owner_id, self.owner);
         self.with_parent(ti.hir_id(), |this| {
             intravisit::walk_trait_item(this, ti);
         });
@@ -195,7 +195,7 @@ impl<'a, 'hir> Visitor<'hir> for NodeCollector<'a, 'hir> {
 
     #[instrument(level = "debug", skip(self))]
     fn visit_impl_item(&mut self, ii: &'hir ImplItem<'hir>) {
-        debug_assert_eq!(ii.owner_id, self.owner);
+        assert_eq!(ii.owner_id, self.owner);
         self.with_parent(ii.hir_id(), |this| {
             intravisit::walk_impl_item(this, ii);
         });

@@ -268,7 +268,7 @@ fn compute_symbol_name<'tcx>(
         }),
     };
 
-    debug_assert!(
+    assert!(
         rustc_demangle::try_demangle(&symbol).is_ok(),
         "compute_symbol_name: `{symbol}` cannot be demangled"
     );

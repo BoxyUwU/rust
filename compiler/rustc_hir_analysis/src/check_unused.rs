@@ -24,7 +24,7 @@ fn check_unused_traits(tcx: TyCtxt<'_>, (): ()) {
     }
 
     for &id in tcx.maybe_unused_trait_imports(()) {
-        debug_assert_eq!(tcx.def_kind(id), DefKind::Use);
+        assert_eq!(tcx.def_kind(id), DefKind::Use);
         if tcx.visibility(id).is_public() {
             continue;
         }

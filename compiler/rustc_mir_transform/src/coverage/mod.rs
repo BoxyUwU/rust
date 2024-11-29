@@ -501,7 +501,7 @@ fn check_source_region(source_region: SourceRegion) -> Option<SourceRegion> {
             "Skipping source region that would be misinterpreted or rejected by LLVM"
         );
         // If this happens in a debug build, ICE to make it easier to notice.
-        debug_assert!(false, "Improper source region: {source_region:?}");
+        assert!(false, "Improper source region: {source_region:?}");
         None
     }
 }

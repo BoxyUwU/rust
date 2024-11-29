@@ -353,7 +353,7 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
         trace!("body: {:#?}", body);
 
         // We can push a `Root` frame if and only if the stack is empty.
-        debug_assert_eq!(
+        assert_eq!(
             self.stack().is_empty(),
             matches!(return_to_block, StackPopCleanup::Root { .. })
         );

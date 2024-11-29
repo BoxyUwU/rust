@@ -182,7 +182,7 @@ impl TaitConstraintLocator<'_> {
         // Note that we use `Node::fn_sig` instead of `Node::fn_decl` here, because the former
         // excludes closures, which are allowed to have `_` in their return type.
         let hir_node = self.tcx.hir_node_by_def_id(item_def_id);
-        debug_assert!(
+        assert!(
             !matches!(hir_node, Node::ForeignItem(..)),
             "foreign items cannot constrain opaque types",
         );

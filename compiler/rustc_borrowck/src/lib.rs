@@ -459,7 +459,7 @@ impl<'tcx> BorrowckInferCtxt<'tcx> {
         let next_region = self.infcx.next_region_var(origin);
         let vid = next_region.as_var();
 
-        if cfg!(debug_assertions) {
+        if true {
             debug!("inserting vid {:?} with origin {:?} into var_to_origin", vid, origin);
             let ctxt = get_ctxt_fn();
             let mut var_to_origin = self.reg_var_to_origin.borrow_mut();
@@ -481,7 +481,7 @@ impl<'tcx> BorrowckInferCtxt<'tcx> {
         let next_region = self.infcx.next_nll_region_var(origin);
         let vid = next_region.as_var();
 
-        if cfg!(debug_assertions) {
+        if true {
             debug!("inserting vid {:?} with origin {:?} into var_to_origin", vid, origin);
             let ctxt = get_ctxt_fn();
             let mut var_to_origin = self.reg_var_to_origin.borrow_mut();
@@ -1807,7 +1807,7 @@ impl<'a, 'tcx> MirBorrowckCtxt<'a, '_, 'tcx> {
             for (child_mpi, child_move_path) in root_path.children(move_paths) {
                 let last_proj = child_move_path.place.projection.last().unwrap();
                 if let ProjectionElem::ConstantIndex { offset, from_end, .. } = last_proj {
-                    debug_assert!(!from_end, "Array constant indexing shouldn't be `from_end`.");
+                    assert!(!from_end, "Array constant indexing shouldn't be `from_end`.");
 
                     if (from..to).contains(offset) {
                         let uninit_child =

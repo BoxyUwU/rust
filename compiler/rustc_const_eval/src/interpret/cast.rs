@@ -414,7 +414,7 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
 
                 // Sanity-check that `supertrait_vtable_slot` in this type's vtable indeed produces
                 // our destination trait.
-                if cfg!(debug_assertions) {
+                if true {
                     let vptr_entry_idx =
                         self.tcx.supertrait_vtable_slot((src_pointee_ty, dest_pointee_ty));
                     let vtable_entries = self.vtable_entries(data_a.principal(), ty);

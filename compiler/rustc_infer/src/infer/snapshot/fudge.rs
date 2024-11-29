@@ -185,7 +185,7 @@ impl<'a, 'tcx> TypeFolder<TyCtxt<'tcx>> for InferenceFudger<'a, 'tcx> {
                         // variables to their binding anyhow, we know
                         // that it is unbound, so we can just return
                         // it.
-                        debug_assert!(
+                        assert!(
                             self.infcx.inner.borrow_mut().type_variables().probe(vid).is_unknown()
                         );
                         ty

@@ -138,8 +138,8 @@ fn split_visible_macro_spans(covspans: &mut Vec<SpanFromMir>) {
 /// internally sorted.
 #[instrument(level = "debug")]
 fn divide_spans_into_buckets(input_covspans: Vec<Covspan>, holes: &[Hole]) -> Vec<Vec<Covspan>> {
-    debug_assert!(input_covspans.is_sorted_by(|a, b| compare_spans(a.span, b.span).is_le()));
-    debug_assert!(holes.is_sorted_by(|a, b| compare_spans(a.span, b.span).is_le()));
+    assert!(input_covspans.is_sorted_by(|a, b| compare_spans(a.span, b.span).is_le()));
+    assert!(holes.is_sorted_by(|a, b| compare_spans(a.span, b.span).is_le()));
 
     // Now we're ready to start carving holes out of the initial coverage spans,
     // and grouping them in buckets separated by the holes.
@@ -191,7 +191,7 @@ fn drain_front_while<'a, T>(
 /// those spans by removing spans that overlap in unwanted ways.
 #[instrument(level = "debug")]
 fn remove_unwanted_overlapping_spans(sorted_spans: Vec<Covspan>) -> Vec<Covspan> {
-    debug_assert!(sorted_spans.is_sorted_by(|a, b| compare_spans(a.span, b.span).is_le()));
+    assert!(sorted_spans.is_sorted_by(|a, b| compare_spans(a.span, b.span).is_le()));
 
     // Holds spans that have been read from the input vector, but haven't yet
     // been committed to the output vector.

@@ -322,7 +322,7 @@ impl<'tcx> LateLintPass<'tcx> for UnusedResults {
                 }),
                 ty::Tuple(tys) => {
                     let elem_exprs = if let hir::ExprKind::Tup(elem_exprs) = expr.kind {
-                        debug_assert_eq!(elem_exprs.len(), tys.len());
+                        assert_eq!(elem_exprs.len(), tys.len());
                         elem_exprs
                     } else {
                         &[]

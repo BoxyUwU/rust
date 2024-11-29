@@ -102,7 +102,7 @@ fn associated_item(tcx: TyCtxt<'_>, def_id: LocalDefId) -> ty::AssocItem {
             if let Some(impl_item_ref) = impl_.items.iter().find(|i| i.id.owner_id.def_id == def_id)
             {
                 let assoc_item = associated_item_from_impl_item_ref(impl_item_ref);
-                debug_assert_eq!(assoc_item.def_id.expect_local(), def_id);
+                assert_eq!(assoc_item.def_id.expect_local(), def_id);
                 return assoc_item;
             }
         }
@@ -112,7 +112,7 @@ fn associated_item(tcx: TyCtxt<'_>, def_id: LocalDefId) -> ty::AssocItem {
                 trait_item_refs.iter().find(|i| i.id.owner_id.def_id == def_id)
             {
                 let assoc_item = associated_item_from_trait_item_ref(trait_item_ref);
-                debug_assert_eq!(assoc_item.def_id.expect_local(), def_id);
+                assert_eq!(assoc_item.def_id.expect_local(), def_id);
                 return assoc_item;
             }
         }

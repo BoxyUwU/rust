@@ -833,7 +833,7 @@ impl<'psess, 'src> Lexer<'psess, 'src> {
             }
             None => {
                 // We should only get here in the `##+` case.
-                debug_assert_eq!(self.str_from_to(start, start + BytePos(2)), "##");
+                assert_eq!(self.str_from_to(start, start + BytePos(2)), "##");
 
                 (false, span, None)
             }

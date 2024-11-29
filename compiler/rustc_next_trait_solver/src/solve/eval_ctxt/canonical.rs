@@ -112,7 +112,7 @@ where
         // by `try_evaluate_added_goals()`.
         let (certainty, normalization_nested_goals) = if self.is_normalizes_to_goal {
             let NestedGoals { normalizes_to_goals, goals } = std::mem::take(&mut self.nested_goals);
-            if cfg!(debug_assertions) {
+            if true {
                 assert!(normalizes_to_goals.is_empty());
                 if goals.is_empty() {
                     assert!(matches!(goals_certainty, Certainty::Yes));

@@ -324,7 +324,7 @@ impl<'a, 'tcx> TypeErrCtxt<'a, 'tcx> {
                         };
                     }
 
-                    debug_assert!(!origin.span.is_dummy());
+                    assert!(!origin.span.is_dummy());
                     let mut printer = ty::print::FmtPrinter::new(self.tcx, Namespace::ValueNS);
                     if let Some(highlight) = highlight {
                         printer.region_highlight_mode = highlight;

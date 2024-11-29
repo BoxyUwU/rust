@@ -42,7 +42,7 @@ impl<'tcx> InferCtxt<'tcx> {
         instantiation_variance: ty::Variance,
         source_ty: Ty<'tcx>,
     ) -> RelateResult<'tcx, ()> {
-        debug_assert!(self.inner.borrow_mut().type_variables().probe(target_vid).is_unknown());
+        assert!(self.inner.borrow_mut().type_variables().probe(target_vid).is_unknown());
 
         // Generalize `source_ty` depending on the current variance. As an example, assume
         // `?target <: &'x ?1`, where `'x` is some free region and `?1` is an inference
@@ -202,7 +202,7 @@ impl<'tcx> InferCtxt<'tcx> {
                 source_ct,
             )?;
 
-        debug_assert!(!generalized_ct.is_ct_infer());
+        assert!(!generalized_ct.is_ct_infer());
         if has_unconstrained_ty_var {
             bug!("unconstrained ty var when generalizing `{source_ct:?}`");
         }

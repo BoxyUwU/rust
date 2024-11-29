@@ -557,7 +557,7 @@ impl SpanTag {
     }
 
     fn is_relative_offset(self) -> bool {
-        debug_assert_eq!(self.kind(), SpanKind::Indirect);
+        assert_eq!(self.kind(), SpanKind::Indirect);
         self.0 & 0b100 != 0
     }
 

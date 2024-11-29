@@ -29,7 +29,7 @@ where
         goal: Goal<I, NormalizesTo<I>>,
     ) -> QueryResult<I> {
         self.set_is_normalizes_to_goal();
-        debug_assert!(self.term_is_fully_unconstrained(goal));
+        assert!(self.term_is_fully_unconstrained(goal));
         let normalize_result = self
             .probe(|&result| ProbeKind::TryNormalizeNonRigid { result })
             .enter(|this| this.normalize_at_least_one_step(goal));

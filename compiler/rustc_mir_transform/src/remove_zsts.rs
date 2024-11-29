@@ -64,7 +64,7 @@ impl<'tcx> Replacer<'_, 'tcx> {
     }
 
     fn make_zst(&self, ty: Ty<'tcx>) -> ConstOperand<'tcx> {
-        debug_assert!(self.known_to_be_zst(ty));
+        assert!(self.known_to_be_zst(ty));
         ConstOperand {
             span: rustc_span::DUMMY_SP,
             user_ty: None,

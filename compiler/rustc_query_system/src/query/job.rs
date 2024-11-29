@@ -230,7 +230,7 @@ impl QueryLatch {
     /// Sets the latch and resumes all waiters on it
     fn set(&self) {
         let mut info = self.info.lock();
-        debug_assert!(!info.complete);
+        assert!(!info.complete);
         info.complete = true;
         let registry = rayon_core::Registry::current();
         for waiter in info.waiters.drain(..) {
@@ -242,7 +242,7 @@ impl QueryLatch {
     /// This is used to break query cycles.
     fn extract_waiter(&self, waiter: usize) -> Arc<QueryWaiter> {
         let mut info = self.info.lock();
-        debug_assert!(!info.complete);
+        assert!(!info.complete);
         // Remove the waiter from the list of waiters
         info.waiters.remove(waiter)
     }

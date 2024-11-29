@@ -46,9 +46,9 @@ fn unexpand_into_body_span_with_prev(
         curr = curr.parent_callsite()?;
     }
 
-    debug_assert_eq!(Some(curr), original_span.find_ancestor_inside_same_ctxt(body_span));
+    assert_eq!(Some(curr), original_span.find_ancestor_inside_same_ctxt(body_span));
     if let Some(prev) = prev {
-        debug_assert_eq!(Some(curr), prev.parent_callsite());
+        assert_eq!(Some(curr), prev.parent_callsite());
     }
 
     Some((curr, prev))

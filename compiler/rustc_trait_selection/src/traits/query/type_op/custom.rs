@@ -44,7 +44,7 @@ where
         infcx: &InferCtxt<'tcx>,
         span: Span,
     ) -> Result<TypeOpOutput<'tcx, Self>, ErrorGuaranteed> {
-        if cfg!(debug_assertions) {
+        if true {
             info!("fully_perform({:?})", self);
         }
 

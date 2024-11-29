@@ -272,7 +272,7 @@ impl<'gcc, 'tcx> CodegenCx<'gcc, 'tcx> {
 
             // If this assertion triggers, there's something wrong with commandline
             // argument validation.
-            debug_assert!(
+            assert!(
                 !(self.tcx.sess.opts.cg.linker_plugin_lto.enabled()
                     && self.tcx.sess.target.options.is_like_msvc
                     && self.tcx.sess.opts.cg.prefer_dynamic)

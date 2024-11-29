@@ -46,7 +46,7 @@ impl<'tcx> crate::MirPass<'tcx> for Validator {
         if matches!(body.source.instance, InstanceKind::Intrinsic(..) | InstanceKind::Virtual(..)) {
             return;
         }
-        debug_assert_eq!(self.mir_phase, body.phase);
+        assert_eq!(self.mir_phase, body.phase);
         let def_id = body.source.def_id();
         let mir_phase = body.phase;
         let typing_env = body.typing_env(tcx);

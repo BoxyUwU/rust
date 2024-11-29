@@ -185,7 +185,7 @@ impl<T> TypedArena<T> {
         // Ensure the current chunk can fit `len` objects.
         if !self.can_allocate(len) {
             self.grow(len);
-            debug_assert!(self.can_allocate(len));
+            assert!(self.can_allocate(len));
         }
 
         let start_ptr = self.ptr.get();
@@ -317,13 +317,13 @@ unsafe impl<T: Send> Send for TypedArena<T> {}
 
 #[inline(always)]
 fn align_down(val: usize, align: usize) -> usize {
-    debug_assert!(align.is_power_of_two());
+    assert!(align.is_power_of_two());
     val & !(align - 1)
 }
 
 #[inline(always)]
 fn align_up(val: usize, align: usize) -> usize {
-    debug_assert!(align.is_power_of_two());
+    assert!(align.is_power_of_two());
     (val + align - 1) & !(align - 1)
 }
 
@@ -400,7 +400,7 @@ impl DroplessArena {
 
             // Make sure we don't go past `start`. This should not happen since the allocation
             // should be at least DROPLESS_ALIGNMENT - 1 bytes.
-            debug_assert!(chunk.start().addr() <= end);
+            assert!(chunk.start().addr() <= end);
 
             self.end.set(chunk.end().with_addr(end));
 

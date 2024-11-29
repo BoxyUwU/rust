@@ -2,7 +2,7 @@
 
 #![allow(rustc::usage_of_ty_tykind)]
 
-use std::assert_matches::debug_assert_matches;
+use std::assert_matches::assert_matches;
 use std::borrow::Cow;
 use std::iter;
 use std::ops::{ControlFlow, Range};
@@ -486,7 +486,7 @@ impl<'tcx> Ty<'tcx> {
         kind: ty::AliasTyKind,
         alias_ty: ty::AliasTy<'tcx>,
     ) -> Ty<'tcx> {
-        debug_assert_matches!(
+        assert_matches!(
             (kind, tcx.def_kind(alias_ty.def_id)),
             (ty::Opaque, DefKind::OpaqueTy)
                 | (ty::Projection | ty::Inherent, DefKind::AssocTy)
@@ -660,7 +660,7 @@ impl<'tcx> Ty<'tcx> {
         def_id: DefId,
         args: impl IntoIterator<Item: Into<GenericArg<'tcx>>>,
     ) -> Ty<'tcx> {
-        debug_assert_matches!(
+        assert_matches!(
             tcx.def_kind(def_id),
             DefKind::AssocFn | DefKind::Fn | DefKind::Ctor(_, CtorKind::Fn)
         );
@@ -1556,7 +1556,7 @@ impl<'tcx> Ty<'tcx> {
         I: Iterator + ExactSizeIterator,
         I::Item: IntoIterator<Item = Ty<'tcx>>,
     {
-        debug_assert_eq!(self.async_drop_glue_morphology(tcx), AsyncDropGlueMorphology::Custom);
+        assert_eq!(self.async_drop_glue_morphology(tcx), AsyncDropGlueMorphology::Custom);
 
         let defer = Ty::async_destructor_combinator(tcx, LangItem::AsyncDropDefer);
         let chain = Ty::async_destructor_combinator(tcx, LangItem::AsyncDropChain);

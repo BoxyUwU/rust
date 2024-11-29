@@ -434,7 +434,7 @@ impl<'tcx> RegionInferenceContext<'tcx> {
         let constraints = Frozen::freeze(outlives_constraints);
         let constraint_graph = Frozen::freeze(constraints.graph(definitions.len()));
 
-        if cfg!(debug_assertions) {
+        if true {
             sccs_info(infcx, &constraint_sccs);
         }
 
@@ -1042,8 +1042,8 @@ impl<'tcx> RegionInferenceContext<'tcx> {
             // avoid potential non-determinism we approximate this by requiring
             // T: '1 and T: '2.
             for upper_bound in non_local_ub {
-                debug_assert!(self.universal_regions().is_universal_region(upper_bound));
-                debug_assert!(!self.universal_regions().is_local_free_region(upper_bound));
+                assert!(self.universal_regions().is_universal_region(upper_bound));
+                assert!(!self.universal_regions().is_local_free_region(upper_bound));
 
                 let requirement = ClosureOutlivesRequirement {
                     subject,
@@ -1854,7 +1854,7 @@ impl<'tcx> RegionInferenceContext<'tcx> {
             // Always inline this closure because it can be hot.
             let mut handle_constraint = #[inline(always)]
             |constraint: OutlivesConstraint<'tcx>| {
-                debug_assert_eq!(constraint.sup, r);
+                assert_eq!(constraint.sup, r);
                 let sub_region = constraint.sub;
                 if let Trace::NotVisited = context[sub_region] {
                     context[sub_region] = Trace::FromOutlivesConstraint(constraint);

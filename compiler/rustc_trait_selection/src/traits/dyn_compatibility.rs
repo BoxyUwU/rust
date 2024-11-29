@@ -38,7 +38,7 @@ pub fn hir_ty_lowering_dyn_compatibility_violations(
     tcx: TyCtxt<'_>,
     trait_def_id: DefId,
 ) -> Vec<DynCompatibilityViolation> {
-    debug_assert!(tcx.generics_of(trait_def_id).has_self);
+    assert!(tcx.generics_of(trait_def_id).has_self);
     tcx.supertrait_def_ids(trait_def_id)
         .map(|def_id| predicates_reference_self(tcx, def_id, true))
         .filter(|spans| !spans.is_empty())
@@ -50,7 +50,7 @@ fn dyn_compatibility_violations(
     tcx: TyCtxt<'_>,
     trait_def_id: DefId,
 ) -> &'_ [DynCompatibilityViolation] {
-    debug_assert!(tcx.generics_of(trait_def_id).has_self);
+    assert!(tcx.generics_of(trait_def_id).has_self);
     debug!("dyn_compatibility_violations: {:?}", trait_def_id);
 
     tcx.arena.alloc_from_iter(
@@ -68,7 +68,7 @@ fn is_dyn_compatible(tcx: TyCtxt<'_>, trait_def_id: DefId) -> bool {
 /// non-vtable-safe methods, so long as they require `Self: Sized` or
 /// otherwise ensure that they cannot be used when `Self = Trait`.
 pub fn is_vtable_safe_method(tcx: TyCtxt<'_>, trait_def_id: DefId, method: ty::AssocItem) -> bool {
-    debug_assert!(tcx.generics_of(trait_def_id).has_self);
+    assert!(tcx.generics_of(trait_def_id).has_self);
     debug!("is_vtable_safe_method({:?}, {:?})", trait_def_id, method);
     // Any method that has a `Self: Sized` bound cannot be called.
     if tcx.generics_require_sized_self(method.def_id) {

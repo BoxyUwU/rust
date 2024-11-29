@@ -1300,10 +1300,10 @@ impl<'tcx> InferCtxt<'tcx> {
     where
         V: TypeVisitable<TyCtxt<'tcx>>,
     {
-        debug_assert!(!value.has_infer());
-        debug_assert!(!value.has_placeholders());
-        debug_assert!(!param_env.has_infer());
-        debug_assert!(!param_env.has_placeholders());
+        assert!(!value.has_infer());
+        assert!(!value.has_placeholders());
+        assert!(!param_env.has_infer());
+        assert!(!param_env.has_placeholders());
         self.typing_env(param_env).as_query_input(value)
     }
 
@@ -1382,7 +1382,7 @@ impl<'tcx> InferCtxt<'tcx> {
 
     /// Attach a callback to be invoked on each root obligation evaluated in the new trait solver.
     pub fn attach_obligation_inspector(&self, inspector: ObligationInspector<'tcx>) {
-        debug_assert!(
+        assert!(
             self.obligation_inspector.get().is_none(),
             "shouldn't override a set obligation inspector"
         );

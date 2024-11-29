@@ -539,7 +539,7 @@ impl InitMaskMaterialized {
 
         let result = find_bit_fast(self, start, end, is_init);
 
-        debug_assert_eq!(
+        assert_eq!(
             result,
             find_bit_slow(self, start, end, is_init),
             "optimized implementation of find_bit is wrong for start={start:?} end={end:?} is_init={is_init} init_mask={self:#?}"

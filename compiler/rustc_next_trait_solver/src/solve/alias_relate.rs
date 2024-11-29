@@ -34,7 +34,7 @@ where
     ) -> QueryResult<I> {
         let cx = self.cx();
         let Goal { param_env, predicate: (lhs, rhs, direction) } = goal;
-        debug_assert!(lhs.to_alias_term().is_some() || rhs.to_alias_term().is_some());
+        assert!(lhs.to_alias_term().is_some() || rhs.to_alias_term().is_some());
 
         // Structurally normalize the lhs.
         let lhs = if let Some(alias) = lhs.to_alias_term() {

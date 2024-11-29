@@ -1472,7 +1472,7 @@ impl<'a> Parser<'a> {
         inner_op: &Expr,
         outer_op: &Spanned<AssocOp>,
     ) -> PResult<'a, Option<P<Expr>>> {
-        debug_assert!(
+        assert!(
             outer_op.node.is_comparison(),
             "check_no_chained_comparison: {:?} is not comparison",
             outer_op.node,

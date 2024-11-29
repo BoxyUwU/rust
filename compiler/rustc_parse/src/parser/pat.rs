@@ -1614,7 +1614,7 @@ impl<'a> Parser<'a> {
 
     #[deny(rustc::untranslatable_diagnostic)]
     fn report_misplaced_at_in_struct_pat(&self, prev_field: Ident) -> Diag<'a> {
-        debug_assert_eq!(self.token, token::At);
+        assert_eq!(self.token, token::At);
         let span = prev_field.span.to(self.token.span);
         if let Some(dot_dot_span) =
             self.look_ahead(1, |t| if t == &token::DotDot { Some(t.span) } else { None })

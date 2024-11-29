@@ -217,7 +217,7 @@ pub(super) fn op_to_const<'tcx>(
                 // a `ConstValue::Indirect` for wide references, so it is tightly restricted to just
                 // that case.
                 let pointee_ty = imm.layout.ty.builtin_deref(false).unwrap(); // `false` = no raw ptrs
-                debug_assert!(
+                assert!(
                     matches!(
                         ecx.tcx.struct_tail_for_codegen(pointee_ty, ecx.typing_env()).kind(),
                         ty::Str | ty::Slice(..),
@@ -340,8 +340,8 @@ pub fn eval_to_allocation_raw_provider<'tcx>(
     assert!(key.value.promoted.is_some() || !tcx.is_static(key.value.instance.def_id()));
     // Const eval always happens in PostAnalysis mode . See the comment in
     // `InterpCx::new` for more details.
-    debug_assert_eq!(key.typing_env.typing_mode, ty::TypingMode::PostAnalysis);
-    if cfg!(debug_assertions) {
+    assert_eq!(key.typing_env.typing_mode, ty::TypingMode::PostAnalysis);
+    if true {
         // Make sure we format the instance even if we do not print it.
         // This serves as a regression test against an ICE on printing.
         // The next two lines concatenated contain some discussion:

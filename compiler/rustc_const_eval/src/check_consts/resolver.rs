@@ -49,7 +49,7 @@ where
     }
 
     fn assign_qualif_direct(&mut self, place: &mir::Place<'tcx>, mut value: bool) {
-        debug_assert!(!place.is_indirect());
+        assert!(!place.is_indirect());
 
         if !value {
             for (base, _elem) in place.iter_projections() {

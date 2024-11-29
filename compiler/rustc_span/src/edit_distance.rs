@@ -255,7 +255,7 @@ fn find_best_match_for_name_impl(
     // For example, the candidates list `force_capture`, `capture`, and user inputted `forced_capture`,
     // we select `force_capture` with a extra round of edit distance calculation.
     if next_candidates.len() > 1 {
-        debug_assert!(use_substring_score);
+        assert!(use_substring_score);
         best = find_best_match_for_name_impl(
             false,
             &next_candidates,

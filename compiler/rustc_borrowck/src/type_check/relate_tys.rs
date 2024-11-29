@@ -117,7 +117,7 @@ impl<'a, 'b, 'tcx> NllTypeRelating<'a, 'b, 'tcx> {
 
     fn relate_opaques(&mut self, a: Ty<'tcx>, b: Ty<'tcx>) -> RelateResult<'tcx, ()> {
         let infcx = self.type_checker.infcx;
-        debug_assert!(!infcx.next_trait_solver());
+        assert!(!infcx.next_trait_solver());
         // `handle_opaque_type` cannot handle subtyping, so to support subtyping
         // we instead eagerly generalize here. This is a bit of a mess but will go
         // away once we're using the new solver.
@@ -269,7 +269,7 @@ impl<'a, 'b, 'tcx> NllTypeRelating<'a, 'b, 'tcx> {
             ty::BoundRegionKind::ClosureEnv => sym::env,
         };
 
-        if cfg!(debug_assertions) {
+        if true {
             let mut var_to_origin = self.type_checker.infcx.reg_var_to_origin.borrow_mut();
             let new = RegionCtxt::Placeholder(reg_info);
             let prev = var_to_origin.insert(reg.as_var(), new);

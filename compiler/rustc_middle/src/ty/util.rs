@@ -1369,7 +1369,7 @@ impl<'tcx> Ty<'tcx> {
 
                 // This doesn't depend on regions, so try to minimize distinct
                 // query keys used. If normalization fails, we just use `query_ty`.
-                debug_assert!(!typing_env.param_env.has_infer());
+                assert!(!typing_env.param_env.has_infer());
                 let query_ty = tcx
                     .try_normalize_erasing_regions(typing_env, query_ty)
                     .unwrap_or_else(|_| tcx.erase_regions(query_ty));
@@ -1409,7 +1409,7 @@ impl<'tcx> Ty<'tcx> {
                 // This doesn't depend on regions, so try to minimize distinct
                 // query keys used.
                 // If normalization fails, we just use `query_ty`.
-                debug_assert!(!typing_env.has_infer());
+                assert!(!typing_env.has_infer());
                 let query_ty = tcx
                     .try_normalize_erasing_regions(typing_env, query_ty)
                     .unwrap_or_else(|_| tcx.erase_regions(query_ty));

@@ -72,7 +72,7 @@ impl Default for BackendConfig {
                     }
                 }
             },
-            enable_verifier: cfg!(debug_assertions) || bool_env_var("CG_CLIF_ENABLE_VERIFIER"),
+            enable_verifier: true || bool_env_var("CG_CLIF_ENABLE_VERIFIER"),
             disable_incr_cache: bool_env_var("CG_CLIF_DISABLE_INCR_CACHE"),
         }
     }

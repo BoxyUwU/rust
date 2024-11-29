@@ -207,7 +207,7 @@ where
         match *t.kind() {
             ty::Bound(debruijn, bound_ty) if debruijn == self.current_index => {
                 let ty = self.delegate.replace_ty(bound_ty);
-                debug_assert!(!ty.has_vars_bound_above(ty::INNERMOST));
+                assert!(!ty.has_vars_bound_above(ty::INNERMOST));
                 ty::fold::shift_vars(self.tcx, ty, self.current_index.as_u32())
             }
             _ => {
@@ -247,7 +247,7 @@ where
         match ct.kind() {
             ty::ConstKind::Bound(debruijn, bound_const) if debruijn == self.current_index => {
                 let ct = self.delegate.replace_const(bound_const);
-                debug_assert!(!ct.has_vars_bound_above(ty::INNERMOST));
+                assert!(!ct.has_vars_bound_above(ty::INNERMOST));
                 ty::fold::shift_vars(self.tcx, ct, self.current_index.as_u32())
             }
             _ => ct.super_fold_with(self),

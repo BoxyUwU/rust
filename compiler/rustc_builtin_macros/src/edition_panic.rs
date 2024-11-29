@@ -72,7 +72,7 @@ fn expand<'cx>(
 pub(crate) fn use_panic_2021(mut span: Span) -> bool {
     // To determine the edition, we check the first span up the expansion
     // stack that does not have #[allow_internal_unstable(edition_panic)].
-    // (To avoid using the edition of e.g. the assert!() or debug_assert!() definition.)
+    // (To avoid using the edition of e.g. the assert!() or assert!() definition.)
     loop {
         let expn = span.ctxt().outer_expn_data();
         if let Some(features) = expn.allow_internal_unstable {

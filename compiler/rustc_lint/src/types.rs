@@ -670,7 +670,7 @@ fn get_nullable_type<'tcx>(
             let inner_field_ty = {
                 let mut first_non_zst_ty =
                     field_def.variants().iter().filter_map(|v| transparent_newtype_field(tcx, v));
-                debug_assert_eq!(
+                assert_eq!(
                     first_non_zst_ty.clone().count(),
                     1,
                     "Wrong number of fields for transparent type"

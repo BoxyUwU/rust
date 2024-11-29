@@ -121,7 +121,7 @@ impl PartialEq for AdtDefData {
         let res = self_def_id == other_def_id;
 
         // Double check that implicit assumption detailed above.
-        if cfg!(debug_assertions) && res {
+        if true && res {
             let deep = self.flags == other.flags
                 && self.repr == other.repr
                 && self.variants == other.variants;

@@ -219,10 +219,10 @@ impl SerializedDepGraph {
                 SerializedNodeHeader::<D> { bytes: d.read_array(), _marker: PhantomData };
 
             let _i: SerializedDepNodeIndex = nodes.push(node_header.node());
-            debug_assert_eq!(_i.index(), _index);
+            assert_eq!(_i.index(), _index);
 
             let _i: SerializedDepNodeIndex = fingerprints.push(node_header.fingerprint());
-            debug_assert_eq!(_i.index(), _index);
+            assert_eq!(_i.index(), _index);
 
             // If the length of this node's edge list is small, the length is stored in the header.
             // If it is not, we fall back to another decoder call.
@@ -239,7 +239,7 @@ impl SerializedDepGraph {
             edge_list_data.extend(d.read_raw_bytes(edges_len_bytes));
 
             let _i: SerializedDepNodeIndex = edge_list_indices.push(edges_header);
-            debug_assert_eq!(_i.index(), _index);
+            assert_eq!(_i.index(), _index);
         }
 
         // When we access the edge list data, we do a fixed-size read from the edge list data then
@@ -313,7 +313,7 @@ impl<D: Deps> SerializedNodeHeader<D> {
         edge_max_index: u32,
         edge_count: usize,
     ) -> Self {
-        debug_assert_eq!(Self::TOTAL_BITS, Self::LEN_BITS + Self::WIDTH_BITS + Self::KIND_BITS);
+        assert_eq!(Self::TOTAL_BITS, Self::LEN_BITS + Self::WIDTH_BITS + Self::KIND_BITS);
 
         let mut head = node.kind.as_inner();
 
@@ -665,7 +665,7 @@ impl<D: Deps> GraphEncoder<D> {
             eprintln!("[incremental] Total Node Count: {}", status.total_node_count);
             eprintln!("[incremental] Total Edge Count: {}", status.total_edge_count);
 
-            if cfg!(debug_assertions) {
+            if true {
                 eprintln!("[incremental] Total Edge Reads: {total_read_count}");
                 eprintln!("[incremental] Total Duplicate Edge Reads: {total_duplicate_read_count}");
             }

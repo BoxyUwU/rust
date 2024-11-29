@@ -186,7 +186,7 @@ fn unsized_info<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>>(
                 // between the same trait with different args. If we, for
                 // some reason, were to relax the `Unsize` trait, it could become
                 // unsound, so let's assert here that the trait refs are *equal*.
-                debug_assert!(
+                assert!(
                     validate_trivial_unsize(cx.tcx(), data_a, data_b),
                     "NOP unsize vtable changed principal trait ref: {data_a} -> {data_b}"
                 );

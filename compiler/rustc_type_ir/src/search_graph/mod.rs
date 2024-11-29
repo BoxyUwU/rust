@@ -202,7 +202,7 @@ impl CycleHeads {
 
     fn remove_highest_cycle_head(&mut self) {
         let last = self.heads.pop_last();
-        debug_assert_ne!(last, None);
+        assert_ne!(last, None);
     }
 
     fn insert(&mut self, head: StackDepth) {
@@ -409,7 +409,7 @@ impl<D: Delegate<Cx = X>, X: Cx> SearchGraph<D> {
 
     pub fn is_empty(&self) -> bool {
         if self.stack.is_empty() {
-            debug_assert!(self.provisional_cache.is_empty());
+            assert!(self.provisional_cache.is_empty());
             true
         } else {
             false
@@ -491,7 +491,7 @@ impl<D: Delegate<Cx = X>, X: Cx> SearchGraph<D> {
         // This may not have an actual performance impact and we could reorder them
         // as it may reduce the number of `nested_goals` we need to track.
         if let Some(result) = self.check_cycle_on_stack(cx, input) {
-            debug_assert!(validate_cache.is_none(), "global cache and cycle on stack");
+            assert!(validate_cache.is_none(), "global cache and cycle on stack");
             return result;
         }
 
@@ -541,7 +541,7 @@ impl<D: Delegate<Cx = X>, X: Cx> SearchGraph<D> {
                 self.insert_global_cache(cx, input, final_entry, result, dep_node)
             }
         } else if D::ENABLE_PROVISIONAL_CACHE {
-            debug_assert!(validate_cache.is_none());
+            assert!(validate_cache.is_none());
             let entry = self.provisional_cache.entry(input).or_default();
             let StackEntry { heads, nested_goals, encountered_overflow, .. } = final_entry;
             let path_from_head = Self::stack_path_kind(cx, &self.stack, heads.highest_cycle_head());
@@ -553,7 +553,7 @@ impl<D: Delegate<Cx = X>, X: Cx> SearchGraph<D> {
                 result,
             });
         } else {
-            debug_assert!(validate_cache.is_none());
+            assert!(validate_cache.is_none());
         }
 
         result
@@ -727,7 +727,7 @@ impl<D: Delegate<Cx = X>, X: Cx> SearchGraph<D> {
                     false,
                     nested_goals,
                 );
-                debug_assert!(self.stack[head].has_been_used.is_some());
+                assert!(self.stack[head].has_been_used.is_some());
                 debug!(?head, ?path_from_head, "provisional cache hit");
                 return Some(result);
             }
@@ -943,7 +943,7 @@ impl<D: Delegate<Cx = X>, X: Cx> SearchGraph<D> {
         loop {
             let result = evaluate_goal(self, inspect);
             let stack_entry = self.stack.pop().unwrap();
-            debug_assert_eq!(stack_entry.input, input);
+            assert_eq!(stack_entry.input, input);
 
             // If the current goal is not the root of a cycle, we are done.
             //

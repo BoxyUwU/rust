@@ -409,7 +409,7 @@ impl<'tcx> Map<'tcx> {
             }
 
             // Create a place for the local.
-            debug_assert!(self.locals[local].is_none());
+            assert!(self.locals[local].is_none());
             let place = self.places.push(PlaceInfo::new(decl.ty, None));
             self.locals[local] = Some(place);
         }

@@ -330,7 +330,7 @@ impl SourceMap {
 
                 // Let's make sure the file_id we generated above actually matches
                 // the ID we generate for the SourceFile we just created.
-                debug_assert_eq!(source_file.stable_id, stable_id);
+                assert_eq!(source_file.stable_id, stable_id);
 
                 self.register_source_file(stable_id, source_file)
             }
@@ -1229,7 +1229,7 @@ impl FilePathMapping {
                     return RealFileName::LocalPath(new_path.into_owned());
                 }
 
-                debug_assert!(new_path.is_relative());
+                assert!(new_path.is_relative());
                 let unmapped_file_path_rel = new_path;
 
                 match working_directory {
@@ -1285,7 +1285,7 @@ impl FilePathMapping {
             // we are done.
             return RealFileName::LocalPath(file_path.to_path_buf());
         }
-        debug_assert!(file_path.is_relative());
+        assert!(file_path.is_relative());
         let working_directory = working_directory.local_path_if_available();
         RealFileName::LocalPath(Path::new(working_directory).join(file_path))
     }

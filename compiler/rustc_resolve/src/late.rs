@@ -6,7 +6,7 @@
 //! If you wonder why there's no `early.rs`, that's because it's split into three files -
 //! `build_reduced_graph.rs`, `macros.rs` and `imports.rs`.
 
-use std::assert_matches::debug_assert_matches;
+use std::assert_matches::assert_matches;
 use std::borrow::Cow;
 use std::collections::BTreeSet;
 use std::collections::hash_map::Entry;
@@ -1707,7 +1707,7 @@ impl<'a, 'ast, 'ra: 'ast, 'tcx> LateResolutionVisitor<'a, 'ast, 'ra, 'tcx> {
         id_for_lint: NodeId,
         elided: bool,
     ) {
-        debug_assert_eq!(lifetime.ident.name, kw::UnderscoreLifetime);
+        assert_eq!(lifetime.ident.name, kw::UnderscoreLifetime);
 
         let kind =
             if elided { MissingLifetimeKind::Ampersand } else { MissingLifetimeKind::Underscore };
@@ -1853,7 +1853,7 @@ impl<'a, 'ast, 'ra: 'ast, 'tcx> LateResolutionVisitor<'a, 'ast, 'ra, 'tcx> {
         binder: NodeId,
         kind: MissingLifetimeKind,
     ) -> LifetimeRes {
-        debug_assert_eq!(ident.name, kw::UnderscoreLifetime);
+        assert_eq!(ident.name, kw::UnderscoreLifetime);
         debug!(?ident.span);
 
         // Leave the responsibility to create the `LocalDefId` to lowering.
@@ -2090,7 +2090,7 @@ impl<'a, 'ast, 'ra: 'ast, 'tcx> LateResolutionVisitor<'a, 'ast, 'ra, 'tcx> {
 
         match candidate {
             LifetimeElisionCandidate::Missing(missing @ MissingLifetime { .. }) => {
-                debug_assert_eq!(id, missing.id);
+                assert_eq!(id, missing.id);
                 match res {
                     LifetimeRes::Static { suppress_elision_warning } => {
                         if !suppress_elision_warning {
@@ -2215,7 +2215,7 @@ impl<'a, 'ast, 'ra: 'ast, 'tcx> LateResolutionVisitor<'a, 'ast, 'ra, 'tcx> {
             });
 
             // Record elision candidates only for this parameter.
-            debug_assert_matches!(self.lifetime_elision_candidates, None);
+            assert_matches!(self.lifetime_elision_candidates, None);
             self.lifetime_elision_candidates = Some(Default::default());
             self.visit_ty(ty);
             let local_candidates = self.lifetime_elision_candidates.take();
@@ -2286,7 +2286,7 @@ impl<'a, 'ast, 'ra: 'ast, 'tcx> LateResolutionVisitor<'a, 'ast, 'ra, 'tcx> {
         }
 
         // Reinstate elision state.
-        debug_assert_matches!(self.lifetime_elision_candidates, None);
+        assert_matches!(self.lifetime_elision_candidates, None);
         self.lifetime_elision_candidates = outer_candidates;
 
         if let Elision::Param(res) | Elision::Self_(res) = elision_lifetime {

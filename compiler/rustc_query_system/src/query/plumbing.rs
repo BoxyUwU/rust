@@ -394,7 +394,7 @@ where
     // Use `JobOwner` so the query will be poisoned if executing it panics.
     let job_owner = JobOwner { state, key };
 
-    debug_assert_eq!(qcx.dep_context().dep_graph().is_fully_enabled(), INCR);
+    assert_eq!(qcx.dep_context().dep_graph().is_fully_enabled(), INCR);
 
     let (result, dep_node_index) = if INCR {
         execute_job_incr(
@@ -461,11 +461,11 @@ where
     Q: QueryConfig<Qcx>,
     Qcx: QueryContext,
 {
-    debug_assert!(!qcx.dep_context().dep_graph().is_fully_enabled());
+    assert!(!qcx.dep_context().dep_graph().is_fully_enabled());
 
     // Fingerprint the key, just to assert that it doesn't
     // have anything we don't consider hashable
-    if cfg!(debug_assertions) {
+    if true {
         let _ = key.to_fingerprint(*qcx.dep_context());
     }
 
@@ -476,7 +476,7 @@ where
 
     // Similarly, fingerprint the result to assert that
     // it doesn't have anything not considered hashable.
-    if cfg!(debug_assertions)
+    if true
         && let Some(hash_result) = query.hash_result()
     {
         qcx.dep_context().with_stable_hashing_context(|mut hcx| {
@@ -570,7 +570,7 @@ where
 
     let (prev_dep_node_index, dep_node_index) = dep_graph_data.try_mark_green(qcx, dep_node)?;
 
-    debug_assert!(dep_graph_data.is_index_green(prev_dep_node_index));
+    assert!(dep_graph_data.is_index_green(prev_dep_node_index));
 
     // First we try to load the result from the on-disk cache.
     // Some things are never cached on disk.
@@ -606,7 +606,7 @@ where
 
     // We always expect to find a cached result for things that
     // can be forced from `DepNode`.
-    debug_assert!(
+    assert!(
         !query.cache_on_disk(*qcx.dep_context(), key)
             || !qcx.dep_context().fingerprint_style(dep_node.kind).reconstructible(),
         "missing on-disk cache entry for {dep_node:?}"
@@ -614,7 +614,7 @@ where
 
     // Sanity check for the logic in `ensure`: if the node is green and the result loadable,
     // we should actually be able to load it.
-    debug_assert!(
+    assert!(
         !query.loadable_from_disk(qcx, key, prev_dep_node_index),
         "missing on-disk cache entry for loadable {dep_node:?}"
     );
@@ -799,7 +799,7 @@ where
     Q: QueryConfig<Qcx>,
     Qcx: QueryContext,
 {
-    debug_assert!(!qcx.dep_context().dep_graph().is_fully_enabled());
+    assert!(!qcx.dep_context().dep_graph().is_fully_enabled());
 
     ensure_sufficient_stack(|| try_execute_query::<Q, Qcx, false>(query, qcx, span, key, None).0)
 }
@@ -816,7 +816,7 @@ where
     Q: QueryConfig<Qcx>,
     Qcx: QueryContext,
 {
-    debug_assert!(qcx.dep_context().dep_graph().is_fully_enabled());
+    assert!(qcx.dep_context().dep_graph().is_fully_enabled());
 
     let dep_node = if let QueryMode::Ensure { check_cache } = mode {
         let (must_run, dep_node) = ensure_must_run(query, qcx, &key, check_cache);
@@ -849,7 +849,7 @@ where
         return;
     }
 
-    debug_assert!(!query.anon());
+    assert!(!query.anon());
 
     ensure_sufficient_stack(|| {
         try_execute_query::<_, _, true>(query, qcx, DUMMY_SP, key, Some(dep_node))

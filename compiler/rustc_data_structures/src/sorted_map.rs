@@ -46,7 +46,7 @@ impl<K: Ord, V> SortedMap<K, V> {
     /// and that there are no duplicates.
     #[inline]
     pub fn from_presorted_elements(elements: Vec<(K, V)>) -> SortedMap<K, V> {
-        debug_assert!(elements.array_windows().all(|[fst, snd]| fst.0 < snd.0));
+        assert!(elements.array_windows().all(|[fst, snd]| fst.0 < snd.0));
 
         SortedMap { data: elements }
     }
@@ -187,7 +187,7 @@ impl<K: Ord, V> SortedMap<K, V> {
             return;
         }
 
-        debug_assert!(elements.array_windows().all(|[fst, snd]| fst.0 < snd.0));
+        assert!(elements.array_windows().all(|[fst, snd]| fst.0 < snd.0));
 
         let start_index = self.lookup_index_for(&elements[0].0);
 

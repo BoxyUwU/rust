@@ -87,7 +87,7 @@ pub struct Hash128 {
 // We expect Hash128 to be well mixed. So there's no point in hashing both parts.
 //
 // This also allows using Hash128-containing types in UnHash-based hashmaps, which would otherwise
-// debug_assert! that we're hashing more than a single u64.
+// assert! that we're hashing more than a single u64.
 impl std::hash::Hash for Hash128 {
     fn hash<H: std::hash::Hasher>(&self, h: &mut H) {
         h.write_u64(self.truncate().as_u64());

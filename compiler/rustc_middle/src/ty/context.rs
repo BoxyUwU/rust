@@ -282,7 +282,7 @@ impl<'tcx> Interner for TyCtxt<'tcx> {
     ) {
         // FIXME: We could perhaps add a `skip: usize` to `debug_assert_args_compatible`
         // to avoid needing to reintern the set of args...
-        if cfg!(debug_assertions) {
+        if true {
             self.debug_assert_args_compatible(
                 def_id,
                 self.mk_args_from_iter(
@@ -377,17 +377,17 @@ impl<'tcx> Interner for TyCtxt<'tcx> {
     }
 
     fn impl_is_const(self, def_id: DefId) -> bool {
-        debug_assert_matches!(self.def_kind(def_id), DefKind::Impl { of_trait: true });
+        assert_matches!(self.def_kind(def_id), DefKind::Impl { of_trait: true });
         self.is_conditionally_const(def_id)
     }
 
     fn fn_is_const(self, def_id: DefId) -> bool {
-        debug_assert_matches!(self.def_kind(def_id), DefKind::Fn | DefKind::AssocFn);
+        assert_matches!(self.def_kind(def_id), DefKind::Fn | DefKind::AssocFn);
         self.is_conditionally_const(def_id)
     }
 
     fn alias_has_const_conditions(self, def_id: DefId) -> bool {
-        debug_assert_matches!(self.def_kind(def_id), DefKind::AssocTy | DefKind::OpaqueTy);
+        assert_matches!(self.def_kind(def_id), DefKind::AssocTy | DefKind::OpaqueTy);
         self.is_conditionally_const(def_id)
     }
 
@@ -1180,7 +1180,7 @@ impl<'tcx> TyCtxt<'tcx> {
     /// effect. However, we do not want this as a general capability, so this interface restricts
     /// to the only allowed case.
     pub fn feed_anon_const_type(self, key: LocalDefId, value: ty::EarlyBinder<'tcx, Ty<'tcx>>) {
-        debug_assert_eq!(self.def_kind(key), DefKind::AnonConst);
+        assert_eq!(self.def_kind(key), DefKind::AnonConst);
         TyCtxtFeed { tcx: self, key }.type_of(value)
     }
 }
@@ -1722,8 +1722,7 @@ impl<'tcx> TyCtxt<'tcx> {
         // - needs_metadata: for putting into crate metadata.
         // - instrument_coverage: for putting into coverage data (see
         //   `hash_mir_source`).
-        cfg!(debug_assertions)
-            || self.sess.opts.incremental.is_some()
+        true || self.sess.opts.incremental.is_some()
             || self.needs_metadata()
             || self.sess.instrument_coverage()
     }
@@ -2647,7 +2646,7 @@ impl<'tcx> TyCtxt<'tcx> {
     /// With `cfg(debug_assertions)`, assert that args are compatible with their generics,
     /// and print out the args if not.
     pub fn debug_assert_args_compatible(self, def_id: DefId, args: &'tcx [ty::GenericArg<'tcx>]) {
-        if cfg!(debug_assertions) && !self.check_args_compatible(def_id, args) {
+        if true && !self.check_args_compatible(def_id, args) {
             if let DefKind::AssocTy = self.def_kind(def_id)
                 && let DefKind::Impl { of_trait: false } = self.def_kind(self.parent(def_id))
             {
@@ -3059,7 +3058,7 @@ impl<'tcx> TyCtxt<'tcx> {
         self,
         mut opaque_lifetime_param_def_id: LocalDefId,
     ) -> ty::Region<'tcx> {
-        debug_assert!(
+        assert!(
             matches!(self.def_kind(opaque_lifetime_param_def_id), DefKind::LifetimeParam),
             "{opaque_lifetime_param_def_id:?} is a {}",
             self.def_descr(opaque_lifetime_param_def_id.to_def_id())
@@ -3083,7 +3082,7 @@ impl<'tcx> TyCtxt<'tcx> {
                     // If we map to another opaque, then it should be a parent
                     // of the opaque we mapped from. Continue mapping.
                     if matches!(self.def_kind(new_parent), DefKind::OpaqueTy) {
-                        debug_assert_eq!(self.local_parent(parent), new_parent);
+                        assert_eq!(self.local_parent(parent), new_parent);
                         opaque_lifetime_param_def_id = ebv;
                         continue;
                     }

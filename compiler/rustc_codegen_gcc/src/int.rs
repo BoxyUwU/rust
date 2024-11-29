@@ -173,8 +173,8 @@ impl<'a, 'gcc, 'tcx> Builder<'a, 'gcc, 'tcx> {
             }
             self.context.new_binary_op(self.location, operation, a_type, a, b)
         } else {
-            debug_assert!(a_type.dyncast_array().is_some());
-            debug_assert!(b_type.dyncast_array().is_some());
+            assert!(a_type.dyncast_array().is_some());
+            assert!(b_type.dyncast_array().is_some());
             let signed = a_type.is_compatible_with(self.i128_type);
             let func_name = match (operation, signed) {
                 (BinaryOp::Plus, true) => "__rust_i128_add",
@@ -224,8 +224,8 @@ impl<'a, 'gcc, 'tcx> Builder<'a, 'gcc, 'tcx> {
         {
             self.context.new_binary_op(self.location, operation, a_type, a, b)
         } else {
-            debug_assert!(a_type.dyncast_array().is_some());
-            debug_assert!(b_type.dyncast_array().is_some());
+            assert!(a_type.dyncast_array().is_some());
+            assert!(b_type.dyncast_array().is_some());
             let sign = if signed { "" } else { "u" };
             let func_name = format!("__{}{}ti3", sign, operation_name);
             let param_a = self.context.new_parameter(self.location, a_type, "a");
@@ -372,8 +372,8 @@ impl<'a, 'gcc, 'tcx> Builder<'a, 'gcc, 'tcx> {
     ) -> (RValue<'gcc>, RValue<'gcc>) {
         let a_type = lhs.get_type();
         let b_type = rhs.get_type();
-        debug_assert!(a_type.dyncast_array().is_some());
-        debug_assert!(b_type.dyncast_array().is_some());
+        assert!(a_type.dyncast_array().is_some());
+        assert!(b_type.dyncast_array().is_some());
         let param_a = self.context.new_parameter(self.location, a_type, "a");
         let param_b = self.context.new_parameter(self.location, b_type, "b");
         let result_field = self.context.new_field(self.location, a_type, "result");
@@ -905,7 +905,7 @@ impl<'gcc, 'tcx> CodegenCx<'gcc, 'tcx> {
             return self.context.new_cast(None, value, dest_typ);
         }
 
-        debug_assert!(value_type.dyncast_array().is_some());
+        assert!(value_type.dyncast_array().is_some());
         let name_suffix = match self.type_kind(dest_typ) {
             TypeKind::Float => "tisf",
             TypeKind::Double => "tidf",
@@ -948,7 +948,7 @@ impl<'gcc, 'tcx> CodegenCx<'gcc, 'tcx> {
             return self.context.new_cast(None, value, dest_typ);
         }
 
-        debug_assert!(dest_typ.dyncast_array().is_some());
+        assert!(dest_typ.dyncast_array().is_some());
         let name_suffix = match self.type_kind(value_type) {
             TypeKind::Float => "sfti",
             TypeKind::Double => "dfti",

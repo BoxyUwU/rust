@@ -328,7 +328,7 @@ fn vtable_entries<'tcx>(
 // Given a `dyn Subtrait: Supertrait` trait ref, find corresponding first slot
 // for `Supertrait`'s methods in the vtable of `Subtrait`.
 pub(crate) fn first_method_vtable_slot<'tcx>(tcx: TyCtxt<'tcx>, key: ty::TraitRef<'tcx>) -> usize {
-    debug_assert!(!key.has_non_region_infer() && !key.has_non_region_param());
+    assert!(!key.has_non_region_infer() && !key.has_non_region_param());
 
     let ty::Dynamic(source, _, _) = *key.self_ty().kind() else {
         bug!();
@@ -381,7 +381,7 @@ pub(crate) fn supertrait_vtable_slot<'tcx>(
         Ty<'tcx>, // Target -- `dyn Supertrait` being coerced to.
     ),
 ) -> Option<usize> {
-    debug_assert!(!key.has_non_region_infer() && !key.has_non_region_param());
+    assert!(!key.has_non_region_infer() && !key.has_non_region_param());
     let (source, target) = key;
 
     // If the target principal is `None`, we can just return `None`.

@@ -692,7 +692,7 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
                 trace!("Virtual call dispatches to {fn_inst:#?}");
                 // We can also do the lookup based on `def_id` and `dyn_ty`, and check that that
                 // produces the same result.
-                if cfg!(debug_assertions) {
+                if true {
                     let tcx = *self.tcx;
 
                     let trait_def_id = tcx.trait_of_item(def_id).unwrap();
@@ -818,7 +818,7 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
                 self.unpack_dyn_star(&place, data)?
             }
             _ => {
-                debug_assert_eq!(
+                assert_eq!(
                     instance,
                     ty::Instance::resolve_drop_in_place(*self.tcx, place.layout.ty)
                 );

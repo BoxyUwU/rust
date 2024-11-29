@@ -339,7 +339,7 @@ impl<'tcx> SizeSkeleton<'tcx> {
         tcx: TyCtxt<'tcx>,
         typing_env: ty::TypingEnv<'tcx>,
     ) -> Result<SizeSkeleton<'tcx>, &'tcx LayoutError<'tcx>> {
-        debug_assert!(!ty.has_non_region_infer());
+        assert!(!ty.has_non_region_infer());
 
         // First try computing a static layout.
         let err = match tcx.layout_of(typing_env.as_query_input(ty)) {
@@ -383,7 +383,7 @@ impl<'tcx> SizeSkeleton<'tcx> {
 
                 match tail.kind() {
                     ty::Param(_) | ty::Alias(ty::Projection | ty::Inherent, _) => {
-                        debug_assert!(tail.has_non_region_param());
+                        assert!(tail.has_non_region_param());
                         Ok(SizeSkeleton::Pointer { non_zero, tail: tcx.erase_regions(tail) })
                     }
                     ty::Error(guar) => {
@@ -1097,7 +1097,7 @@ where
                     if offset.bytes() == 0
                         && let Some(boxed_ty) = this.ty.boxed_ty()
                     {
-                        debug_assert!(pointee.safe.is_none());
+                        assert!(pointee.safe.is_none());
                         let optimize = tcx.sess.opts.optimize != OptLevel::No;
                         pointee.safe = Some(PointerKind::Box {
                             unpin: optimize && boxed_ty.is_unpin(tcx, typing_env),

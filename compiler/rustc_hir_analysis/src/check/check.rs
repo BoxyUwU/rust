@@ -1825,7 +1825,7 @@ pub(super) fn check_coroutine_obligations(
     tcx: TyCtxt<'_>,
     def_id: LocalDefId,
 ) -> Result<(), ErrorGuaranteed> {
-    debug_assert!(!tcx.is_typeck_child(def_id.to_def_id()));
+    assert!(!tcx.is_typeck_child(def_id.to_def_id()));
 
     let typeck_results = tcx.typeck(def_id);
     let param_env = tcx.param_env(def_id);

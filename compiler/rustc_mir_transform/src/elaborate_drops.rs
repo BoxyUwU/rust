@@ -200,7 +200,7 @@ impl<'a, 'tcx> DropElaborator<'a, 'tcx> for ElaborateDropsCtxt<'a, 'tcx> {
     fn array_subpath(&self, path: Self::Path, index: u64, size: u64) -> Option<Self::Path> {
         rustc_mir_dataflow::move_path_children_matching(self.move_data(), path, |e| match e {
             ProjectionElem::ConstantIndex { offset, min_length, from_end } => {
-                debug_assert!(size == min_length, "min_length should be exact for arrays");
+                assert!(size == min_length, "min_length should be exact for arrays");
                 assert!(!from_end, "from_end should not be used for array element ConstantIndex");
                 offset == index
             }
@@ -348,7 +348,7 @@ impl<'a, 'tcx> ElaborateDropsCtxt<'a, 'tcx> {
                             Unwind::To(self.patch.unreachable_cleanup_block())
                         }
                         UnwindAction::Terminate(reason) => {
-                            debug_assert_ne!(
+                            assert_ne!(
                                 reason,
                                 UnwindTerminateReason::InCleanup,
                                 "we are not in a cleanup block, InCleanup reason should be impossible"

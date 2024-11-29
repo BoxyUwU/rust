@@ -1,4 +1,4 @@
-use std::assert_matches::debug_assert_matches;
+use std::assert_matches::assert_matches;
 
 use either::{Left, Right};
 use rustc_abi::{Align, HasDataLayout, Size, TargetDataLayout};
@@ -131,7 +131,7 @@ pub(super) fn mir_assign_valid_types<'tcx>(
         // the types are equal. Equal types *can* have different layouts when
         // enum downcast is involved (as enum variants carry the type of the
         // enum), but those should never occur in assignments.
-        if cfg!(debug_assertions) || src.ty != dest.ty {
+        if true || src.ty != dest.ty {
             assert_eq!(src.layout, dest.layout);
         }
         true
@@ -152,7 +152,7 @@ pub(super) fn from_known_layout<'tcx>(
     match known_layout {
         None => compute(),
         Some(known_layout) => {
-            if cfg!(debug_assertions) {
+            if true {
                 let check_layout = compute()?;
                 if !mir_assign_valid_types(tcx.tcx, typing_env, check_layout, known_layout) {
                     span_bug!(
@@ -199,7 +199,7 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
         // opaque types. This is needed for trivial things like `size_of`, but also for using associated
         // types that are not specified in the opaque type. We also use MIR bodies whose opaque types have
         // already been revealed, so we'd be able to at least partially observe the hidden types anyways.
-        debug_assert_matches!(typing_env.typing_mode, ty::TypingMode::PostAnalysis);
+        assert_matches!(typing_env.typing_mode, ty::TypingMode::PostAnalysis);
         InterpCx {
             machine,
             tcx: tcx.at(root_span),
@@ -636,7 +636,7 @@ impl<'a, 'tcx, M: Machine<'tcx>> std::fmt::Debug for PlacePrinter<'a, 'tcx, M> {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.place {
             Place::Local { local, offset, locals_addr } => {
-                debug_assert_eq!(locals_addr, self.ecx.frame().locals_addr());
+                assert_eq!(locals_addr, self.ecx.frame().locals_addr());
                 let mut allocs = Vec::new();
                 write!(fmt, "{local:?}")?;
                 if let Some(offset) = offset {

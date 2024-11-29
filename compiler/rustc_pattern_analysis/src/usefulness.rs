@@ -1704,7 +1704,7 @@ fn compute_exhaustiveness_and_usefulness<'a, 'p, Cx: PatCx>(
     mcx: &mut UsefulnessCtxt<'a, 'p, Cx>,
     matrix: &mut Matrix<'p, Cx>,
 ) -> Result<WitnessMatrix<Cx>, Cx::Error> {
-    debug_assert!(matrix.rows().all(|r| r.len() == matrix.column_count()));
+    assert!(matrix.rows().all(|r| r.len() == matrix.column_count()));
 
     if !matrix.wildcard_row_is_relevant && matrix.rows().all(|r| !r.pats.relevant) {
         // Here we know that nothing will contribute further to exhaustiveness or usefulness. This

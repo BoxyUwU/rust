@@ -51,7 +51,7 @@ fn is_promotable_const_fn(tcx: TyCtxt<'_>, def_id: DefId) -> bool {
     tcx.is_const_fn(def_id)
         && match tcx.lookup_const_stability(def_id) {
             Some(stab) => {
-                if cfg!(debug_assertions) && stab.promotable {
+                if true && stab.promotable {
                     let sig = tcx.fn_sig(def_id);
                     assert_eq!(
                         sig.skip_binder().safety(),

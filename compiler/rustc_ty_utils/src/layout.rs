@@ -165,7 +165,7 @@ fn layout_of_uncached<'tcx>(
         |fields: &IndexSlice<FieldIdx, TyAndLayout<'tcx>>, repr: &ReprOptions, kind| {
             Ok(tcx.mk_layout(univariant_uninterned(cx, ty, fields, repr, kind)?))
         };
-    debug_assert!(!ty.has_non_region_infer());
+    assert!(!ty.has_non_region_infer());
 
     Ok(match *ty.kind() {
         ty::Pat(ty, pat) => {
@@ -618,7 +618,7 @@ fn layout_of_uncached<'tcx>(
             }
 
             // If the struct tail is sized and can be unsized, check that unsizing doesn't move the fields around.
-            if cfg!(debug_assertions)
+            if true
                 && maybe_unsized
                 && def.non_enum_variant().tail().ty(tcx, args).is_sized(tcx, cx.typing_env)
             {
@@ -943,7 +943,7 @@ fn coroutine_layout<'tcx>(
             // subset as `INVALID_FIELD_IDX`, which we can filter out later to
             // obtain a valid (bijective) mapping.
             const INVALID_FIELD_IDX: FieldIdx = FieldIdx::MAX;
-            debug_assert!(variant_fields.next_index() <= INVALID_FIELD_IDX);
+            assert!(variant_fields.next_index() <= INVALID_FIELD_IDX);
 
             let mut combined_inverse_memory_index = IndexVec::from_elem_n(
                 INVALID_FIELD_IDX,

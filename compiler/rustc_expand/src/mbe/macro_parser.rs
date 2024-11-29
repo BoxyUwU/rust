@@ -568,7 +568,7 @@ impl TtParser {
                 }
                 MatcherLoc::Eof => {
                     // We are past the matcher's end, and not in a sequence. Try to end things.
-                    debug_assert_eq!(mp.idx, matcher.len() - 1);
+                    assert_eq!(mp.idx, matcher.len() - 1);
                     if *token == token::Eof {
                         eof_mps = match eof_mps {
                             EofMatcherPositions::None => EofMatcherPositions::One(mp),

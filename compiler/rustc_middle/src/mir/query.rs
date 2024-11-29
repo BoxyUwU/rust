@@ -336,7 +336,7 @@ impl<'tcx> ClosureOutlivesSubjectTy<'tcx> {
     ) -> Ty<'tcx> {
         tcx.fold_regions(self.inner, |r, depth| match r.kind() {
             ty::ReBound(debruijn, br) => {
-                debug_assert_eq!(debruijn, depth);
+                assert_eq!(debruijn, depth);
                 map(ty::RegionVid::new(br.var.index()))
             }
             _ => bug!("unexpected region {r:?}"),

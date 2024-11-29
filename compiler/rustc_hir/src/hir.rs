@@ -169,7 +169,7 @@ impl Lifetime {
     }
 
     pub fn suggestion(&self, new_lifetime: &str) -> (Span, String) {
-        debug_assert!(new_lifetime.starts_with('\''));
+        assert!(new_lifetime.starts_with('\''));
         let (pos, span) = self.suggestion_position();
         let code = match pos {
             LifetimeSuggestionPosition::Normal => format!("{new_lifetime}"),
@@ -426,7 +426,7 @@ impl<'hir> GenericArgs<'hir> {
 
     fn paren_sugar_output_inner(&self) -> &Ty<'hir> {
         let [constraint] = self.constraints.try_into().unwrap();
-        debug_assert_eq!(constraint.ident.name, sym::Output);
+        assert_eq!(constraint.ident.name, sym::Output);
         constraint.ty().unwrap()
     }
 

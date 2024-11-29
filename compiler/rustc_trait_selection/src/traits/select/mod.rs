@@ -310,7 +310,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         &mut self,
         obligation: &PolyTraitObligation<'tcx>,
     ) -> SelectionResult<'tcx, SelectionCandidate<'tcx>> {
-        debug_assert!(!obligation.predicate.has_escaping_bound_vars());
+        assert!(!obligation.predicate.has_escaping_bound_vars());
 
         let pec = &ProvisionalEvaluationCache::default();
         let stack = self.push_stack(TraitObligationStackList::empty(pec), obligation);
@@ -323,7 +323,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         &mut self,
         stack: &TraitObligationStack<'o, 'tcx>,
     ) -> SelectionResult<'tcx, SelectionCandidate<'tcx>> {
-        debug_assert!(!self.infcx.next_trait_solver());
+        assert!(!self.infcx.next_trait_solver());
         // Watch out for overflow. This intentionally bypasses (and does
         // not update) the cache.
         self.check_recursion_limit(stack.obligation, stack.obligation)?;
@@ -334,7 +334,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         // replaced with fresh types starting from index 0.
         let cache_fresh_trait_pred = self.infcx.freshen(stack.obligation.predicate);
         debug!(?cache_fresh_trait_pred);
-        debug_assert!(!stack.obligation.predicate.has_escaping_bound_vars());
+        assert!(!stack.obligation.predicate.has_escaping_bound_vars());
 
         if let Some(c) =
             self.check_candidate_cache(stack.obligation.param_env, cache_fresh_trait_pred)
@@ -535,7 +535,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         &mut self,
         obligation: &PredicateObligation<'tcx>,
     ) -> Result<EvaluationResult, OverflowError> {
-        debug_assert!(!self.infcx.next_trait_solver());
+        assert!(!self.infcx.next_trait_solver());
         self.evaluation_probe(|this| {
             let goal =
                 this.infcx.resolve_vars_if_possible((obligation.predicate, obligation.param_env));
@@ -621,7 +621,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         previous_stack: TraitObligationStackList<'o, 'tcx>,
         obligation: PredicateObligation<'tcx>,
     ) -> Result<EvaluationResult, OverflowError> {
-        debug_assert!(!self.infcx.next_trait_solver());
+        assert!(!self.infcx.next_trait_solver());
         // `previous_stack` stores a `PolyTraitObligation`, while `obligation` is
         // a `PredicateObligation`. These are distinct types, so we can't
         // use any `Option` combinator method that would force them to be
@@ -636,7 +636,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             match bound_predicate.skip_binder() {
                 ty::PredicateKind::Clause(ty::ClauseKind::Trait(t)) => {
                     let t = bound_predicate.rebind(t);
-                    debug_assert!(!t.has_escaping_bound_vars());
+                    assert!(!t.has_escaping_bound_vars());
                     let obligation = obligation.with(self.tcx(), t);
                     self.evaluate_trait_predicate_recursively(previous_stack, obligation)
                 }
@@ -1202,7 +1202,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         &mut self,
         stack: &TraitObligationStack<'o, 'tcx>,
     ) -> Result<EvaluationResult, OverflowError> {
-        debug_assert!(!self.infcx.next_trait_solver());
+        assert!(!self.infcx.next_trait_solver());
         // In intercrate mode, whenever any of the generics are unbound,
         // there can always be an impl. Even if there are no impls in
         // this crate, perhaps the type would be unified with
@@ -1317,7 +1317,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             if let Some(res) = tcx.evaluation_cache.get(&key, tcx) {
                 Some(res)
             } else {
-                debug_assert_eq!(infcx.evaluation_cache.get(&(param_env, trait_pred), tcx), None);
+                assert_eq!(infcx.evaluation_cache.get(&(param_env, trait_pred), tcx), None);
                 None
             }
         } else {
@@ -1539,7 +1539,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             if let Some(res) = tcx.selection_cache.get(&(infcx.typing_env(param_env), pred), tcx) {
                 Some(res)
             } else {
-                debug_assert_eq!(infcx.selection_cache.get(&(param_env, pred), tcx), None);
+                assert_eq!(infcx.selection_cache.get(&(param_env, pred), tcx), None);
                 None
             }
         } else {
@@ -1595,7 +1595,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
                 // Don't cache overflow globally; we only produce this in certain modes.
             } else {
                 debug!(?pred, ?candidate, "insert_candidate_cache global");
-                debug_assert!(!candidate.has_infer());
+                assert!(!candidate.has_infer());
 
                 // This may overwrite the cache with the same value.
                 tcx.selection_cache.insert(
@@ -1669,7 +1669,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         placeholder_trait_ref: ty::TraitRef<'tcx>,
         trait_bound: ty::PolyTraitRef<'tcx>,
     ) -> Result<Option<ty::TraitRef<'tcx>>, ()> {
-        debug_assert!(!placeholder_trait_ref.has_escaping_bound_vars());
+        assert!(!placeholder_trait_ref.has_escaping_bound_vars());
         if placeholder_trait_ref.def_id != trait_bound.def_id() {
             // Avoid unnecessary normalization
             return Err(());
@@ -1729,7 +1729,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
         env_predicate: PolyProjectionPredicate<'tcx>,
         potentially_unnormalized_candidates: bool,
     ) -> ProjectionMatchesProjection {
-        debug_assert_eq!(obligation.predicate.def_id, env_predicate.projection_def_id());
+        assert_eq!(obligation.predicate.def_id, env_predicate.projection_def_id());
 
         let mut nested_obligations = PredicateObligations::new();
         let infer_predicate = self.infcx.instantiate_binder_with_fresh_vars(

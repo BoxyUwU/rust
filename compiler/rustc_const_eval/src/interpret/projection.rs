@@ -152,7 +152,7 @@ where
         field: usize,
     ) -> InterpResult<'tcx, P> {
         // Slices nominally have length 0, so they will panic somewhere in `fields.offset`.
-        debug_assert!(
+        assert!(
             !matches!(base.layout().ty.kind(), ty::Slice(..)),
             "`field` projection called on a slice -- call `index` projection instead"
         );

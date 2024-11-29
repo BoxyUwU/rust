@@ -142,7 +142,7 @@ impl<'cx, 'tcx> LexicalResolver<'cx, 'tcx> {
         let mut seen = UnordSet::default();
         self.data.constraints.retain(|(constraint, _)| seen.insert(*constraint));
 
-        if cfg!(debug_assertions) {
+        if true {
             self.dump_constraints();
         }
 

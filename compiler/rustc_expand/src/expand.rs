@@ -1066,7 +1066,7 @@ macro_rules! assign_id {
     ($self:ident, $id:expr, $closure:expr) => {{
         let old_id = $self.cx.current_expansion.lint_node_id;
         if $self.monotonic {
-            debug_assert_eq!(*$id, ast::DUMMY_NODE_ID);
+            assert_eq!(*$id, ast::DUMMY_NODE_ID);
             let new_id = $self.cx.resolver.next_node_id();
             *$id = new_id;
             $self.cx.current_expansion.lint_node_id = new_id;

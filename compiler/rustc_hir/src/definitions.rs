@@ -43,7 +43,7 @@ impl DefPathTable {
 
     fn allocate(&mut self, key: DefKey, def_path_hash: DefPathHash) -> DefIndex {
         // Assert that all DefPathHashes correctly contain the local crate's StableCrateId.
-        debug_assert_eq!(self.stable_crate_id, def_path_hash.stable_crate_id());
+        assert_eq!(self.stable_crate_id, def_path_hash.stable_crate_id());
         let local_hash = def_path_hash.local_hash();
 
         let index = {
@@ -53,7 +53,7 @@ impl DefPathTable {
             index
         };
         self.def_path_hashes.push(local_hash);
-        debug_assert!(self.def_path_hashes.len() == self.index_to_key.len());
+        assert!(self.def_path_hashes.len() == self.index_to_key.len());
 
         // Check for hash collisions of DefPathHashes. These should be
         // exceedingly rare.
@@ -385,7 +385,7 @@ impl Definitions {
     /// if the `DefPathHash` is from a previous compilation session and
     /// the def-path does not exist anymore.
     pub fn local_def_path_hash_to_def_id(&self, hash: DefPathHash) -> Option<LocalDefId> {
-        debug_assert!(hash.stable_crate_id() == self.table.stable_crate_id);
+        assert!(hash.stable_crate_id() == self.table.stable_crate_id);
         self.table
             .def_path_hash_to_index
             .get(&hash.local_hash())

@@ -276,7 +276,7 @@ pub fn intern_const_alloc_recursive<'tcx, M: CompileTimeMachine<'tcx, const_eval
         }
         if ecx.tcx.try_get_global_alloc(alloc_id).is_some() {
             // Already interned.
-            debug_assert!(!ecx.memory.alloc_map.contains_key(&alloc_id));
+            assert!(!ecx.memory.alloc_map.contains_key(&alloc_id));
             continue;
         }
         // We always intern with `inner_mutability`, and furthermore we ensured above that if

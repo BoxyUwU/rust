@@ -306,7 +306,7 @@ impl DropTree {
     /// During [`Self::build_mir`], `from` will be linked to the corresponding
     /// block within the drop tree.
     fn add_entry_point(&mut self, from: BasicBlock, to: DropIdx) {
-        debug_assert!(to < self.drops.next_index());
+        assert!(to < self.drops.next_index());
         self.entry_points.push((to, from));
     }
 
@@ -800,8 +800,8 @@ impl<'a, 'tcx> Builder<'a, 'tcx> {
                         // `unwind_to` should drop the value that we're about to
                         // schedule. If dropping this value panics, then we continue
                         // with the *next* value on the unwind path.
-                        debug_assert_eq!(unwind_drops.drops[unwind_to].data.local, drop_data.local);
-                        debug_assert_eq!(unwind_drops.drops[unwind_to].data.kind, drop_data.kind);
+                        assert_eq!(unwind_drops.drops[unwind_to].data.local, drop_data.local);
+                        assert_eq!(unwind_drops.drops[unwind_to].data.kind, drop_data.kind);
                         unwind_to = unwind_drops.drops[unwind_to].next;
 
                         let mut unwind_entry_point = unwind_to;
@@ -1258,7 +1258,7 @@ impl<'a, 'tcx> Builder<'a, 'tcx> {
     /// This path terminates in Resume. The path isn't created until after all
     /// of the non-unwind paths in this item have been lowered.
     pub(crate) fn diverge_from(&mut self, start: BasicBlock) {
-        debug_assert!(
+        assert!(
             matches!(
                 self.cfg.block_data(start).terminator().kind,
                 TerminatorKind::Assert { .. }
@@ -1280,7 +1280,7 @@ impl<'a, 'tcx> Builder<'a, 'tcx> {
     ///
     /// This path terminates in CoroutineDrop.
     pub(crate) fn coroutine_drop_cleanup(&mut self, yield_block: BasicBlock) {
-        debug_assert!(
+        assert!(
             matches!(
                 self.cfg.block_data(yield_block).terminator().kind,
                 TerminatorKind::Yield { .. }
@@ -1418,8 +1418,8 @@ fn build_scope_drops<'tcx>(
                 // `unwind_to` should drop the value that we're about to
                 // schedule. If dropping this value panics, then we continue
                 // with the *next* value on the unwind path.
-                debug_assert_eq!(unwind_drops.drops[unwind_to].data.local, drop_data.local);
-                debug_assert_eq!(unwind_drops.drops[unwind_to].data.kind, drop_data.kind);
+                assert_eq!(unwind_drops.drops[unwind_to].data.local, drop_data.local);
+                assert_eq!(unwind_drops.drops[unwind_to].data.kind, drop_data.kind);
                 unwind_to = unwind_drops.drops[unwind_to].next;
 
                 // If the operand has been moved, and we are not on an unwind
@@ -1452,8 +1452,8 @@ fn build_scope_drops<'tcx>(
             }
             DropKind::Storage => {
                 if storage_dead_on_unwind {
-                    debug_assert_eq!(unwind_drops.drops[unwind_to].data.local, drop_data.local);
-                    debug_assert_eq!(unwind_drops.drops[unwind_to].data.kind, drop_data.kind);
+                    assert_eq!(unwind_drops.drops[unwind_to].data.local, drop_data.local);
+                    assert_eq!(unwind_drops.drops[unwind_to].data.kind, drop_data.kind);
                     unwind_to = unwind_drops.drops[unwind_to].next;
                 }
                 // Only temps and vars need their storage dead.
@@ -1560,7 +1560,7 @@ impl<'a, 'tcx: 'a> Builder<'a, 'tcx> {
         // optimization is, but it is here.
         for (drop_idx, drop_node) in drops.drops.iter_enumerated() {
             if let DropKind::Value = drop_node.data.kind {
-                debug_assert!(drop_node.next < drops.drops.next_index());
+                assert!(drop_node.next < drops.drops.next_index());
                 drops.entry_points.push((drop_node.next, blocks[drop_idx].unwrap()));
             }
         }

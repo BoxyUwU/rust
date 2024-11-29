@@ -170,7 +170,7 @@ fn variance_of_opaque(
             if matches!(force_capture_trait_args, ForceCaptureTraitArgs::Yes)
                 && generics.parent.is_none()
             {
-                debug_assert_eq!(tcx.def_kind(def_id), DefKind::Trait);
+                assert_eq!(tcx.def_kind(def_id), DefKind::Trait);
                 break;
             }
 

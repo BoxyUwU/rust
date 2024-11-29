@@ -1038,7 +1038,7 @@ impl<'a, 'tcx> Visitor<'tcx> for BoundVarContext<'a, 'tcx> {
 }
 
 fn object_lifetime_default(tcx: TyCtxt<'_>, param_def_id: LocalDefId) -> ObjectLifetimeDefault {
-    debug_assert_eq!(tcx.def_kind(param_def_id), DefKind::TyParam);
+    assert_eq!(tcx.def_kind(param_def_id), DefKind::TyParam);
     let hir::Node::GenericParam(param) = tcx.hir_node_by_def_id(param_def_id) else {
         bug!("expected GenericParam for object_lifetime_default");
     };
@@ -1683,7 +1683,7 @@ impl<'a, 'tcx> BoundVarContext<'a, 'tcx> {
             let generics = self.tcx.generics_of(def_id);
 
             // `type_def_id` points to an item, so there is nothing to inherit generics from.
-            debug_assert_eq!(generics.parent_count, 0);
+            assert_eq!(generics.parent_count, 0);
 
             let set_to_region = |set: ObjectLifetimeDefault| match set {
                 ObjectLifetimeDefault::Empty => {

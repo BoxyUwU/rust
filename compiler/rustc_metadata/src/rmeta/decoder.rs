@@ -339,7 +339,7 @@ impl<'a, 'tcx> DecodeContext<'a, 'tcx> {
 
     #[inline]
     fn cdata(&self) -> CrateMetadataRef<'a> {
-        debug_assert!(self.cdata.is_some(), "missing CrateMetadata in DecodeContext");
+        assert!(self.cdata.is_some(), "missing CrateMetadata in DecodeContext");
         self.cdata.unwrap()
     }
 
@@ -497,7 +497,7 @@ impl<'a, 'tcx> SpanDecoder for DecodeContext<'a, 'tcx> {
             let ExpnId { krate: cnum, local_id: index } = expn_id;
             // Lookup local `ExpnData`s in our own crate data. Foreign `ExpnData`s
             // are stored in the owning crate, to avoid duplication.
-            debug_assert_ne!(cnum, LOCAL_CRATE);
+            assert_ne!(cnum, LOCAL_CRATE);
             let crate_data = if cnum == local_cdata.cnum {
                 local_cdata
             } else {
@@ -579,7 +579,7 @@ impl<'a, 'tcx> Decodable<DecodeContext<'a, 'tcx>> for SpanData {
             return DUMMY_SP.with_ctxt(ctxt).data();
         }
 
-        debug_assert!(tag.kind() == SpanKind::Local || tag.kind() == SpanKind::Foreign);
+        assert!(tag.kind() == SpanKind::Local || tag.kind() == SpanKind::Foreign);
 
         let lo = BytePos::decode(decoder);
         let len = tag.length().unwrap_or_else(|| BytePos::decode(decoder));
@@ -650,7 +650,7 @@ impl<'a, 'tcx> Decodable<DecodeContext<'a, 'tcx>> for SpanData {
         };
 
         // Make sure our span is well-formed.
-        debug_assert!(
+        assert!(
             lo + source_file.original_start_pos <= source_file.original_end_pos,
             "Malformed encoded span: lo={:?} source_file.original_start_pos={:?} source_file.original_end_pos={:?}",
             lo,
@@ -659,7 +659,7 @@ impl<'a, 'tcx> Decodable<DecodeContext<'a, 'tcx>> for SpanData {
         );
 
         // Make sure we correctly filtered out invalid spans during encoding.
-        debug_assert!(
+        assert!(
             hi + source_file.original_start_pos <= source_file.original_end_pos,
             "Malformed encoded span: hi={:?} source_file.original_start_pos={:?} source_file.original_end_pos={:?}",
             hi,
@@ -1531,7 +1531,7 @@ impl<'a> CrateMetadataRef<'a> {
     }
 
     fn expn_hash_to_expn_id(self, sess: &Session, index_guess: u32, hash: ExpnHash) -> ExpnId {
-        debug_assert_eq!(ExpnId::from_hash(hash), None);
+        assert_eq!(ExpnId::from_hash(hash), None);
         let index_guess = ExpnIndex::from_u32(index_guess);
         let old_hash = self.root.expn_hashes.get(self, index_guess).map(|lazy| lazy.decode(self));
 

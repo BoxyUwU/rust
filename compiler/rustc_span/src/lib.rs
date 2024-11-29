@@ -855,7 +855,7 @@ impl Span {
     /// Splits a span into two composite spans around a certain position.
     pub fn split_at(self, pos: u32) -> (Span, Span) {
         let len = self.hi().0 - self.lo().0;
-        debug_assert!(pos <= len);
+        assert!(pos <= len);
 
         let split_pos = BytePos(self.lo().0 + pos);
         (

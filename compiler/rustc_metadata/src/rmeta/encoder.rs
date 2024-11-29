@@ -272,7 +272,7 @@ impl<'a, 'tcx> Encodable<EncodeContext<'a, 'tcx>> for SpanData {
         }
 
         // The Span infrastructure should make sure that this invariant holds:
-        debug_assert!(self.lo <= self.hi);
+        assert!(self.lo <= self.hi);
 
         if !s.source_file_cache.0.contains(self.lo) {
             let source_map = s.tcx.sess.source_map();
@@ -281,7 +281,7 @@ impl<'a, 'tcx> Encodable<EncodeContext<'a, 'tcx>> for SpanData {
                 (Lrc::clone(&source_map.files()[source_file_index]), source_file_index);
         }
         let (ref source_file, source_file_index) = s.source_file_cache;
-        debug_assert!(source_file.contains(self.lo));
+        assert!(source_file.contains(self.lo));
 
         if !source_file.contains(self.hi) {
             // Unfortunately, macro expansion still sometimes generates Spans
@@ -1594,8 +1594,8 @@ impl<'a, 'tcx> EncodeContext<'a, 'tcx> {
                 module_children.iter().map(|child| child.res.def_id().index));
         } else {
             // For non-enum, there is only one variant, and its def_id is the adt's.
-            debug_assert_eq!(adt_def.variants().len(), 1);
-            debug_assert_eq!(adt_def.non_enum_variant().def_id, def_id);
+            assert_eq!(adt_def.variants().len(), 1);
+            assert_eq!(adt_def.non_enum_variant().def_id, def_id);
             // Therefore, the loop over variants will encode its fields as the adt's children.
         }
 
@@ -1720,7 +1720,7 @@ impl<'a, 'tcx> EncodeContext<'a, 'tcx> {
             if encode_const || encode_opt { Some((def_id, encode_const, encode_opt)) } else { None }
         });
         for (def_id, encode_const, encode_opt) in keys_and_jobs {
-            debug_assert!(encode_const || encode_opt);
+            assert!(encode_const || encode_opt);
 
             debug!("EntryBuilder::encode_mir({:?})", def_id);
             if encode_opt {

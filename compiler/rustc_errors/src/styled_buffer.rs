@@ -29,7 +29,7 @@ impl StyledBuffer {
     /// Returns content of `StyledBuffer` split by lines and line styles
     pub(crate) fn render(&self) -> Vec<Vec<StyledString>> {
         // Tabs are assumed to have been replaced by spaces in calling code.
-        debug_assert!(self.lines.iter().all(|r| !r.iter().any(|sc| sc.chr == '\t')));
+        assert!(self.lines.iter().all(|r| !r.iter().any(|sc| sc.chr == '\t')));
 
         let mut output: Vec<Vec<StyledString>> = vec![];
         let mut styled_vec: Vec<StyledString> = vec![];

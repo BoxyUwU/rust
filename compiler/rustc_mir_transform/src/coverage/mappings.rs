@@ -162,7 +162,7 @@ impl ExtractedMappings {
 
         // MC/DC decisions refer to BCBs, but don't require those BCBs to have counters.
         if bcbs_with_counter_mappings.is_empty() {
-            debug_assert!(
+            assert!(
                 mcdc_mappings.is_empty(),
                 "A function with no counter mappings shouldn't have any decisions: {mcdc_mappings:?}",
             );

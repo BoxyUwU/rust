@@ -88,7 +88,7 @@ impl<'tcx> TypeVariableStorage<'tcx> {
     }
 
     pub(super) fn finalize_rollback(&mut self) {
-        debug_assert!(self.values.len() >= self.eq_relations.len());
+        assert!(self.values.len() >= self.eq_relations.len());
         self.values.truncate(self.eq_relations.len());
     }
 }
@@ -106,8 +106,8 @@ impl<'tcx> TypeVariableTable<'_, 'tcx> {
     ///
     /// Precondition: neither `a` nor `b` are known.
     pub(crate) fn equate(&mut self, a: ty::TyVid, b: ty::TyVid) {
-        debug_assert!(self.probe(a).is_unknown());
-        debug_assert!(self.probe(b).is_unknown());
+        assert!(self.probe(a).is_unknown());
+        assert!(self.probe(b).is_unknown());
         self.eq_relations().union(a, b);
     }
 
@@ -116,9 +116,9 @@ impl<'tcx> TypeVariableTable<'_, 'tcx> {
     /// Precondition: `vid` must not have been previously instantiated.
     pub(crate) fn instantiate(&mut self, vid: ty::TyVid, ty: Ty<'tcx>) {
         let vid = self.root_var(vid);
-        debug_assert!(!ty.is_ty_var(), "instantiating ty var with var: {vid:?} {ty:?}");
-        debug_assert!(self.probe(vid).is_unknown());
-        debug_assert!(
+        assert!(!ty.is_ty_var(), "instantiating ty var with var: {vid:?} {ty:?}");
+        assert!(self.probe(vid).is_unknown());
+        assert!(
             self.eq_relations().probe_value(vid).is_unknown(),
             "instantiating type variable `{vid:?}` twice: new-value = {ty:?}, old-value={:?}",
             self.eq_relations().probe_value(vid)
@@ -143,7 +143,7 @@ impl<'tcx> TypeVariableTable<'_, 'tcx> {
     ) -> ty::TyVid {
         let eq_key = self.eq_relations().new_key(TypeVariableValue::Unknown { universe });
         let index = self.storage.values.push(TypeVariableData { origin });
-        debug_assert_eq!(eq_key.vid, index);
+        assert_eq!(eq_key.vid, index);
 
         debug!("new_var(index={:?}, universe={:?}, origin={:?})", eq_key.vid, universe, origin);
 

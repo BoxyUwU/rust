@@ -194,7 +194,7 @@ pub struct ClosureTypeInfo<'tcx> {
 }
 
 fn closure_typeinfo<'tcx>(tcx: TyCtxt<'tcx>, def: LocalDefId) -> ClosureTypeInfo<'tcx> {
-    debug_assert!(tcx.is_closure_like(def.to_def_id()));
+    assert!(tcx.is_closure_like(def.to_def_id()));
     let typeck_results = tcx.typeck(def);
     let user_provided_sig = typeck_results.user_provided_sigs[&def];
     let captures = typeck_results.closure_min_captures_flattened(def);

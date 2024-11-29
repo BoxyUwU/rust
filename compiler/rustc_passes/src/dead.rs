@@ -103,7 +103,7 @@ impl<'tcx> MarkSymbolVisitor<'tcx> {
 
     fn insert_def_id(&mut self, def_id: DefId) {
         if let Some(def_id) = def_id.as_local() {
-            debug_assert!(!should_explore(self.tcx, def_id));
+            assert!(!should_explore(self.tcx, def_id));
             self.live_symbols.insert(def_id);
         }
     }

@@ -104,7 +104,7 @@ impl DepNode {
     where
         Tcx: super::DepContext,
     {
-        debug_assert_eq!(tcx.fingerprint_style(kind), FingerprintStyle::Unit);
+        assert_eq!(tcx.fingerprint_style(kind), FingerprintStyle::Unit);
         DepNode { kind, hash: Fingerprint::ZERO.into() }
     }
 
@@ -136,7 +136,7 @@ impl DepNode {
     where
         Tcx: super::DepContext,
     {
-        debug_assert!(tcx.fingerprint_style(kind) == FingerprintStyle::DefPathHash);
+        assert!(tcx.fingerprint_style(kind) == FingerprintStyle::DefPathHash);
         DepNode { kind, hash: def_path_hash.0.into() }
     }
 }

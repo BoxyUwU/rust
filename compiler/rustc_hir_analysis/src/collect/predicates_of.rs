@@ -660,7 +660,7 @@ pub(super) fn assert_only_contains_predicates_from<'tcx>(
     bounds: &'tcx [(ty::Clause<'tcx>, Span)],
     ty: Ty<'tcx>,
 ) {
-    if !cfg!(debug_assertions) {
+    if !true {
         return;
     }
 

@@ -159,7 +159,7 @@ impl<I: Idx, J: Idx> IndexSlice<I, J> {
     /// See also `FieldsShape::Arbitrary::memory_index` for more details.
     // FIXME(eddyb) build a better abstraction for permutations, if possible.
     pub fn invert_bijective_mapping(&self) -> IndexVec<J, I> {
-        debug_assert_eq!(
+        assert_eq!(
             self.iter().map(|x| x.index() as u128).sum::<u128>(),
             (0..self.len() as u128).sum::<u128>(),
             "The values aren't 0..N in input {self:?}",
@@ -170,7 +170,7 @@ impl<I: Idx, J: Idx> IndexSlice<I, J> {
             inverse[i2] = i1;
         }
 
-        debug_assert_eq!(
+        assert_eq!(
             inverse.iter().map(|x| x.index() as u128).sum::<u128>(),
             (0..inverse.len() as u128).sum::<u128>(),
             "The values aren't 0..N in result {self:?}",

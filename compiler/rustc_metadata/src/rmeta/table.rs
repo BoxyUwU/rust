@@ -49,7 +49,7 @@ impl IsDefault for UnusedGenericParams {
         // UnusedGenericParams encodes the *un*usedness as a bitset.
         // This means that 0 corresponds to all bits used, which is indeed the default.
         let is_default = self.bits() == 0;
-        debug_assert_eq!(is_default, self.all_used());
+        assert_eq!(is_default, self.all_used());
         is_default
     }
 }
@@ -264,7 +264,7 @@ impl FixedSizeEncoding for Option<RawDefId> {
         match self {
             None => unreachable!(),
             Some(RawDefId { krate, index }) => {
-                debug_assert!(krate < u32::MAX);
+                assert!(krate < u32::MAX);
                 // CrateNum is less than `CrateNum::MAX_AS_U32`.
                 let krate = (krate + 1).to_le_bytes();
                 let index = index.to_le_bytes();
@@ -287,7 +287,7 @@ impl FixedSizeEncoding for AttrFlags {
 
     #[inline]
     fn write_to_bytes(self, b: &mut [u8; 1]) {
-        debug_assert!(!self.is_default());
+        assert!(!self.is_default());
         b[0] = self.bits();
     }
 }
@@ -302,7 +302,7 @@ impl FixedSizeEncoding for bool {
 
     #[inline]
     fn write_to_bytes(self, b: &mut [u8; 1]) {
-        debug_assert!(!self.is_default());
+        assert!(!self.is_default());
         b[0] = self as u8
     }
 }
@@ -322,7 +322,7 @@ impl FixedSizeEncoding for Option<bool> {
 
     #[inline]
     fn write_to_bytes(self, b: &mut [u8; 1]) {
-        debug_assert!(!self.is_default());
+        assert!(!self.is_default());
         b[0] = match self {
             Some(false) => 0,
             Some(true) => 1,

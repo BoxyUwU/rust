@@ -51,7 +51,7 @@ fn linkage_by_name(tcx: TyCtxt<'_>, def_id: LocalDefId, name: &str) -> Linkage {
 }
 
 fn codegen_fn_attrs(tcx: TyCtxt<'_>, did: LocalDefId) -> CodegenFnAttrs {
-    if cfg!(debug_assertions) {
+    if true {
         let def_kind = tcx.def_kind(did);
         assert!(
             def_kind.has_codegen_attrs(),

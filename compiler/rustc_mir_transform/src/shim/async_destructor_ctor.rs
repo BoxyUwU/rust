@@ -81,7 +81,7 @@ impl<'tcx> AsyncDestructorCtorShimBuilder<'tcx> {
 
         let source_info = SourceInfo::outermost(span);
 
-        debug_assert_eq!(sig.inputs().len(), Self::INPUT_COUNT);
+        assert_eq!(sig.inputs().len(), Self::INPUT_COUNT);
         let locals = local_decls_for_sig(&sig, span);
 
         // Usual case: noop() + unwind resume + return
@@ -383,7 +383,7 @@ impl<'tcx> AsyncDestructorCtorShimBuilder<'tcx> {
     /// Puts `x: RvalueType` on top of the stack.
     fn put_temp_rvalue(&mut self, rvalue: Rvalue<'tcx>) {
         let last_bb = &mut self.bbs[self.last_bb];
-        debug_assert!(last_bb.terminator.is_none());
+        assert!(last_bb.terminator.is_none());
         let source_info = self.source_info;
 
         let local_ty = rvalue.ty(&self.locals, self.tcx);
@@ -492,7 +492,7 @@ impl<'tcx> AsyncDestructorCtorShimBuilder<'tcx> {
 
     fn return_(mut self) -> Body<'tcx> {
         let last_bb = &mut self.bbs[self.last_bb];
-        debug_assert!(last_bb.terminator.is_none());
+        assert!(last_bb.terminator.is_none());
         let source_info = self.source_info;
 
         let (1, Some(output)) = (self.stack.len(), self.stack.pop()) else {
@@ -504,7 +504,7 @@ impl<'tcx> AsyncDestructorCtorShimBuilder<'tcx> {
         };
         #[cfg(debug_assertions)]
         if let Some(ty) = self.self_ty {
-            debug_assert_eq!(
+            assert_eq!(
                 output.ty(&self.locals, self.tcx),
                 ty.async_destructor_ty(self.tcx),
                 "output async destructor types did not match for type: {ty:?}",
@@ -613,7 +613,7 @@ impl<'tcx> AsyncDestructorCtorShimBuilder<'tcx> {
         };
 
         let last_bb = &mut self.bbs[self.last_bb];
-        debug_assert!(last_bb.terminator.is_none());
+        assert!(last_bb.terminator.is_none());
         last_bb.statements.push(Statement {
             source_info: self.source_info,
             kind: StatementKind::StorageLive(dest),

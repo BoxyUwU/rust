@@ -322,7 +322,7 @@ impl<'tcx> GlobalAlloc<'tcx> {
                 if nested {
                     // Nested statics in a `static` are never interior mutable,
                     // so just use the declared mutability.
-                    if cfg!(debug_assertions) {
+                    if true {
                         let alloc = tcx.eval_static_initializer(did).unwrap();
                         assert_eq!(alloc.0.mutability, mutability);
                     }
@@ -559,7 +559,7 @@ pub fn write_target_uint(
         Endian::Little => target.write(&data.to_le_bytes())?,
         Endian::Big => target.write(&data.to_be_bytes()[16 - target.len()..])?,
     };
-    debug_assert!(target.len() == 0); // We should have filled the target buffer.
+    assert!(target.len() == 0); // We should have filled the target buffer.
     Ok(())
 }
 
@@ -578,6 +578,6 @@ pub fn read_target_uint(endianness: Endian, mut source: &[u8]) -> Result<u128, i
             Ok(u128::from_be_bytes(buf))
         }
     };
-    debug_assert!(source.len() == 0); // We should have consumed the source buffer.
+    assert!(source.len() == 0); // We should have consumed the source buffer.
     uint
 }

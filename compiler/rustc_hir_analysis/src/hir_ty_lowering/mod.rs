@@ -1782,7 +1782,7 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
             DefKind::Ctor(CtorOf::Variant, ..) | DefKind::Variant => {
                 let (generics_def_id, index) = if let Some(self_ty) = self_ty {
                     let adt_def = self.probe_adt(span, self_ty).unwrap();
-                    debug_assert!(adt_def.is_enum());
+                    assert!(adt_def.is_enum());
                     (adt_def.did(), last)
                 } else if last >= 1 && segments[last - 1].args.is_some() {
                     // Everything but the penultimate segment should have no
@@ -1960,7 +1960,7 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
                 }
             }
             Res::Def(DefKind::AssocTy, def_id) => {
-                debug_assert!(path.segments.len() >= 2);
+                assert!(path.segments.len() >= 2);
                 let _ = self.prohibit_generic_args(
                     path.segments[..path.segments.len() - 2].iter(),
                     GenericsArgsErrExtend::None,

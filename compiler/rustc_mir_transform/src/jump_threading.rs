@@ -656,8 +656,8 @@ impl<'a, 'tcx> TOFinder<'a, 'tcx> {
         target_bb: BasicBlock,
         state: &mut State<ConditionSet<'a>>,
     ) {
-        debug_assert_ne!(target_bb, START_BLOCK);
-        debug_assert_eq!(self.body.basic_blocks.predecessors()[target_bb].len(), 1);
+        assert_ne!(target_bb, START_BLOCK);
+        assert_eq!(self.body.basic_blocks.predecessors()[target_bb].len(), 1);
 
         let Some(discr) = discr.place() else { return };
         let discr_ty = discr.ty(self.body, self.tcx).ty;
@@ -668,7 +668,7 @@ impl<'a, 'tcx> TOFinder<'a, 'tcx> {
 
         if let Some((value, _)) = targets.iter().find(|&(_, target)| target == target_bb) {
             let Some(value) = ScalarInt::try_from_uint(value, discr_layout.size) else { return };
-            debug_assert_eq!(targets.iter().filter(|&(_, target)| target == target_bb).count(), 1);
+            assert_eq!(targets.iter().filter(|&(_, target)| target == target_bb).count(), 1);
 
             // We are inside `target_bb`. Since we have a single predecessor, we know we passed
             // through the `SwitchInt` before arriving here. Therefore, we know that
@@ -732,14 +732,14 @@ impl OpportunitySet {
         debug!(?self.involving_tos);
 
         // Check that `predecessors` satisfies its invariant.
-        debug_assert_eq!(self.predecessors, predecessor_count(body));
+        assert_eq!(self.predecessors, predecessor_count(body));
 
         // Remove the TO from the vector to allow modifying the other ones later.
         let op = &mut self.opportunities[index];
         debug!(?op);
         let op_chain = std::mem::take(&mut op.chain);
         let op_target = op.target;
-        debug_assert_eq!(op_chain.len(), op_chain.iter().collect::<FxHashSet<_>>().len());
+        assert_eq!(op_chain.len(), op_chain.iter().collect::<FxHashSet<_>>().len());
 
         let Some((current, chain)) = op_chain.split_first() else { return };
         let basic_blocks = body.basic_blocks.as_mut();
@@ -777,7 +777,7 @@ impl OpportunitySet {
 
             // Update predecessors with the new block.
             let _new_succ = self.predecessors.push(num_edges);
-            debug_assert_eq!(new_succ, _new_succ);
+            assert_eq!(new_succ, _new_succ);
             self.predecessors[succ] -= num_edges;
             self.update_predecessor_count(basic_blocks[new_succ].terminator(), Update::Incr);
 
@@ -806,7 +806,7 @@ impl OpportunitySet {
             // The TOs that we just updated now reference `new_succ`. Update `involving_tos`
             // in case we need to duplicate an edge starting at `new_succ` later.
             let _new_succ = self.involving_tos.push(new_involved);
-            debug_assert_eq!(new_succ, _new_succ);
+            assert_eq!(new_succ, _new_succ);
 
             current = new_succ;
         }

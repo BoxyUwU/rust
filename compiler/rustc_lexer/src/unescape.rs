@@ -433,6 +433,6 @@ where
 #[inline]
 pub fn byte_from_char(c: char) -> u8 {
     let res = c as u32;
-    debug_assert!(res <= u8::MAX as u32, "guaranteed because of ByteStr");
+    assert!(res <= u8::MAX as u32, "guaranteed because of ByteStr");
     res as u8
 }

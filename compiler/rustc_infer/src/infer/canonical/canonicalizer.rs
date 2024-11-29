@@ -591,7 +591,7 @@ impl<'cx, 'tcx> Canonicalizer<'cx, 'tcx> {
         // Once we have canonicalized `out_value`, it should not
         // contain anything that ties it to this inference context
         // anymore.
-        debug_assert!(!out_value.has_infer() && !out_value.has_placeholders());
+        assert!(!out_value.has_infer() && !out_value.has_placeholders());
 
         let canonical_variables =
             tcx.mk_canonical_var_infos(&canonicalizer.universe_canonicalized_variables());
@@ -762,7 +762,7 @@ impl<'cx, 'tcx> Canonicalizer<'cx, 'tcx> {
     /// *that*. Otherwise, create a new canonical variable for
     /// `ty_var`.
     fn canonicalize_ty_var(&mut self, info: CanonicalVarInfo<'tcx>, ty_var: Ty<'tcx>) -> Ty<'tcx> {
-        debug_assert!(!self.infcx.is_some_and(|infcx| ty_var != infcx.shallow_resolve(ty_var)));
+        assert!(!self.infcx.is_some_and(|infcx| ty_var != infcx.shallow_resolve(ty_var)));
         let var = self.canonical_var(info, ty_var.into());
         Ty::new_bound(self.tcx, self.binder_index, var.into())
     }
@@ -776,7 +776,7 @@ impl<'cx, 'tcx> Canonicalizer<'cx, 'tcx> {
         info: CanonicalVarInfo<'tcx>,
         const_var: ty::Const<'tcx>,
     ) -> ty::Const<'tcx> {
-        debug_assert!(
+        assert!(
             !self.infcx.is_some_and(|infcx| const_var != infcx.shallow_resolve_const(const_var))
         );
         let var = self.canonical_var(info, const_var.into());

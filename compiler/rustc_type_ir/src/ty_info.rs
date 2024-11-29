@@ -98,7 +98,7 @@ impl<T: Hash> Hash for WithCachedTypeInfo<T> {
 #[cfg(feature = "nightly")]
 impl<T: HashStable<CTX>, CTX> HashStable<CTX> for WithCachedTypeInfo<T> {
     fn hash_stable(&self, hcx: &mut CTX, hasher: &mut StableHasher) {
-        if self.stable_hash == Fingerprint::ZERO || cfg!(debug_assertions) {
+        if self.stable_hash == Fingerprint::ZERO || true {
             // No cached hash available. This can only mean that incremental is disabled.
             // We don't cache stable hashes in non-incremental mode, because they are used
             // so rarely that the performance actually suffers.
@@ -110,7 +110,7 @@ impl<T: HashStable<CTX>, CTX> HashStable<CTX> for WithCachedTypeInfo<T> {
                 self.internee.hash_stable(hcx, &mut hasher);
                 hasher.finish()
             };
-            if cfg!(debug_assertions) && self.stable_hash != Fingerprint::ZERO {
+            if true && self.stable_hash != Fingerprint::ZERO {
                 assert_eq!(
                     stable_hash, self.stable_hash,
                     "cached stable hash does not match freshly computed stable hash"

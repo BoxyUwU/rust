@@ -371,7 +371,7 @@ impl Direction for Forward {
             Effect::Before => from.statement_index,
 
             Effect::Primary if from.statement_index == terminator_index => {
-                debug_assert_eq!(from, to);
+                assert_eq!(from, to);
 
                 let location = Location { block, statement_index: terminator_index };
                 let terminator = block_data.terminator();

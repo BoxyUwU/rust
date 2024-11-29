@@ -542,7 +542,7 @@ fn internalize_symbols<'tcx>(
                 match mono_item_placements.entry(*item) {
                     Entry::Occupied(e) => {
                         let placement = e.into_mut();
-                        debug_assert!(match *placement {
+                        assert!(match *placement {
                             MonoItemPlacement::SingleCgu(cgu_name) => cgu_name != cgu.name(),
                             MonoItemPlacement::MultipleCgus => true,
                         });
@@ -568,7 +568,7 @@ fn internalize_symbols<'tcx>(
             }
 
             if !single_codegen_unit {
-                debug_assert_eq!(mono_item_placements[item], home_cgu);
+                assert_eq!(mono_item_placements[item], home_cgu);
 
                 if cx
                     .usage_map
@@ -873,7 +873,7 @@ fn mono_item_visibility<'tcx>(
         // use when they link to us.
         if tcx.is_reachable_non_generic(def_id.to_def_id()) {
             *can_be_internalized = false;
-            debug_assert!(!is_generic);
+            assert!(!is_generic);
             return default_visibility(tcx, def_id.to_def_id(), false);
         }
 

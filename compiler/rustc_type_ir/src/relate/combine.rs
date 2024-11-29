@@ -51,8 +51,8 @@ where
     R: PredicateEmittingRelation<Infcx>,
 {
     debug!("super_combine_tys::<{}>({:?}, {:?})", std::any::type_name::<R>(), a, b);
-    debug_assert!(!a.has_escaping_bound_vars());
-    debug_assert!(!b.has_escaping_bound_vars());
+    assert!(!a.has_escaping_bound_vars());
+    assert!(!b.has_escaping_bound_vars());
 
     match (a.kind(), b.kind()) {
         (ty::Error(e), _) | (_, ty::Error(e)) => {
@@ -158,8 +158,8 @@ where
     R: PredicateEmittingRelation<Infcx>,
 {
     debug!("super_combine_consts::<{}>({:?}, {:?})", std::any::type_name::<R>(), a, b);
-    debug_assert!(!a.has_escaping_bound_vars());
-    debug_assert!(!b.has_escaping_bound_vars());
+    assert!(!a.has_escaping_bound_vars());
+    assert!(!b.has_escaping_bound_vars());
 
     if a == b {
         return Ok(a);

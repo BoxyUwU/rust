@@ -347,7 +347,7 @@ fn orphan_check<'tcx>(
                 UncoveredTyParamCollector { infcx: &infcx, uncovered_params: Default::default() };
             uncovered.visit_with(&mut collector);
             // FIXME(fmease): This is very likely reachable.
-            debug_assert!(!collector.uncovered_params.is_empty());
+            assert!(!collector.uncovered_params.is_empty());
 
             OrphanCheckErr::UncoveredTyParams(UncoveredTyParams {
                 uncovered: collector.uncovered_params,

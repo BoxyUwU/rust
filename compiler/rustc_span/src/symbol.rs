@@ -2516,7 +2516,7 @@ impl Interner {
         // but this code path isn't hot enough for it to be worth it. See
         // #91445 for details.
         let (idx, is_new) = inner.strings.insert_full(string);
-        debug_assert!(is_new); // due to the get_index_of check above
+        assert!(is_new); // due to the get_index_of check above
 
         Symbol::new(idx as u32)
     }

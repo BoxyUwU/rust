@@ -454,7 +454,7 @@ impl<'a, Ty> ArgAbi<'a, Ty> {
                 // `byval`. Account for that.
                 if let Some(byval_align) = byval_align {
                     // On all targets with byval align this is currently true, so let's assert it.
-                    debug_assert!(byval_align >= Align::from_bytes(4).unwrap());
+                    assert!(byval_align >= Align::from_bytes(4).unwrap());
                     attrs.pointee_align = Some(byval_align);
                 }
             }

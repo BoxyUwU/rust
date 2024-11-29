@@ -846,7 +846,7 @@ impl<'tcx> Instance<'tcx> {
             // All other methods should be defaulted methods of the built-in trait.
             // This is important for `Iterator`'s combinators, but also useful for
             // adding future default methods to `Future`, for instance.
-            debug_assert!(tcx.defaultness(trait_item_id).has_value());
+            assert!(tcx.defaultness(trait_item_id).has_value());
             Some(Instance::new(trait_item_id, rcvr_args))
         }
     }
@@ -1007,7 +1007,7 @@ fn polymorphize<'tcx>(
                 // ..and this param has the same type as the tupled upvars..
                 upvars_ty == Some(args[param.index as usize].expect_ty()) => {
                     // ..then double-check that polymorphization marked it used..
-                    debug_assert!(!is_unused);
+                    assert!(!is_unused);
                     // ..and polymorphize any closures/coroutines captured as upvars.
                     let upvars_ty = upvars_ty.unwrap();
                     let polymorphized_upvars_ty = upvars_ty.fold_with(

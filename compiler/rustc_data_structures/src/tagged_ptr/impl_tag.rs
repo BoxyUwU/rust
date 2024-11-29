@@ -126,7 +126,7 @@ macro_rules! impl_tag {
                     // reached, the safety contract of this function was
                     // already breached.
                     _ => unsafe {
-                        debug_assert!(
+                        assert!(
                             false,
                             "invalid tag: {tag}\
                              (this is a bug in the caller of `from_usize`)"

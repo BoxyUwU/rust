@@ -21,7 +21,7 @@ macro_rules! impl_debug_strict_add {
         $(
             impl DebugStrictAdd for $ty {
                 fn debug_strict_add(self, other: Self) -> Self {
-                    if cfg!(debug_assertions) {
+                    if true {
                         self + other
                     } else {
                         self.wrapping_add(other)
@@ -43,7 +43,7 @@ macro_rules! impl_debug_strict_sub {
         $(
             impl DebugStrictSub for $ty {
                 fn debug_strict_sub(self, other: Self) -> Self {
-                    if cfg!(debug_assertions) {
+                    if true {
                         self - other
                     } else {
                         self.wrapping_sub(other)

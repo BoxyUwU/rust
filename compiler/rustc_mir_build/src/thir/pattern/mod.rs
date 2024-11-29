@@ -651,7 +651,7 @@ impl<'a, 'tcx> PatCtxt<'a, 'tcx> {
             tcx.erase_regions(ty::GenericArgs::identity_for_item(tcx, typeck_root_def_id));
         let args = ty::InlineConstArgs::new(tcx, ty::InlineConstArgsParts { parent_args, ty }).args;
 
-        debug_assert!(!args.has_free_regions());
+        assert!(!args.has_free_regions());
 
         let ct = ty::UnevaluatedConst { def: def_id.to_def_id(), args };
         let subpattern = self.const_to_pat(ty::Const::new_unevaluated(self.tcx, ct), ty, id, span);

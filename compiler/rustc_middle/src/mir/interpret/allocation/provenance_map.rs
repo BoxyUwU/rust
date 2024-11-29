@@ -36,7 +36,7 @@ impl<S: Encoder, Prov: Provenance + Encodable<S>> Encodable<S> for ProvenanceMap
     fn encode(&self, s: &mut S) {
         let Self { ptrs, bytes } = self;
         assert!(!Prov::OFFSET_IS_ADDR); // only `CtfeProvenance` is ever serialized
-        debug_assert!(bytes.is_none()); // without `OFFSET_IS_ADDR`, this is always empty
+        assert!(bytes.is_none()); // without `OFFSET_IS_ADDR`, this is always empty
         ptrs.encode(s)
     }
 }
@@ -60,7 +60,7 @@ impl ProvenanceMap {
     /// Only exposed with `CtfeProvenance` provenance, since it panics if there is bytewise provenance.
     #[inline]
     pub fn ptrs(&self) -> &SortedMap<Size, CtfeProvenance> {
-        debug_assert!(self.bytes.is_none()); // `CtfeProvenance::OFFSET_IS_ADDR` is false so this cannot fail
+        assert!(self.bytes.is_none()); // `CtfeProvenance::OFFSET_IS_ADDR` is false so this cannot fail
         &self.ptrs
     }
 }
@@ -94,10 +94,10 @@ impl<Prov: Provenance> ProvenanceMap<Prov> {
     /// Get the provenance of a single byte.
     pub fn get(&self, offset: Size, cx: &impl HasDataLayout) -> Option<Prov> {
         let prov = self.range_get_ptrs(alloc_range(offset, Size::from_bytes(1)), cx);
-        debug_assert!(prov.len() <= 1);
+        assert!(prov.len() <= 1);
         if let Some(entry) = prov.first() {
             // If it overlaps with this byte, it is on this byte.
-            debug_assert!(self.bytes.as_ref().map_or(true, |b| b.get(&offset).is_none()));
+            assert!(self.bytes.as_ref().map_or(true, |b| b.get(&offset).is_none()));
             Some(entry.1)
         } else {
             // Look up per-byte provenance.
@@ -127,7 +127,7 @@ impl<Prov: Provenance> ProvenanceMap<Prov> {
     }
 
     pub fn insert_ptr(&mut self, offset: Size, prov: Prov, cx: &impl HasDataLayout) {
-        debug_assert!(self.range_empty(alloc_range(offset, cx.data_layout().pointer_size), cx));
+        assert!(self.range_empty(alloc_range(offset, cx.data_layout().pointer_size), cx));
         self.ptrs.insert(offset, prov);
     }
 
@@ -142,7 +142,7 @@ impl<Prov: Provenance> ProvenanceMap<Prov> {
                 bytes.remove_range(start..end);
             }
         } else {
-            debug_assert!(self.bytes.is_none());
+            assert!(self.bytes.is_none());
         }
 
         // For the ptr-sized part, find the first (inclusive) and last (exclusive) byte of
@@ -240,7 +240,7 @@ impl<Prov: Provenance> ProvenanceMap<Prov> {
                 dest_ptrs
                     .extend(ptrs.iter().map(|&(offset, reloc)| (shift_offset(i, offset), reloc)));
             }
-            debug_assert_eq!(dest_ptrs.len(), dest_ptrs.capacity());
+            assert_eq!(dest_ptrs.len(), dest_ptrs.capacity());
             dest_ptrs_box = Some(dest_ptrs.into_boxed_slice());
         };
 
@@ -258,7 +258,7 @@ impl<Prov: Provenance> ProvenanceMap<Prov> {
             if let Some(entry) = end_overlap {
                 return Err(AllocError::ReadPartialPointer(entry.0));
             }
-            debug_assert!(self.bytes.is_none());
+            assert!(self.bytes.is_none());
         } else {
             let mut bytes = Vec::new();
             // First, if there is a part of a pointer at the start, add that.
@@ -303,7 +303,7 @@ impl<Prov: Provenance> ProvenanceMap<Prov> {
                 dest_bytes
                     .extend(bytes.iter().map(|&(offset, reloc)| (shift_offset(i, offset), reloc)));
             }
-            debug_assert_eq!(dest_bytes.len(), dest_bytes.capacity());
+            assert_eq!(dest_bytes.len(), dest_bytes.capacity());
             dest_bytes_box = Some(dest_bytes.into_boxed_slice());
         }
 
@@ -324,7 +324,7 @@ impl<Prov: Provenance> ProvenanceMap<Prov> {
                 self.bytes.get_or_insert_with(Box::default).insert_presorted(dest_bytes.into());
             }
         } else {
-            debug_assert!(copy.dest_bytes.is_none());
+            assert!(copy.dest_bytes.is_none());
         }
     }
 }

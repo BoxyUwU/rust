@@ -144,7 +144,7 @@ impl<'a, 'b, 'tcx> AssocTypeNormalizer<'a, 'b, 'tcx> {
         depth: usize,
         obligations: &'a mut PredicateObligations<'tcx>,
     ) -> AssocTypeNormalizer<'a, 'b, 'tcx> {
-        debug_assert!(!selcx.infcx.next_trait_solver());
+        assert!(!selcx.infcx.next_trait_solver());
         AssocTypeNormalizer { selcx, param_env, cause, obligations, depth, universes: vec![] }
     }
 

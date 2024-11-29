@@ -257,7 +257,7 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
     ) -> InterpResult<'tcx, Pointer<M::Provenance>> {
         assert!(alloc.size() <= self.max_size_of_val());
         let id = self.tcx.reserve_alloc_id();
-        debug_assert_ne!(
+        assert_ne!(
             Some(kind),
             M::GLOBAL_KIND.map(MemoryKind::Machine),
             "dynamically allocating global memory"
@@ -1394,7 +1394,7 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
             // For particularly large arrays (where this is perf-sensitive) it's common that
             // we're writing a single byte repeatedly. So, optimize that case to a memset.
             if size_in_bytes == 1 {
-                debug_assert!(num_copies >= 1); // we already handled the zero-sized cases above.
+                assert!(num_copies >= 1); // we already handled the zero-sized cases above.
                 // SAFETY: `src_bytes` would be read from anyway by `copy` below (num_copies >= 1).
                 let value = *src_bytes;
                 dest_bytes.write_bytes(value, (size * num_copies).bytes_usize());

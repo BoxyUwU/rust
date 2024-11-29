@@ -189,7 +189,7 @@ impl ScalarInt {
         // arguments and would thus borrow `self.data`. Since `Self`
         // is a packed struct, that would create a possibly unaligned reference, which
         // is UB.
-        debug_assert_eq!(
+        assert_eq!(
             self.size().truncate(self.data),
             { self.data },
             "Scalar value {:#x} exceeds size of {} bytes",

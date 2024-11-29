@@ -112,7 +112,7 @@ pub(crate) fn read_file(
 
     // Check FILE_MAGIC
     {
-        debug_assert!(FILE_MAGIC.len() == 4);
+        assert!(FILE_MAGIC.len() == 4);
         let mut file_magic = [0u8; 4];
         file.read_exact(&mut file_magic)?;
         if file_magic != FILE_MAGIC {
@@ -123,7 +123,7 @@ pub(crate) fn read_file(
 
     // Check HEADER_FORMAT_VERSION
     {
-        debug_assert!(::std::mem::size_of_val(&HEADER_FORMAT_VERSION) == 2);
+        assert!(::std::mem::size_of_val(&HEADER_FORMAT_VERSION) == 2);
         let mut header_format_version = [0u8; 2];
         file.read_exact(&mut header_format_version)?;
         let header_format_version =

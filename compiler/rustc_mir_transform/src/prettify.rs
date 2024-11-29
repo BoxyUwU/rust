@@ -30,7 +30,7 @@ impl<'tcx> crate::MirPass<'tcx> for ReorderBasicBlocks {
         }
 
         let mut updater = BasicBlockUpdater { map: rpo.invert_bijective_mapping(), tcx };
-        debug_assert_eq!(updater.map[START_BLOCK], START_BLOCK);
+        assert_eq!(updater.map[START_BLOCK], START_BLOCK);
         updater.visit_body(body);
 
         permute(body.basic_blocks.as_mut(), &updater.map);
@@ -76,7 +76,7 @@ impl<'tcx> crate::MirPass<'tcx> for ReorderLocals {
         let mut updater = LocalUpdater { map: finder.map.invert_bijective_mapping(), tcx };
 
         for local in (0..=body.arg_count).map(Local::from_usize) {
-            debug_assert_eq!(updater.map[local], local);
+            assert_eq!(updater.map[local], local);
         }
 
         updater.visit_body_preserves_cfg(body);

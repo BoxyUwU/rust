@@ -843,7 +843,7 @@ impl<'rt, 'tcx, M: Machine<'tcx>> ValidityVisitor<'rt, 'tcx, M> {
     }
 
     fn in_mutable_memory(&self, val: &PlaceTy<'tcx, M::Provenance>) -> bool {
-        debug_assert!(self.ctfe_mode.is_some());
+        assert!(self.ctfe_mode.is_some());
         if let Some(mplace) = val.as_mplace_or_local().left() {
             if let Some(alloc_id) = mplace.ptr().provenance.and_then(|p| p.get_alloc_id()) {
                 let tcx = *self.ecx.tcx;
@@ -876,7 +876,7 @@ impl<'rt, 'tcx, M: Machine<'tcx>> ValidityVisitor<'rt, 'tcx, M> {
     /// Add the entire given place to the "data" range of this visit.
     fn add_data_range_place(&mut self, place: &PlaceTy<'tcx, M::Provenance>) {
         // Only sized places can be added this way.
-        debug_assert!(place.layout.is_sized());
+        assert!(place.layout.is_sized());
         if let Some(data_bytes) = self.data_bytes.as_mut() {
             let offset = Self::data_range_offset(self.ecx, place);
             data_bytes.add_range(offset, place.layout.size);

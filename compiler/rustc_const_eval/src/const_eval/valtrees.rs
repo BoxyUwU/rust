@@ -233,7 +233,7 @@ pub(crate) fn eval_to_valtree<'tcx>(
 ) -> EvalToValTreeResult<'tcx> {
     // Const eval always happens in PostAnalysis mode . See the comment in
     // `InterpCx::new` for more details.
-    debug_assert_eq!(typing_env.typing_mode, ty::TypingMode::PostAnalysis);
+    assert_eq!(typing_env.typing_mode, ty::TypingMode::PostAnalysis);
     let const_alloc = tcx.eval_to_allocation_raw(typing_env.as_query_input(cid))?;
 
     // FIXME Need to provide a span to `eval_to_valtree`

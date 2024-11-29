@@ -64,11 +64,11 @@ impl<'hir> Iterator for ParentHirIterator<'hir> {
                 self.current_owner_nodes.get_or_insert_with(|| self.map.tcx.hir_owner_nodes(owner));
             let parent_local_id = owner_nodes.nodes[local_id].parent;
             // HIR indexing should have checked that.
-            debug_assert_ne!(parent_local_id, local_id);
+            assert_ne!(parent_local_id, local_id);
             HirId { owner, local_id: parent_local_id }
         };
 
-        debug_assert_ne!(parent_id, self.current_id);
+        assert_ne!(parent_id, self.current_id);
 
         self.current_id = parent_id;
         Some(parent_id)
@@ -156,7 +156,7 @@ impl<'tcx> TyCtxt<'tcx> {
         } else {
             let parent_local_id = self.hir_owner_nodes(owner).nodes[local_id].parent;
             // HIR indexing should have checked that.
-            debug_assert_ne!(parent_local_id, local_id);
+            assert_ne!(parent_local_id, local_id);
             HirId { owner, local_id: parent_local_id }
         }
     }
@@ -907,7 +907,7 @@ impl<'hir> Map<'hir> {
             }
             _ => self.span_with_body(hir_id),
         };
-        debug_assert_eq!(span.ctxt(), self.span_with_body(hir_id).ctxt());
+        assert_eq!(span.ctxt(), self.span_with_body(hir_id).ctxt());
         span
     }
 
@@ -1104,7 +1104,7 @@ pub(super) fn crate_hash(tcx: TyCtxt<'_>, _: LocalCrate) -> Svh {
                     let _ = info.as_owner()?;
                     let def_path_hash = definitions.def_path_hash(def_id);
                     let span = tcx.source_span(def_id);
-                    debug_assert_eq!(span.parent(), None);
+                    assert_eq!(span.parent(), None);
                     Some((def_path_hash, span))
                 })
                 .collect();

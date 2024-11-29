@@ -77,7 +77,7 @@ pub(crate) fn mir_build<'tcx>(tcx: TyCtxtAt<'tcx>, def: LocalDefId) -> Body<'tcx
     // inference variables. There's no point having non-erased regions here.
     // The exception is `body.user_type_annotations`, which is used unmodified
     // by borrow checking.
-    debug_assert!(
+    assert!(
         !(body.local_decls.has_free_regions()
             || body.basic_blocks.has_free_regions()
             || body.var_debug_info.has_free_regions()

@@ -212,7 +212,7 @@ fn structurally_same_type<'tcx>(
 ) -> bool {
     let mut seen_types = UnordSet::default();
     let result = structurally_same_type_impl(&mut seen_types, tcx, typing_env, a, b, ckind);
-    if cfg!(debug_assertions) && result {
+    if true && result {
         // Sanity-check: must have same ABI, size and alignment.
         // `extern` blocks cannot be generic, so we'll always get a layout here.
         let a_layout = tcx.layout_of(typing_env.as_query_input(a)).unwrap();
@@ -246,7 +246,7 @@ fn structurally_same_type_impl<'tcx>(
                     ty, is_transparent, is_non_null
                 );
                 if is_transparent && !is_non_null {
-                    debug_assert_eq!(def.variants().len(), 1);
+                    assert_eq!(def.variants().len(), 1);
                     let v = &def.variant(FIRST_VARIANT);
                     // continue with `ty`'s non-ZST field,
                     // otherwise `ty` is a ZST and we can return

@@ -8,7 +8,7 @@
 //! Typical examples would include: minimum element in SCC, maximum element
 //! reachable from it, etc.
 
-use std::assert_matches::debug_assert_matches;
+use std::assert_matches::assert_matches;
 use std::fmt::Debug;
 use std::ops::Range;
 
@@ -527,7 +527,7 @@ where
         // mutably borrow it without borrowing self at the same time.
         let mut successors_stack = core::mem::take(&mut self.successors_stack);
 
-        debug_assert_eq!(successors_stack.len(), 0);
+        assert_eq!(successors_stack.len(), 0);
 
         let mut stack: Vec<VisitingNodeFrame<G, _, _>> = vec![VisitingNodeFrame {
             node: initial,
@@ -570,7 +570,7 @@ where
                     // This None marks that we still have the initialize this node's frame.
                     debug!(?depth, ?node);
 
-                    debug_assert_matches!(self.node_states[node], NodeState::NotVisited);
+                    assert_matches!(self.node_states[node], NodeState::NotVisited);
 
                     // Push `node` onto the stack.
                     self.node_states[node] = NodeState::BeingVisited {
@@ -663,19 +663,19 @@ where
 
             // Completed walk, remove `node` from the stack.
             let r = self.node_stack.pop();
-            debug_assert_eq!(r, Some(node));
+            assert_eq!(r, Some(node));
 
             // Remove the frame, it's done.
             let frame = stack.pop().unwrap();
             let current_component_annotation = frame.current_component_annotation;
-            debug_assert_eq!(frame.node, node);
+            assert_eq!(frame.node, node);
 
             // If `min_depth == depth`, then we are the root of the
             // cycle: we can't reach anyone further down the stack.
 
             // Pass the 'return value' down the stack.
             // We return one frame at a time so there can't be another return value.
-            debug_assert!(return_value.is_none());
+            assert!(return_value.is_none());
             return_value = Some(if frame.min_depth == depth {
                 // We are at the head of the component.
 
@@ -712,7 +712,7 @@ where
 
         // Keep the allocation we used for successors_stack.
         self.successors_stack = successors_stack;
-        debug_assert_eq!(self.successors_stack.len(), 0);
+        assert_eq!(self.successors_stack.len(), 0);
 
         return_value.unwrap()
     }

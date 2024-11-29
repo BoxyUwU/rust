@@ -1,4 +1,4 @@
-use std::assert_matches::debug_assert_matches;
+use std::assert_matches::assert_matches;
 use std::cell::LazyCell;
 
 use rustc_data_structures::fx::{FxHashMap, FxIndexMap, FxIndexSet};
@@ -314,7 +314,7 @@ where
                         return true;
                     };
                     // We only computed variance of lifetimes...
-                    debug_assert_matches!(self.tcx.def_kind(def_id), DefKind::LifetimeParam);
+                    assert_matches!(self.tcx.def_kind(def_id), DefKind::LifetimeParam);
                     let uncaptured = match *kind {
                         ParamKind::Early(name, index) => {
                             ty::Region::new_early_param(self.tcx, ty::EarlyParamRegion {

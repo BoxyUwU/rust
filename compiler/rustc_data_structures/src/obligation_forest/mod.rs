@@ -570,7 +570,7 @@ impl<O: ForestObligation> ObligationForest<O> {
                 // This call site is cold.
                 self.uninlined_mark_dependents_as_waiting(node);
             } else {
-                debug_assert!(state == NodeState::Waiting || state == NodeState::Error)
+                assert!(state == NodeState::Waiting || state == NodeState::Error)
             }
         }
     }
@@ -599,7 +599,7 @@ impl<O: ForestObligation> ObligationForest<O> {
             }
         }
 
-        debug_assert!(stack.is_empty());
+        assert!(stack.is_empty());
         self.reused_node_vec = stack;
     }
 
@@ -644,7 +644,7 @@ impl<O: ForestObligation> ObligationForest<O> {
     fn compress(&mut self, mut outcome_cb: impl FnMut(&O)) {
         let orig_nodes_len = self.nodes.len();
         let mut node_rewrites: Vec<_> = std::mem::take(&mut self.reused_node_vec);
-        debug_assert!(node_rewrites.is_empty());
+        assert!(node_rewrites.is_empty());
         node_rewrites.extend(0..orig_nodes_len);
         let mut dead_nodes = 0;
 

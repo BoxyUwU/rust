@@ -244,14 +244,14 @@ impl<'tcx, Prov: Provenance> std::ops::Deref for ImmTy<'tcx, Prov> {
 impl<'tcx, Prov: Provenance> ImmTy<'tcx, Prov> {
     #[inline]
     pub fn from_scalar(val: Scalar<Prov>, layout: TyAndLayout<'tcx>) -> Self {
-        debug_assert!(layout.backend_repr.is_scalar(), "`ImmTy::from_scalar` on non-scalar layout");
-        debug_assert_eq!(val.size(), layout.size);
+        assert!(layout.backend_repr.is_scalar(), "`ImmTy::from_scalar` on non-scalar layout");
+        assert_eq!(val.size(), layout.size);
         ImmTy { imm: val.into(), layout }
     }
 
     #[inline]
     pub fn from_scalar_pair(a: Scalar<Prov>, b: Scalar<Prov>, layout: TyAndLayout<'tcx>) -> Self {
-        debug_assert!(
+        assert!(
             matches!(layout.backend_repr, BackendRepr::ScalarPair(..)),
             "`ImmTy::from_scalar_pair` on non-scalar-pair layout"
         );
@@ -262,7 +262,7 @@ impl<'tcx, Prov: Provenance> ImmTy<'tcx, Prov> {
     #[inline(always)]
     pub fn from_immediate(imm: Immediate<Prov>, layout: TyAndLayout<'tcx>) -> Self {
         // Without a `cx` we cannot call `assert_matches_abi`.
-        debug_assert!(
+        assert!(
             match (imm, layout.backend_repr) {
                 (Immediate::Scalar(..), BackendRepr::Scalar(..)) => true,
                 (Immediate::ScalarPair(..), BackendRepr::ScalarPair(..)) => true,
@@ -276,7 +276,7 @@ impl<'tcx, Prov: Provenance> ImmTy<'tcx, Prov> {
 
     #[inline]
     pub fn uninit(layout: TyAndLayout<'tcx>) -> Self {
-        debug_assert!(layout.is_sized(), "immediates must be sized");
+        assert!(layout.is_sized(), "immediates must be sized");
         ImmTy { imm: Immediate::Uninit, layout }
     }
 
@@ -359,7 +359,7 @@ impl<'tcx, Prov: Provenance> ImmTy<'tcx, Prov> {
     // Not called `offset` to avoid confusion with the trait method.
     fn offset_(&self, offset: Size, layout: TyAndLayout<'tcx>, cx: &impl HasDataLayout) -> Self {
         // Verify that the input matches its type.
-        if cfg!(debug_assertions) {
+        if true {
             self.assert_matches_abi(
                 self.layout.backend_repr,
                 "invalid input to Immediate::offset",
@@ -437,7 +437,7 @@ impl<'tcx, Prov: Provenance> Projectable<'tcx, Prov> for ImmTy<'tcx, Prov> {
 
     #[inline(always)]
     fn meta(&self) -> MemPlaceMeta<Prov> {
-        debug_assert!(self.layout.is_sized()); // unsized ImmTy can only exist temporarily and should never reach this here
+        assert!(self.layout.is_sized()); // unsized ImmTy can only exist temporarily and should never reach this here
         MemPlaceMeta::None
     }
 
@@ -519,7 +519,7 @@ impl<'tcx, Prov: Provenance> Projectable<'tcx, Prov> for OpTy<'tcx, Prov> {
         match self.as_mplace_or_imm() {
             Left(mplace) => mplace.meta(),
             Right(_) => {
-                debug_assert!(self.layout.is_sized(), "unsized immediates are not a thing");
+                assert!(self.layout.is_sized(), "unsized immediates are not a thing");
                 MemPlaceMeta::None
             }
         }
@@ -736,14 +736,14 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
         match place.as_mplace_or_local() {
             Left(mplace) => interp_ok(mplace.into()),
             Right((local, offset, locals_addr, _)) => {
-                debug_assert!(place.layout.is_sized()); // only sized locals can ever be `Place::Local`.
-                debug_assert_eq!(locals_addr, self.frame().locals_addr());
+                assert!(place.layout.is_sized()); // only sized locals can ever be `Place::Local`.
+                assert_eq!(locals_addr, self.frame().locals_addr());
                 let base = self.local_to_op(local, None)?;
                 interp_ok(match offset {
                     Some(offset) => base.offset(offset, place.layout, self)?,
                     None => {
                         // In the common case this hasn't been projected.
-                        debug_assert_eq!(place.layout, base.layout);
+                        assert_eq!(place.layout, base.layout);
                         base
                     }
                 })
@@ -770,7 +770,7 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
 
         trace!("eval_place_to_op: got {:?}", op);
         // Sanity-check the type we ended up with.
-        if cfg!(debug_assertions) {
+        if true {
             let normalized_place_ty = self
                 .instantiate_from_current_frame_and_normalize_erasing_regions(
                     mir_place.ty(&self.frame().body.local_decls, *self.tcx).ty,

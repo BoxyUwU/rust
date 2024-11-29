@@ -165,7 +165,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         rhs_ty: Ty<'tcx>,
         op: hir::BinOp,
     ) -> Ty<'tcx> {
-        debug_assert!(is_builtin_binop(lhs_ty, rhs_ty, op));
+        assert!(is_builtin_binop(lhs_ty, rhs_ty, op));
 
         // Special-case a single layer of referencing, so that things like `5.0 + &6.0f32` work.
         // (See https://github.com/rust-lang/rust/issues/57447.)

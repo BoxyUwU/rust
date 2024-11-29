@@ -198,7 +198,7 @@ fn shallow_lint_levels_on(tcx: TyCtxt<'_>, owner: hir::OwnerId) -> ShallowLintLe
 
     #[cfg(debug_assertions)]
     for (_, v) in specs.specs.iter() {
-        debug_assert!(!v.is_empty());
+        assert!(!v.is_empty());
     }
 
     specs

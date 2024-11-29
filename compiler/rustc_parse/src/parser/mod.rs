@@ -10,7 +10,7 @@ mod path;
 mod stmt;
 mod ty;
 
-use std::assert_matches::debug_assert_matches;
+use std::assert_matches::assert_matches;
 use std::ops::Range;
 use std::{fmt, mem, slice};
 
@@ -305,10 +305,7 @@ impl TokenCursor {
             if let Some(tree) = self.tree_cursor.next_ref() {
                 match tree {
                     &TokenTree::Token(ref token, spacing) => {
-                        debug_assert!(!matches!(
-                            token.kind,
-                            token::OpenDelim(_) | token::CloseDelim(_)
-                        ));
+                        assert!(!matches!(token.kind, token::OpenDelim(_) | token::CloseDelim(_)));
                         return (token.clone(), spacing);
                     }
                     &TokenTree::Delimited(sp, spacing, delim, ref tts) => {
@@ -1172,7 +1169,7 @@ impl<'a> Parser<'a> {
             let fallback_span = self.token.span;
             next.0.span = fallback_span.with_ctxt(next.0.span.ctxt());
         }
-        debug_assert!(!matches!(
+        assert!(!matches!(
             next.0.kind,
             token::OpenDelim(delim) | token::CloseDelim(delim) if delim.skip()
         ));
@@ -1414,7 +1411,7 @@ impl<'a> Parser<'a> {
                     // can capture these tokens if necessary.
                     self.bump();
                     if self.token_cursor.stack.len() == target_depth {
-                        debug_assert_matches!(self.token.kind, token::CloseDelim(_));
+                        assert_matches!(self.token.kind, token::CloseDelim(_));
                         break;
                     }
                 }
@@ -1581,7 +1578,7 @@ impl<'a> Parser<'a> {
     fn check_path_sep_and_look_ahead(&mut self, looker: impl Fn(&Token) -> bool) -> bool {
         if self.check(&token::PathSep) {
             if self.may_recover() && self.look_ahead(1, |t| t.kind == token::Colon) {
-                debug_assert!(!self.look_ahead(1, &looker), "Looker must not match on colon");
+                assert!(!self.look_ahead(1, &looker), "Looker must not match on colon");
                 self.look_ahead(2, looker)
             } else {
                 self.look_ahead(1, looker)

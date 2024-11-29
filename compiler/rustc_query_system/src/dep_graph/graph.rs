@@ -383,7 +383,7 @@ impl<D: Deps> DepGraphData<D> {
         hashing_timer.finish_with_query_invocation_id(dep_node_index.into());
 
         if let Some((prev_index, color)) = prev_and_color {
-            debug_assert!(
+            assert!(
                 self.colors.get(prev_index).is_none(),
                 "DepGraph::with_task() - Duplicate DepNodeColor \
                             insertion for {key:?}"
@@ -406,7 +406,7 @@ impl<D: Deps> DepGraphData<D> {
     where
         OP: FnOnce() -> R,
     {
-        debug_assert!(!cx.is_eval_always(dep_kind));
+        assert!(!cx.is_eval_always(dep_kind));
 
         let task_deps = Lock::new(TaskDeps::default());
         let result = D::with_deps(TaskDepsRef::Allow(&task_deps), op);
@@ -471,7 +471,7 @@ impl<D: Deps> DepGraph<D> {
                 };
                 let task_deps = &mut *task_deps;
 
-                if cfg!(debug_assertions) {
+                if true {
                     data.current.total_read_count.fetch_add(1, Ordering::Relaxed);
                 }
 
@@ -501,7 +501,7 @@ impl<D: Deps> DepGraph<D> {
                             }
                         }
                     }
-                } else if cfg!(debug_assertions) {
+                } else if true {
                     data.current.total_duplicate_read_count.fetch_add(1, Ordering::Relaxed);
                 }
             })
@@ -587,7 +587,7 @@ impl<D: Deps> DepGraph<D> {
             hashing_timer.finish_with_query_invocation_id(dep_node_index.into());
 
             if let Some((prev_index, color)) = prev_and_color {
-                debug_assert!(
+                assert!(
                     data.colors.get(prev_index).is_none(),
                     "DepGraph::with_task() - Duplicate DepNodeColor insertion for {key:?}",
                 );
@@ -721,7 +721,7 @@ impl<D: Deps> DepGraphData<D> {
         qcx: Qcx,
         dep_node: &DepNode,
     ) -> Option<(SerializedDepNodeIndex, DepNodeIndex)> {
-        debug_assert!(!qcx.dep_context().is_eval_always(dep_node.kind));
+        assert!(!qcx.dep_context().is_eval_always(dep_node.kind));
 
         // Return None if the dep node didn't exist in the previous session
         let prev_index = self.previous.node_to_index_opt(dep_node)?;
@@ -838,9 +838,9 @@ impl<D: Deps> DepGraphData<D> {
         let frame = MarkFrame { index: prev_dep_node_index, parent: frame };
 
         // We never try to mark eval_always nodes as green
-        debug_assert!(!qcx.dep_context().is_eval_always(dep_node.kind));
+        assert!(!qcx.dep_context().is_eval_always(dep_node.kind));
 
-        debug_assert_eq!(self.previous.index_to_node(prev_dep_node_index), *dep_node);
+        assert_eq!(self.previous.index_to_node(prev_dep_node_index), *dep_node);
 
         let prev_deps = self.previous.edge_targets_from(prev_dep_node_index);
 
@@ -961,7 +961,7 @@ impl<D: Deps> DepGraph<D> {
     }
 
     pub(crate) fn next_virtual_depnode_index(&self) -> DepNodeIndex {
-        debug_assert!(self.data.is_none());
+        assert!(self.data.is_none());
         let index = self.virtual_dep_node_index.fetch_add(1, Ordering::Relaxed);
         DepNodeIndex::from_u32(index)
     }
@@ -1249,7 +1249,7 @@ impl<D: Deps> CurrentDepGraph<D> {
         prev_index: SerializedDepNodeIndex,
     ) {
         let node = &prev_graph.index_to_node(prev_index);
-        debug_assert!(
+        assert!(
             !self.new_node_to_index.lock_shard_by_value(node).contains_key(node),
             "node from previous graph present in new node collection"
         );

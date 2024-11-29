@@ -332,7 +332,7 @@ impl<I: Interner> ExistentialTraitRef<I> {
     /// or some placeholder type.
     pub fn with_self_ty(self, interner: I, self_ty: I::Ty) -> TraitRef<I> {
         // otherwise the escaping vars would be captured by the binder
-        // debug_assert!(!self_ty.has_escaping_bound_vars());
+        // assert!(!self_ty.has_escaping_bound_vars());
 
         TraitRef::new(interner, self.def_id, [self_ty.into()].into_iter().chain(self.args.iter()))
     }
@@ -400,7 +400,7 @@ impl<I: Interner> ExistentialProjection<I> {
 
     pub fn with_self_ty(&self, interner: I, self_ty: I::Ty) -> ProjectionPredicate<I> {
         // otherwise the escaping regions would be captured by the binders
-        debug_assert!(!self_ty.has_escaping_bound_vars());
+        assert!(!self_ty.has_escaping_bound_vars());
 
         ProjectionPredicate {
             projection_term: AliasTerm::new(

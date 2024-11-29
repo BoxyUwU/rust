@@ -1156,7 +1156,7 @@ fn generic_simd_intrinsic<'ll, 'tcx>(
     let arg_tys = sig.inputs();
 
     // Sanity-check: all vector arguments must be immediates.
-    if cfg!(debug_assertions) {
+    if true {
         for (ty, arg) in arg_tys.iter().zip(args) {
             if ty.is_simd() {
                 assert_matches!(arg.val, OperandValue::Immediate(_));

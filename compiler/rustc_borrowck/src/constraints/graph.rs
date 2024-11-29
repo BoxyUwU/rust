@@ -86,7 +86,7 @@ impl<D: ConstraintGraphDirection> ConstraintGraph<D> {
         for (idx, constraint) in set.outlives.iter_enumerated().rev() {
             let head = &mut first_constraints[D::start_region(constraint)];
             let next = &mut next_constraints[idx];
-            debug_assert!(next.is_none());
+            assert!(next.is_none());
             *next = *head;
             *head = Some(idx);
         }

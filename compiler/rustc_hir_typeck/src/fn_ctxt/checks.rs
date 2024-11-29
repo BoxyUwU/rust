@@ -488,7 +488,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             } else {
                 provided_arg_count
             }));
-            debug_assert_eq!(
+            assert_eq!(
                 formal_input_tys.len(),
                 expected_input_tys.len(),
                 "expected formal_input_tys to be the same size as expected_input_tys"
@@ -896,7 +896,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         // It is what it is.
 
         if errors.is_empty() {
-            if cfg!(debug_assertions) {
+            if true {
                 span_bug!(error_span, "expected errors from argument matrix");
             } else {
                 let mut err =
@@ -2341,7 +2341,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
 
             if let Some(params_with_generics) = self.get_hir_params_with_generics(def_id, is_method)
             {
-                debug_assert_eq!(params_with_generics.len(), matched_inputs.len());
+                assert_eq!(params_with_generics.len(), matched_inputs.len());
 
                 let mut generics_with_unmatched_params = Vec::new();
 
@@ -2579,7 +2579,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
         };
 
         if let Some(params_with_generics) = self.get_hir_params_with_generics(def_id, is_method) {
-            debug_assert_eq!(params_with_generics.len(), matched_inputs.len());
+            assert_eq!(params_with_generics.len(), matched_inputs.len());
             for &(idx, generic_param, _) in &params_with_generics {
                 if matched_inputs[idx.into()].is_none() {
                     continue;
@@ -2684,7 +2684,7 @@ impl<'a, 'tcx> FnCtxt<'a, 'tcx> {
             params.pop();
         }
 
-        debug_assert_eq!(params.len(), generic_params.len());
+        assert_eq!(params.len(), generic_params.len());
         Some(
             generic_params
                 .into_iter()

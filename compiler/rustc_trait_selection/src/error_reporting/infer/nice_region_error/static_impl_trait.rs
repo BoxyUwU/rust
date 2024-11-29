@@ -483,7 +483,7 @@ impl<'a, 'tcx> NiceRegionError<'a, 'tcx> {
             }
             Node::TraitItem(trait_item) => {
                 let trait_id = tcx.hir().get_parent_item(trait_item.hir_id());
-                debug_assert_eq!(tcx.def_kind(trait_id.def_id), hir::def::DefKind::Trait);
+                assert_eq!(tcx.def_kind(trait_id.def_id), hir::def::DefKind::Trait);
                 // The method being called is defined in the `trait`, but the `'static`
                 // obligation comes from the `impl`. Find that `impl` so that we can point
                 // at it in the suggestion.

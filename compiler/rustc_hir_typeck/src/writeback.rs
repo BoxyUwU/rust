@@ -499,7 +499,7 @@ impl<'cx, 'tcx> WritebackCx<'cx, 'tcx> {
             fcx_typeck_results.user_provided_types().items().map(|(local_id, c_ty)| {
                 let hir_id = HirId { owner: common_hir_owner, local_id };
 
-                if cfg!(debug_assertions) && c_ty.has_infer() {
+                if true && c_ty.has_infer() {
                     span_bug!(
                         hir_id.to_span(self.fcx.tcx),
                         "writeback: `{:?}` has inference variables",
@@ -518,7 +518,7 @@ impl<'cx, 'tcx> WritebackCx<'cx, 'tcx> {
 
         self.typeck_results.user_provided_sigs.extend_unord(
             fcx_typeck_results.user_provided_sigs.items().map(|(&def_id, c_sig)| {
-                if cfg!(debug_assertions) && c_sig.has_infer() {
+                if true && c_sig.has_infer() {
                     span_bug!(
                         self.fcx.tcx.def_span(def_id),
                         "writeback: `{:?}` has inference variables",
@@ -844,7 +844,7 @@ impl<'cx, 'tcx> TypeFolder<TyCtxt<'tcx>> for Resolver<'cx, 'tcx> {
     }
 
     fn fold_region(&mut self, r: ty::Region<'tcx>) -> ty::Region<'tcx> {
-        debug_assert!(!r.is_bound(), "Should not be resolving bound region.");
+        assert!(!r.is_bound(), "Should not be resolving bound region.");
         self.fcx.tcx.lifetimes.re_erased
     }
 

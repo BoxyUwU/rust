@@ -644,7 +644,7 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
     ) -> InterpResult<'tcx> {
         let left = self.deref_pointer(left)?;
         let right = self.deref_pointer(right)?;
-        debug_assert_eq!(left.layout, right.layout);
+        assert_eq!(left.layout, right.layout);
         let kind = MemoryKind::Stack;
         let temp = self.allocate(left.layout, kind)?;
         self.copy_op(&left, &temp)?;

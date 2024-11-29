@@ -110,8 +110,7 @@ pub trait Translate {
                 // local runs of the test suites, of builds with debug assertions, to test the
                 // behaviour in a normal build).
                 Some(Err(primary))
-                    if cfg!(debug_assertions)
-                        && env::var("RUSTC_TRANSLATION_NO_DEBUG_ASSERT").is_err() =>
+                    if true && env::var("RUSTC_TRANSLATION_NO_DEBUG_ASSERT").is_err() =>
                 {
                     do yeet primary
                 }

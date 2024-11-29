@@ -80,7 +80,7 @@ impl<'tcx> VariantDef {
         tcx: TyCtxt<'tcx>,
         adt: ty::AdtDef<'_>,
     ) -> InhabitedPredicate<'tcx> {
-        debug_assert!(!adt.is_union());
+        assert!(!adt.is_union());
         InhabitedPredicate::all(
             tcx,
             self.fields.iter().map(|field| {
@@ -102,7 +102,7 @@ impl<'tcx> VariantDef {
 impl<'tcx> Ty<'tcx> {
     #[instrument(level = "debug", skip(tcx), ret)]
     pub fn inhabited_predicate(self, tcx: TyCtxt<'tcx>) -> InhabitedPredicate<'tcx> {
-        debug_assert!(!self.has_infer());
+        assert!(!self.has_infer());
         match self.kind() {
             // For now, unions are always considered inhabited
             Adt(adt, _) if adt.is_union() => InhabitedPredicate::True,

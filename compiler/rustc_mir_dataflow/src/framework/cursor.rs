@@ -221,7 +221,7 @@ where
 
         // At this point, the cursor is in the same block as the target location at an earlier
         // statement.
-        debug_assert_eq!(target.block, self.pos.block);
+        assert_eq!(target.block, self.pos.block);
 
         let block_data = &self.body[target.block];
         #[rustfmt::skip]

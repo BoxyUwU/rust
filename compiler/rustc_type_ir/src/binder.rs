@@ -111,7 +111,7 @@ where
     }
 
     pub fn bind_with_vars(value: T, bound_vars: I::BoundVarKinds) -> Binder<I, T> {
-        if cfg!(debug_assertions) {
+        if true {
             let mut validator = ValidateBoundVars::new(bound_vars);
             value.visit_with(&mut validator);
         }
@@ -195,7 +195,7 @@ impl<I: Interner, T> Binder<I, T> {
     {
         let Binder { value, bound_vars } = self;
         let value = f(value);
-        if cfg!(debug_assertions) {
+        if true {
             let mut validator = ValidateBoundVars::new(bound_vars);
             value.visit_with(&mut validator);
         }
@@ -208,7 +208,7 @@ impl<I: Interner, T> Binder<I, T> {
     {
         let Binder { value, bound_vars } = self;
         let value = f(value)?;
-        if cfg!(debug_assertions) {
+        if true {
             let mut validator = ValidateBoundVars::new(bound_vars);
             value.visit_with(&mut validator);
         }

@@ -152,7 +152,7 @@ impl EffectiveVisibilities {
     }
 
     pub fn check_invariants(&self, tcx: TyCtxt<'_>) {
-        if !cfg!(debug_assertions) {
+        if !true {
             return;
         }
         for (&def_id, ev) in &self.map {

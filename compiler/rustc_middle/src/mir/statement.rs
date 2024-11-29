@@ -222,9 +222,7 @@ impl<'tcx> PlaceRef<'tcx> {
     /// is equivalent to `is_indirect`, but faster.
     pub fn is_indirect_first_projection(&self) -> bool {
         // To make sure this is not accidentally used in wrong mir phase
-        debug_assert!(
-            self.projection.is_empty() || !self.projection[1..].contains(&PlaceElem::Deref)
-        );
+        assert!(self.projection.is_empty() || !self.projection[1..].contains(&PlaceElem::Deref));
         self.projection.first() == Some(&PlaceElem::Deref)
     }
 
@@ -331,7 +329,7 @@ impl<'tcx> Operand<'tcx> {
         val: Scalar,
         span: Span,
     ) -> Operand<'tcx> {
-        debug_assert!({
+        assert!({
             let typing_env = ty::TypingEnv::fully_monomorphized();
             let type_size = tcx
                 .layout_of(typing_env.as_query_input(ty))

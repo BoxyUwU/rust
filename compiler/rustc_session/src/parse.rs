@@ -47,7 +47,7 @@ impl GatedSpans {
     /// Using this is discouraged unless you have a really good reason to.
     pub fn ungate_last(&self, feature: Symbol, span: Span) {
         let removed_span = self.spans.borrow_mut().entry(feature).or_default().pop().unwrap();
-        debug_assert_eq!(span, removed_span);
+        assert_eq!(span, removed_span);
     }
 
     /// Prepend the given set of `spans` onto the set in `self`.

@@ -115,7 +115,7 @@ impl InlineCtxt {
     #[inline]
     fn data(self) -> SpanData {
         let len = self.len as u32;
-        debug_assert!(len <= MAX_LEN);
+        assert!(len <= MAX_LEN);
         SpanData {
             lo: BytePos(self.lo),
             hi: BytePos(self.lo.debug_strict_add(len)),
@@ -139,7 +139,7 @@ impl InlineParent {
     #[inline]
     fn data(self) -> SpanData {
         let len = (self.len_with_tag & !PARENT_TAG) as u32;
-        debug_assert!(len <= MAX_LEN);
+        assert!(len <= MAX_LEN);
         SpanData {
             lo: BytePos(self.lo),
             hi: BytePos(self.lo.debug_strict_add(len)),
@@ -317,7 +317,7 @@ impl Span {
             // Inline-context or inline-parent format.
             let lo = self.lo_or_index;
             let len = (self.len_with_tag_or_marker & !PARENT_TAG) as u32;
-            debug_assert!(len <= MAX_LEN);
+            assert!(len <= MAX_LEN);
             lo == 0 && len == 0
         } else {
             // Fully-interned or partially-interned format.

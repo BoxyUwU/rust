@@ -381,7 +381,7 @@ fn compute_copy_classes(ssa: &mut SsaLocals, body: &Body<'_>) {
     for &head in copies.iter() {
         assert_eq!(copies[head], head);
     }
-    debug_assert_eq!(copies[RETURN_PLACE], RETURN_PLACE);
+    assert_eq!(copies[RETURN_PLACE], RETURN_PLACE);
 
     ssa.direct_uses = direct_uses;
     ssa.copy_classes = copies;

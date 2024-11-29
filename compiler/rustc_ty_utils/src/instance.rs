@@ -292,7 +292,7 @@ fn resolve_associated_item<'tcx>(
                 // FIXME: This doesn't check for malformed libcore that defines, e.g.,
                 // `trait Fn { fn call_once(&self) { .. } }`. This is mostly for extension
                 // methods.
-                if cfg!(debug_assertions)
+                if true
                     && ![sym::call, sym::call_mut, sym::call_once]
                         .contains(&tcx.item_name(trait_item_id))
                 {

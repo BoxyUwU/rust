@@ -191,20 +191,20 @@ impl LocalExpnId {
         HygieneData::with(|data| {
             let expn_id = data.local_expn_data.push(None);
             let _eid = data.local_expn_hashes.push(ExpnHash(Fingerprint::ZERO));
-            debug_assert_eq!(expn_id, _eid);
+            assert_eq!(expn_id, _eid);
             expn_id
         })
     }
 
     pub fn fresh(mut expn_data: ExpnData, ctx: impl HashStableContext) -> LocalExpnId {
-        debug_assert_eq!(expn_data.parent.krate, LOCAL_CRATE);
+        assert_eq!(expn_data.parent.krate, LOCAL_CRATE);
         let expn_hash = update_disambiguator(&mut expn_data, ctx);
         HygieneData::with(|data| {
             let expn_id = data.local_expn_data.push(Some(expn_data));
             let _eid = data.local_expn_hashes.push(expn_hash);
-            debug_assert_eq!(expn_id, _eid);
+            assert_eq!(expn_id, _eid);
             let _old_id = data.expn_hash_to_expn_id.insert(expn_hash, expn_id.to_expn_id());
-            debug_assert!(_old_id.is_none());
+            assert!(_old_id.is_none());
             expn_id
         })
     }
@@ -221,16 +221,16 @@ impl LocalExpnId {
 
     #[inline]
     pub fn set_expn_data(self, mut expn_data: ExpnData, ctx: impl HashStableContext) {
-        debug_assert_eq!(expn_data.parent.krate, LOCAL_CRATE);
+        assert_eq!(expn_data.parent.krate, LOCAL_CRATE);
         let expn_hash = update_disambiguator(&mut expn_data, ctx);
         HygieneData::with(|data| {
             let old_expn_data = &mut data.local_expn_data[self];
             assert!(old_expn_data.is_none(), "expansion data is reset for an expansion ID");
             *old_expn_data = Some(expn_data);
-            debug_assert_eq!(data.local_expn_hashes[self].0, Fingerprint::ZERO);
+            assert_eq!(data.local_expn_hashes[self].0, Fingerprint::ZERO);
             data.local_expn_hashes[self] = expn_hash;
             let _old_id = data.expn_hash_to_expn_id.insert(expn_hash, self.to_expn_id());
-            debug_assert!(_old_id.is_none());
+            assert!(_old_id.is_none());
         });
     }
 
@@ -1280,12 +1280,12 @@ pub fn register_local_expn_id(data: ExpnData, hash: ExpnHash) -> ExpnId {
         let expn_id = hygiene_data.local_expn_data.next_index();
         hygiene_data.local_expn_data.push(Some(data));
         let _eid = hygiene_data.local_expn_hashes.push(hash);
-        debug_assert_eq!(expn_id, _eid);
+        assert_eq!(expn_id, _eid);
 
         let expn_id = expn_id.to_expn_id();
 
         let _old_id = hygiene_data.expn_hash_to_expn_id.insert(hash, expn_id);
-        debug_assert!(_old_id.is_none());
+        assert!(_old_id.is_none());
         expn_id
     })
 }
@@ -1297,14 +1297,14 @@ pub fn register_expn_id(
     data: ExpnData,
     hash: ExpnHash,
 ) -> ExpnId {
-    debug_assert!(data.parent == ExpnId::root() || krate == data.parent.krate);
+    assert!(data.parent == ExpnId::root() || krate == data.parent.krate);
     let expn_id = ExpnId { krate, local_id };
     HygieneData::with(|hygiene_data| {
         let _old_data = hygiene_data.foreign_expn_data.insert(expn_id, data);
         let _old_hash = hygiene_data.foreign_expn_hashes.insert(expn_id, hash);
-        debug_assert!(_old_hash.is_none() || _old_hash == Some(hash));
+        assert!(_old_hash.is_none() || _old_hash == Some(hash));
         let _old_id = hygiene_data.expn_hash_to_expn_id.insert(hash, expn_id);
-        debug_assert!(_old_id.is_none() || _old_id == Some(expn_id));
+        assert!(_old_id.is_none() || _old_id == Some(expn_id));
     });
     expn_id
 }
@@ -1323,7 +1323,7 @@ pub fn decode_expn_id(
     let index = ExpnIndex::from_u32(index);
 
     // This function is used to decode metadata, so it cannot decode information about LOCAL_CRATE.
-    debug_assert_ne!(krate, LOCAL_CRATE);
+    assert_ne!(krate, LOCAL_CRATE);
     let expn_id = ExpnId { krate, local_id: index };
 
     // Fast path if the expansion has already been decoded.

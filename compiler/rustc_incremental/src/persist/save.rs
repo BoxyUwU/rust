@@ -107,14 +107,14 @@ pub fn save_work_product_index(
     for (id, wp) in previous_work_products.to_sorted_stable_ord() {
         if !new_work_products.contains_key(id) {
             work_product::delete_workproduct_files(sess, wp);
-            debug_assert!(
+            assert!(
                 !wp.saved_files.items().all(|(_, path)| in_incr_comp_dir_sess(sess, path).exists())
             );
         }
     }
 
     // Check that we did not delete one of the current work-products:
-    debug_assert!({
+    assert!({
         new_work_products.iter().all(|(_, wp)| {
             wp.saved_files.items().all(|(_, path)| in_incr_comp_dir_sess(sess, path).exists())
         })

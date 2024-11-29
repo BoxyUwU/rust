@@ -71,7 +71,7 @@ impl<'a, 'tcx> Iterator for Autoderef<'a, 'tcx> {
         // Otherwise, deref if type is derefable:
         let (kind, new_ty) =
             if let Some(ty) = self.state.cur_ty.builtin_deref(self.include_raw_pointers) {
-                debug_assert_eq!(ty, self.infcx.resolve_vars_if_possible(ty));
+                assert_eq!(ty, self.infcx.resolve_vars_if_possible(ty));
                 // NOTE: we may still need to normalize the built-in deref in case
                 // we have some type like `&<Ty as Trait>::Assoc`, since users of
                 // autoderef expect this type to have been structurally normalized.

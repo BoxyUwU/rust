@@ -753,7 +753,7 @@ fn build_call_shim<'tcx>(
         // Modify fn(self, ...) to fn(self: *mut Self, ...)
         let mut inputs_and_output = sig.inputs_and_output.to_vec();
         let self_arg = &mut inputs_and_output[0];
-        debug_assert!(tcx.generics_of(def_id).has_self && *self_arg == tcx.types.self_param);
+        assert!(tcx.generics_of(def_id).has_self && *self_arg == tcx.types.self_param);
         *self_arg = Ty::new_mut_ptr(tcx, *self_arg);
         sig.inputs_and_output = tcx.mk_type_list(&inputs_and_output);
     }
@@ -912,7 +912,7 @@ fn build_call_shim<'tcx>(
 }
 
 pub(super) fn build_adt_ctor(tcx: TyCtxt<'_>, ctor_id: DefId) -> Body<'_> {
-    debug_assert!(tcx.is_constructor(ctor_id));
+    assert!(tcx.is_constructor(ctor_id));
 
     let typing_env = ty::TypingEnv::post_analysis(tcx, ctor_id);
 

@@ -204,7 +204,7 @@ impl<'a, 'gcc, 'tcx> Builder<'a, 'gcc, 'tcx> {
             })
             .collect();
 
-        debug_assert_eq!(casted_args.len(), args.len());
+        assert_eq!(casted_args.len(), args.len());
 
         Cow::Owned(casted_args)
     }

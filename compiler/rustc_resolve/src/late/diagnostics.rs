@@ -2744,7 +2744,7 @@ impl<'ast, 'ra: 'ast, 'tcx> LateResolutionVisitor<'_, 'ast, 'ra, 'tcx> {
         lifetime_ref: &ast::Lifetime,
         outer_lifetime_ref: Option<Ident>,
     ) {
-        debug_assert_ne!(lifetime_ref.ident.name, kw::UnderscoreLifetime);
+        assert_ne!(lifetime_ref.ident.name, kw::UnderscoreLifetime);
         let mut err = if let Some(outer) = outer_lifetime_ref {
             struct_span_code_err!(
                 self.r.dcx(),
@@ -3049,7 +3049,7 @@ impl<'ast, 'ra: 'ast, 'tcx> LateResolutionVisitor<'_, 'ast, 'ra, 'tcx> {
 
             for (i, info) in params.iter().enumerate() {
                 let ElisionFnParameter { ident, index, lifetime_count, span } = *info;
-                debug_assert_ne!(lifetime_count, 0);
+                assert_ne!(lifetime_count, 0);
 
                 err.span_label(span, "");
 
@@ -3122,11 +3122,11 @@ impl<'ast, 'ra: 'ast, 'tcx> LateResolutionVisitor<'_, 'ast, 'ra, 'tcx> {
         let mut spans_suggs: Vec<_> = Vec::new();
         let build_sugg = |lt: MissingLifetime| match lt.kind {
             MissingLifetimeKind::Underscore => {
-                debug_assert_eq!(lt.count, 1);
+                assert_eq!(lt.count, 1);
                 (lt.span, existing_name.to_string())
             }
             MissingLifetimeKind::Ampersand => {
-                debug_assert_eq!(lt.count, 1);
+                assert_eq!(lt.count, 1);
                 (lt.span.shrink_to_hi(), format!("{existing_name} "))
             }
             MissingLifetimeKind::Comma => {

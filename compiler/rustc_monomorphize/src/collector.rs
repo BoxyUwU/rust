@@ -422,7 +422,7 @@ fn collect_items_rec<'tcx>(
                 let instance = Instance::mono(tcx, def_id);
 
                 // Sanity check whether this ended up being collected accidentally
-                debug_assert!(tcx.should_codegen_locally(instance));
+                assert!(tcx.should_codegen_locally(instance));
 
                 let DefKind::Static { nested, .. } = tcx.def_kind(def_id) else { bug!() };
                 // Nested statics have no type.
@@ -454,7 +454,7 @@ fn collect_items_rec<'tcx>(
         }
         MonoItem::Fn(instance) => {
             // Sanity check whether this ended up being collected accidentally
-            debug_assert!(tcx.should_codegen_locally(instance));
+            assert!(tcx.should_codegen_locally(instance));
 
             // Keep track of the monomorphization recursion depth
             recursion_depth_reset = Some(check_recursion_limit(

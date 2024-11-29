@@ -188,12 +188,12 @@ impl<'tcx> CanonicalParamEnvCache<'tcx> {
 
         assert_eq!(state.var_values.len(), 0);
         assert_eq!(state.universe_map.len(), 1);
-        debug_assert_eq!(&*state.universe_map, &[ty::UniverseIndex::ROOT]);
+        assert_eq!(&*state.universe_map, &[ty::UniverseIndex::ROOT]);
 
         match self.map.borrow().entry(key) {
             Entry::Occupied(e) => {
                 let (canonical, var_values) = e.get();
-                if cfg!(debug_assertions) {
+                if true {
                     let mut state = state.clone();
                     let rerun_canonical = canonicalize_op(tcx, key, &mut state);
                     assert_eq!(rerun_canonical, *canonical);

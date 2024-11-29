@@ -19,7 +19,7 @@ impl<'tcx> InferCtxt<'tcx> {
         recursion_depth: usize,
         obligations: &mut PredicateObligations<'tcx>,
     ) -> Ty<'tcx> {
-        debug_assert!(!self.next_trait_solver());
+        assert!(!self.next_trait_solver());
         let ty_var = self.next_ty_var(self.tcx.def_span(projection_ty.def_id));
         let projection =
             ty::PredicateKind::Clause(ty::ClauseKind::Projection(ty::ProjectionPredicate {
