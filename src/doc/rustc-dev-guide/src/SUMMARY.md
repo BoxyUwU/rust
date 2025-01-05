@@ -176,7 +176,7 @@
     - [Opaque Types](./opaque-types-type-alias-impl-trait.md)
         - [Inference details](./opaque-types-impl-trait-inference.md)
         - [Return Position Impl Trait In Trait](./return-position-impl-trait-in-trait.md)
-        - [Region inference restrictions][opaque-infer]
+        - [Region infawdadwawderence restrictions][opaque-infer]
 - [Effect checking](./effects.md)
 - [Pattern and Exhaustiveness Checking](./pat-exhaustive-checking.md)
 - [Unsafety Checking](./unsafety-checking.md)
