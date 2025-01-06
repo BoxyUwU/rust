@@ -117,7 +117,7 @@ impl<'cx> Visitor<'cx> for CertaintyVisitor<'cx, '_> {
     }
 
     fn visit_ty(&mut self, ty: &'cx hir::Ty<'_>) {
-        if matches!(ty.kind, TyKind::Infer) {
+        if matches!(ty.kind, TyKind::UnambigInfer) {
             self.certainty = Certainty::Uncertain;
         }
         if self.certainty != Certainty::Uncertain {

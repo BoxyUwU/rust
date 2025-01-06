@@ -815,7 +815,7 @@ impl TyCoercionStability {
                 | TyKind::Path(_) => Self::Deref,
                 TyKind::OpaqueDef(..)
                 | TyKind::TraitAscription(..)
-                | TyKind::Infer
+                | TyKind::UnambigInfer
                 | TyKind::Typeof(..)
                 | TyKind::TraitObject(..)
                 | TyKind::InferDelegation(..)
@@ -893,7 +893,7 @@ fn ty_contains_infer(ty: &hir::Ty<'_>) -> bool {
             if self.0
                 || matches!(
                     ty.kind,
-                    TyKind::OpaqueDef(..) | TyKind::Infer | TyKind::Typeof(_) | TyKind::Err(_)
+                    TyKind::OpaqueDef(..) | TyKind::UnambigInfer | TyKind::Typeof(_) | TyKind::Err(_)
                 )
             {
                 self.0 = true;

@@ -310,7 +310,7 @@ pub struct InferArg {
 
 impl InferArg {
     pub fn to_ty(&self) -> Ty<'static> {
-        Ty { kind: TyKind::Infer, span: self.span, hir_id: self.hir_id }
+        Ty { kind: TyKind::UnambigInfer, span: self.span, hir_id: self.hir_id }
     }
 }
 
@@ -2938,7 +2938,7 @@ impl<'hir> Ty<'hir> {
         }
         debug!(?self);
         match &self.kind {
-            TyKind::Infer => true,
+            TyKind::UnambigInfer => true,
             TyKind::Slice(ty) => ty.is_suggestable_infer_ty(),
             TyKind::Array(ty, length) => {
                 ty.is_suggestable_infer_ty() || matches!(length.kind, ConstArgKind::Infer(..))
@@ -3190,7 +3190,7 @@ pub enum TyKind<'hir> {
     /// `TyKind::Infer`. In cases where it is ambiguous whether
     /// a generic arg is a type or a const, inference variables are
     /// represented as `GenericArg::Infer` instead.
-    Infer,
+    UnambigInfer,
     /// Placeholder for a type that has failed to be defined.
     Err(rustc_span::ErrorGuaranteed),
     /// Pattern types (`pattern_type!(u32 is 1..)`)

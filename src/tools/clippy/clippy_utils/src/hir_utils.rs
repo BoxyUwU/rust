@@ -600,7 +600,7 @@ impl HirEqInterExpr<'_, '_, '_> {
             },
             (TyKind::Path(l), TyKind::Path(r)) => self.eq_qpath(l, r),
             (&TyKind::Tup(l), &TyKind::Tup(r)) => over(l, r, |l, r| self.eq_ty(l, r)),
-            (&TyKind::Infer, &TyKind::Infer) => true,
+            (&TyKind::UnambigInfer, &TyKind::UnambigInfer) => true,
             _ => false,
         }
     }
@@ -1257,7 +1257,7 @@ impl<'a, 'tcx> SpanlessHash<'a, 'tcx> {
                 self.hash_ty(binder.inner_ty);
             },
             TyKind::Err(_)
-            | TyKind::Infer
+            | TyKind::UnambigInfer
             | TyKind::Never
             | TyKind::InferDelegation(..)
             | TyKind::OpaqueDef(_)

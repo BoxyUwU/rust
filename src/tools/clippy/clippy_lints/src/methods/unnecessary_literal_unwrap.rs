@@ -17,7 +17,7 @@ fn get_ty_from_args<'a>(args: Option<&'a [hir::GenericArg<'a>]>, index: usize) -
 
     match args[index] {
         hir::GenericArg::Type(ty) => match ty.kind {
-            hir::TyKind::Infer => None,
+            hir::TyKind::UnambigInfer => None,
             _ => Some(ty),
         },
         _ => None,

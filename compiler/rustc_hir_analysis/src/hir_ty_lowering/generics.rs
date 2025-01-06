@@ -42,7 +42,7 @@ fn generic_arg_mismatch_err(
     );
 
     if let GenericParamDefKind::Const { .. } = param.kind {
-        if matches!(arg, GenericArg::Type(hir::Ty { kind: hir::TyKind::Infer, .. })) {
+        if matches!(arg, GenericArg::Type(hir::Ty { kind: hir::TyKind::UnambigInfer, .. })) {
             err.help("const arguments cannot yet be inferred with `_`");
             tcx.disabled_nightly_features(
                 &mut err,

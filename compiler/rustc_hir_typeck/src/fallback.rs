@@ -643,7 +643,7 @@ impl<'tcx> Visitor<'tcx> for AnnotateUnitFallbackVisitor<'_, 'tcx> {
 
     fn visit_ty(&mut self, hir_ty: &'tcx hir::Ty<'tcx>) -> Self::Result {
         // Try to replace `_` with `()`.
-        if let hir::TyKind::Infer = hir_ty.kind
+        if let hir::TyKind::UnambigInfer = hir_ty.kind
             && let Some(ty) = self.fcx.typeck_results.borrow().node_type_opt(hir_ty.hir_id)
             && let Some(vid) = self.fcx.root_vid(ty)
             && self.reachable_vids.contains(&vid)

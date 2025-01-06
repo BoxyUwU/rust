@@ -2148,7 +2148,7 @@ fn is_body_identity_function(cx: &LateContext<'_>, func: &Body<'_>) -> bool {
 pub fn is_expr_untyped_identity_function(cx: &LateContext<'_>, expr: &Expr<'_>) -> bool {
     match expr.kind {
         ExprKind::Closure(&Closure { body, fn_decl, .. })
-            if fn_decl.inputs.iter().all(|ty| matches!(ty.kind, TyKind::Infer)) =>
+            if fn_decl.inputs.iter().all(|ty| matches!(ty.kind, TyKind::UnambigInfer)) =>
         {
             is_body_identity_function(cx, cx.tcx.hir().body(body))
         },

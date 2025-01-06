@@ -378,7 +378,7 @@ impl<'v> hir_visit::Visitor<'v> for StatCollector<'v> {
             TraitAscription,
             TraitObject,
             Typeof,
-            Infer,
+            UnambigInfer,
             Pat,
             Err
         ]);

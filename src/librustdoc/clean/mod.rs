@@ -1848,7 +1848,7 @@ pub(crate) fn clean_ty<'tcx>(ty: &hir::Ty<'tcx>, cx: &mut DocContext<'tcx>) -> T
             UnsafeBinder(Box::new(clean_unsafe_binder_ty(unsafe_binder_ty, cx)))
         }
         // Rustdoc handles `TyKind::Err`s by turning them into `Type::Infer`s.
-        TyKind::Infer
+        TyKind::UnambigInfer
         | TyKind::Err(_)
         | TyKind::Typeof(..)
         | TyKind::InferDelegation(..)

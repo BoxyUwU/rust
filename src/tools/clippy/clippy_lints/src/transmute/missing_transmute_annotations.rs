@@ -52,7 +52,7 @@ pub(super) fn check<'tcx>(
     let missing_generic = match args {
         Some(args) if !args.args.is_empty() => args.args.iter().any(|arg| match arg {
             GenericArg::Infer(_) => true,
-            GenericArg::Type(ty) => matches!(ty.kind, TyKind::Infer),
+            GenericArg::Type(ty) => matches!(ty.kind, TyKind::UnambigInfer),
             _ => false,
         }),
         _ => true,
@@ -65,7 +65,7 @@ pub(super) fn check<'tcx>(
         // ... which does have type annotations.
         if let Some(ty) = local.ty
             // If this is a `let x: _ =`, we should lint.
-            && !matches!(ty.kind, TyKind::Infer)
+            && !matches!(ty.kind, TyKind::UnambigInfer)
         {
             return false;
         }

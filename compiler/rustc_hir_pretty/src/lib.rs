@@ -440,7 +440,7 @@ impl<'a> State<'a> {
                 self.word("/*ERROR*/");
                 self.pclose();
             }
-            hir::TyKind::Infer | hir::TyKind::InferDelegation(..) => {
+            hir::TyKind::UnambigInfer | hir::TyKind::InferDelegation(..) => {
                 self.word("_");
             }
             hir::TyKind::Pat(ty, pat) => {
@@ -2130,7 +2130,7 @@ impl<'a> State<'a> {
             s.ann.nested(s, Nested::BodyParamPat(body_id, i));
             i += 1;
 
-            if let hir::TyKind::Infer = ty.kind {
+            if let hir::TyKind::UnambigInfer = ty.kind {
                 // Print nothing.
             } else {
                 s.word(":");

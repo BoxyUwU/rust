@@ -93,7 +93,7 @@ struct InferVisitor(bool);
 
 impl Visitor<'_> for InferVisitor {
     fn visit_ty(&mut self, t: &Ty<'_>) {
-        self.0 |= matches!(t.kind, TyKind::Infer | TyKind::OpaqueDef(..) | TyKind::TraitObject(..));
+        self.0 |= matches!(t.kind, TyKind::UnambigInfer | TyKind::OpaqueDef(..) | TyKind::TraitObject(..));
         if !self.0 {
             walk_ty(self, t);
         }
