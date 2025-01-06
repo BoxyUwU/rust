@@ -36,7 +36,7 @@ struct TypeComplexityVisitor {
 }
 
 impl<'tcx> Visitor<'tcx> for TypeComplexityVisitor {
-    fn visit_infer(&mut self, inf: &'tcx hir::InferArg) {
+    fn visit_ambig_kind_infer(&mut self, inf: &'tcx hir::InferArg) {
         self.score += 1;
         walk_inf(self, inf);
     }

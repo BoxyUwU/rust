@@ -441,7 +441,7 @@ pub trait Visitor<'v>: Sized {
     fn visit_label(&mut self, label: &'v Label) -> Self::Result {
         walk_label(self, label)
     }
-    fn visit_infer(&mut self, inf: &'v InferArg) -> Self::Result {
+    fn visit_ambig_kind_infer(&mut self, inf: &'v InferArg) -> Self::Result {
         walk_inf(self, inf)
     }
     fn visit_generic_arg(&mut self, generic_arg: &'v GenericArg<'v>) -> Self::Result {
@@ -1244,7 +1244,7 @@ pub fn walk_generic_arg<'v, V: Visitor<'v>>(
         GenericArg::Lifetime(lt) => visitor.visit_lifetime(lt),
         GenericArg::Type(ty) => visitor.visit_ty(ty),
         GenericArg::Const(ct) => visitor.visit_const_arg(ct),
-        GenericArg::Infer(inf) => visitor.visit_infer(inf),
+        GenericArg::Infer(inf) => visitor.visit_ambig_kind_infer(inf),
     }
 }
 

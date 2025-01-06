@@ -295,7 +295,7 @@ impl<'tcx> Visitor<'tcx> for ImplicitHasherTypeVisitor<'_, 'tcx> {
         walk_ty(self, t);
     }
 
-    fn visit_infer(&mut self, inf: &'tcx hir::InferArg) {
+    fn visit_ambig_kind_infer(&mut self, inf: &'tcx hir::InferArg) {
         if let Some(target) = ImplicitHasherType::new(self.cx, &inf.to_ty()) {
             self.found.push(target);
         }

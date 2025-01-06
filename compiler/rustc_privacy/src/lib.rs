@@ -1106,7 +1106,7 @@ impl<'tcx> Visitor<'tcx> for TypePrivacyVisitor<'tcx> {
         intravisit::walk_ty(self, hir_ty);
     }
 
-    fn visit_infer(&mut self, inf: &'tcx hir::InferArg) {
+    fn visit_ambig_kind_infer(&mut self, inf: &'tcx hir::InferArg) {
         self.span = inf.span;
         if let Some(ty) = self
             .maybe_typeck_results

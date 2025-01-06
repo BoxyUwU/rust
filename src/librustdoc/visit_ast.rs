@@ -598,7 +598,7 @@ impl<'tcx> Visitor<'tcx> for RustdocVisitor<'_, 'tcx> {
         // Unneeded.
     }
 
-    fn visit_infer(&mut self, _: &hir::InferArg) {
+    fn visit_ambig_kind_infer(&mut self, _: &hir::InferArg) {
         // Unneeded.
     }
 

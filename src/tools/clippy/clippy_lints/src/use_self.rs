@@ -275,7 +275,7 @@ struct SkipTyCollector {
 }
 
 impl Visitor<'_> for SkipTyCollector {
-    fn visit_infer(&mut self, inf: &hir::InferArg) {
+    fn visit_ambig_kind_infer(&mut self, inf: &hir::InferArg) {
         self.types_to_skip.push(inf.hir_id);
 
         walk_inf(self, inf);

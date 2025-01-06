@@ -219,7 +219,7 @@ impl<'tcx, T: LateLintPass<'tcx>> hir_visit::Visitor<'tcx> for LateContextAndPas
         hir_visit::walk_ty(self, t);
     }
 
-    fn visit_infer(&mut self, inf: &'tcx hir::InferArg) {
+    fn visit_ambig_kind_infer(&mut self, inf: &'tcx hir::InferArg) {
         hir_visit::walk_inf(self, inf);
     }
 

@@ -475,7 +475,7 @@ impl<'v> hir_visit::Visitor<'v> for StatCollector<'v> {
             hir::GenericArg::Lifetime(lt) => self.visit_lifetime(lt),
             hir::GenericArg::Type(ty) => self.visit_ty(ty),
             hir::GenericArg::Const(ct) => self.visit_const_arg(ct),
-            hir::GenericArg::Infer(inf) => self.visit_infer(inf),
+            hir::GenericArg::Infer(inf) => self.visit_ambig_kind_infer(inf),
         }
     }
 

@@ -295,7 +295,7 @@ impl<'a, 'hir> Visitor<'hir> for NodeCollector<'a, 'hir> {
         });
     }
 
-    fn visit_infer(&mut self, inf: &'hir InferArg) {
+    fn visit_ambig_kind_infer(&mut self, inf: &'hir InferArg) {
         self.insert(inf.span, inf.hir_id, Node::Infer(inf));
 
         self.with_parent(inf.hir_id, |this| {
