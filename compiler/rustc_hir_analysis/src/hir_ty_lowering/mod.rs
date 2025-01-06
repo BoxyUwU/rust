@@ -2115,7 +2115,7 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
                 format!("Const::lower_const_arg: invalid qpath {qpath:?}"),
             ),
             hir::ConstArgKind::Anon(anon) => self.lower_anon_const(anon),
-            hir::ConstArgKind::Infer(span) => self.ct_infer(None, span),
+            hir::ConstArgKind::UnambigInfer(span) => self.ct_infer(None, span),
         }
     }
 

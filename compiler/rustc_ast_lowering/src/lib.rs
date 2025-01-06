@@ -2040,7 +2040,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
                     )
                     .stash(c.value.span, StashKey::UnderscoreForArrayLengths);
                 }
-                let ct_kind = hir::ConstArgKind::Infer(self.lower_span(c.value.span));
+                let ct_kind = hir::ConstArgKind::UnambigInfer(self.lower_span(c.value.span));
                 self.arena.alloc(hir::ConstArg { hir_id: self.lower_node_id(c.id), kind: ct_kind })
             }
             _ => self.lower_anon_const_to_const_arg(c),

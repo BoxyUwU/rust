@@ -727,7 +727,7 @@ pub fn walk_const_arg<'v, V: Visitor<'v>>(
     match &const_arg.kind {
         ConstArgKind::Path(qpath) => visitor.visit_qpath(qpath, const_arg.hir_id, qpath.span()),
         ConstArgKind::Anon(anon) => visitor.visit_anon_const(*anon),
-        ConstArgKind::Infer(..) => V::Result::output(),
+        ConstArgKind::UnambigInfer(..) => V::Result::output(),
     }
 }
 

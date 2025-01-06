@@ -157,7 +157,7 @@ impl<'v> Visitor<'v> for HirPlaceholderCollector {
         }
     }
     fn visit_const_arg(&mut self, const_arg: &'v hir::ConstArg<'v>) {
-        if let hir::ConstArgKind::Infer(span) = const_arg.kind {
+        if let hir::ConstArgKind::UnambigInfer(span) = const_arg.kind {
             self.may_contain_const_infer = true;
             self.spans.push(span);
         }

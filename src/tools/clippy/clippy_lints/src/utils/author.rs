@@ -278,7 +278,7 @@ impl<'a, 'tcx> PrintVisitor<'a, 'tcx> {
                 chain!(self, "let ConstArgKind::Anon({anon_const}) = {const_arg}.kind");
                 self.body(field!(anon_const.body));
             },
-            ConstArgKind::Infer(..) => chain!(self, "let ConstArgKind::Infer(..) = {const_arg}.kind"),
+            ConstArgKind::UnambigInfer(..) => chain!(self, "let ConstArgKind::Infer(..) = {const_arg}.kind"),
         }
     }
 

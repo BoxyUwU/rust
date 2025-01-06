@@ -471,12 +471,12 @@ impl HirEqInterExpr<'_, '_, '_> {
         match (&left.kind, &right.kind) {
             (ConstArgKind::Path(l_p), ConstArgKind::Path(r_p)) => self.eq_qpath(l_p, r_p),
             (ConstArgKind::Anon(l_an), ConstArgKind::Anon(r_an)) => self.eq_body(l_an.body, r_an.body),
-            (ConstArgKind::Infer(..), ConstArgKind::Infer(..)) => true,
+            (ConstArgKind::UnambigInfer(..), ConstArgKind::UnambigInfer(..)) => true,
             // Use explicit match for now since ConstArg is undergoing flux.
             (ConstArgKind::Path(..), ConstArgKind::Anon(..))
             | (ConstArgKind::Anon(..), ConstArgKind::Path(..))
-            | (ConstArgKind::Infer(..), _)
-            | (_, ConstArgKind::Infer(..)) => false,
+            | (ConstArgKind::UnambigInfer(..), _)
+            | (_, ConstArgKind::UnambigInfer(..)) => false,
         }
     }
 
@@ -1276,7 +1276,7 @@ impl<'a, 'tcx> SpanlessHash<'a, 'tcx> {
         match &const_arg.kind {
             ConstArgKind::Path(path) => self.hash_qpath(path),
             ConstArgKind::Anon(anon) => self.hash_body(anon.body),
-            ConstArgKind::Infer(..) => {},
+            ConstArgKind::UnambigInfer(..) => {},
         }
     }
 

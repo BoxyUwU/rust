@@ -280,7 +280,7 @@ impl<'hir> ConstArg<'hir> {
         match self.kind {
             ConstArgKind::Path(path) => path.span(),
             ConstArgKind::Anon(anon) => anon.span,
-            ConstArgKind::Infer(span) => span,
+            ConstArgKind::UnambigInfer(span) => span,
         }
     }
 }
@@ -299,7 +299,7 @@ pub enum ConstArgKind<'hir> {
     /// `ConstArgKind::Infer`. In cases where it is ambiguous whether
     /// a generic arg is a type or a const, inference variables are
     /// represented as `GenericArg::Infer` instead.
-    Infer(Span),
+    UnambigInfer(Span),
 }
 
 #[derive(Clone, Copy, Debug, HashStable_Generic)]
@@ -2941,7 +2941,8 @@ impl<'hir> Ty<'hir> {
             TyKind::UnambigInfer => true,
             TyKind::Slice(ty) => ty.is_suggestable_infer_ty(),
             TyKind::Array(ty, length) => {
-                ty.is_suggestable_infer_ty() || matches!(length.kind, ConstArgKind::Infer(..))
+                ty.is_suggestable_infer_ty()
+                    || matches!(length.kind, ConstArgKind::UnambigInfer(..))
             }
             TyKind::Tup(tys) => tys.iter().any(Self::is_suggestable_infer_ty),
             TyKind::Ptr(mut_ty) | TyKind::Ref(_, mut_ty) => mut_ty.ty.is_suggestable_infer_ty(),

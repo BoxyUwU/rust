@@ -290,7 +290,7 @@ pub(crate) fn clean_const<'tcx>(
             ConstantKind::Path { path: qpath_to_string(qpath).into() }
         }
         hir::ConstArgKind::Anon(anon) => ConstantKind::Anonymous { body: anon.body },
-        hir::ConstArgKind::Infer(..) => ConstantKind::Infer,
+        hir::ConstArgKind::UnambigInfer(..) => ConstantKind::Infer,
     }
 }
 
@@ -1818,7 +1818,7 @@ pub(crate) fn clean_ty<'tcx>(ty: &hir::Ty<'tcx>, cx: &mut DocContext<'tcx>) -> T
             // results in an ICE while manually constructing the constant and using `eval`
             // does nothing for `ConstKind::Param`.
             let length = match const_arg.kind {
-                hir::ConstArgKind::Infer(..) => "_".to_string(),
+                hir::ConstArgKind::UnambigInfer(..) => "_".to_string(),
                 hir::ConstArgKind::Anon(hir::AnonConst { def_id, .. }) => {
                     let ct = lower_const_arg_for_rustdoc(cx.tcx, const_arg, FeedConstTy::No);
                     let typing_env = ty::TypingEnv::post_analysis(cx.tcx, *def_id);
