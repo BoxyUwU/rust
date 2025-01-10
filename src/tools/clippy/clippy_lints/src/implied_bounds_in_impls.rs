@@ -146,7 +146,9 @@ fn try_resolve_type<'tcx>(
     index: usize,
 ) -> Option<Ty<'tcx>> {
     match args.get(index - 1) {
-        Some(GenericArg::Type(ty)) => Some(lower_ty(tcx, ty)),
+        // I don't think we care about `GenericArg::Infer` since this is all for stuff in type signatures
+        // which do not permit inference variables.
+        Some(GenericArg::Type(ty)) => Some(lower_ty(tcx, ty.as_unambig_ty())),
         Some(_) => None,
         None => Some(tcx.type_of(generics.own_params[index].def_id).skip_binder()),
     }

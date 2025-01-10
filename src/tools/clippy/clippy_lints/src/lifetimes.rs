@@ -7,13 +7,13 @@ use rustc_errors::Applicability;
 use rustc_hir::FnRetTy::Return;
 use rustc_hir::intravisit::nested_filter::{self as hir_nested_filter, NestedFilter};
 use rustc_hir::intravisit::{
-    Visitor, walk_fn_decl, walk_generic_args, walk_generics, walk_impl_item_ref, walk_param_bound, walk_poly_trait_ref,
-    walk_trait_ref, walk_ty, walk_where_predicate,
+    Visitor, VisitorExt, walk_fn_decl, walk_generic_args, walk_generics, walk_impl_item_ref, walk_param_bound,
+    walk_poly_trait_ref, walk_trait_ref, walk_ty, walk_unambig_ty, walk_where_predicate,
 };
 use rustc_hir::{
-    BareFnTy, BodyId, FnDecl, FnSig, GenericArg, GenericArgs, GenericBound, GenericParam, GenericParamKind, Generics,
-    HirId, Impl, ImplItem, ImplItemKind, Item, ItemKind, Lifetime, LifetimeName, LifetimeParamKind, Node, PolyTraitRef,
-    PredicateOrigin, TraitFn, TraitItem, TraitItemKind, Ty, TyKind, WhereBoundPredicate, WherePredicate,
+    AmbigArg, BareFnTy, BodyId, FnDecl, FnSig, GenericArg, GenericArgs, GenericBound, GenericParam, GenericParamKind,
+    Generics, HirId, Impl, ImplItem, ImplItemKind, Item, ItemKind, Lifetime, LifetimeName, LifetimeParamKind, Node,
+    PolyTraitRef, PredicateOrigin, TraitFn, TraitItem, TraitItemKind, Ty, TyKind, WhereBoundPredicate, WherePredicate,
     WherePredicateKind, lang_items,
 };
 use rustc_lint::{LateContext, LateLintPass, LintContext};
@@ -232,11 +232,11 @@ fn could_use_elision<'tcx>(
 
     // extract lifetimes in input argument types
     for arg in func.inputs {
-        input_visitor.visit_ty(arg);
+        input_visitor.visit_unambig_ty(arg);
     }
     // extract lifetimes in output type
     if let Return(ty) = func.output {
-        output_visitor.visit_ty(ty);
+        output_visitor.visit_unambig_ty(ty);
     }
     for lt in named_generics {
         input_visitor.visit_generic_param(lt);
@@ -340,7 +340,7 @@ fn explicit_self_type<'tcx>(cx: &LateContext<'tcx>, func: &FnDecl<'tcx>, ident: 
         && let Some(self_ty) = func.inputs.first()
     {
         let mut visitor = RefVisitor::new(cx);
-        visitor.visit_ty(self_ty);
+        visitor.visit_unambig_ty(self_ty);
 
         !visitor.all_lts().is_empty()
     } else {
@@ -426,7 +426,7 @@ impl<'tcx> Visitor<'tcx> for RefVisitor<'_, 'tcx> {
         }
     }
 
-    fn visit_ty(&mut self, ty: &'tcx Ty<'_>) {
+    fn visit_ty(&mut self, ty: &'tcx Ty<'_, AmbigArg>) {
         match ty.kind {
             TyKind::BareFn(&BareFnTy { decl, .. }) => {
                 let mut sub_visitor = RefVisitor::new(self.cx);
@@ -541,7 +541,7 @@ where
         try_visit!(self.visit_id(hir_id));
 
         self.bounded_ty_depth += 1;
-        try_visit!(self.visit_ty(bounded_ty));
+        try_visit!(self.visit_unambig_ty(bounded_ty));
         self.bounded_ty_depth -= 1;
 
         walk_list!(self, visit_param_bound, bounds);
