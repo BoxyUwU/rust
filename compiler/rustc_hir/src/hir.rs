@@ -31,7 +31,7 @@ use crate::LangItem;
 use crate::def::{CtorKind, DefKind, Res};
 use crate::def_id::{DefId, LocalDefIdMap};
 pub(crate) use crate::hir_id::{HirId, ItemLocalId, ItemLocalMap, OwnerId};
-use crate::intravisit::FnKind;
+use crate::intravisit::{FnKind, VisitorExt};
 
 #[derive(Debug, Copy, Clone, HashStable_Generic)]
 pub struct Lifetime {
@@ -263,10 +263,34 @@ impl<'hir> PathSegment<'hir> {
 /// that are [just paths](ConstArgKind::Path) (currently just bare const params)
 /// versus const args that are literals or have arbitrary computations (e.g., `{ 1 + 3 }`).
 #[derive(Clone, Copy, Debug, HashStable_Generic)]
-pub struct ConstArg<'hir> {
+#[repr(C)]
+pub struct ConstArg<'hir, Unambig = ()> {
     #[stable_hasher(ignore)]
     pub hir_id: HirId,
-    pub kind: ConstArgKind<'hir>,
+    pub kind: ConstArgKind<'hir, Unambig>,
+}
+
+impl<'hir> ConstArg<'hir, AmbigArg> {
+    pub fn as_unambig_ct(&self) -> &ConstArg<'hir> {
+        // SAFETY: `ConstArg` is `repr(C)` and `ConstArgKind` is marked `repr(u8)` so that the
+        // layout is the same across different ZST type arguments.
+        let ptr = self as *const ConstArg<'hir, AmbigArg> as *const ConstArg<'hir, ()>;
+        unsafe { &*ptr }
+    }
+}
+
+impl<'hir> ConstArg<'hir> {
+    pub fn try_as_ambig_ct(&self) -> Option<&ConstArg<'hir, AmbigArg>> {
+        if let ConstArgKind::Infer(_, ()) = self.kind {
+            return None;
+        }
+
+        // SAFETY: `ConstArg` is `repr(C)` and `ConstArgKind` is marked `repr(u8)` so that the layout is
+        // the same across different ZST type arguments. We also asserted that the `self` is
+        // not a `ConstArgKind::Infer` so there is no risk of transmuting a `()` to `AmbigArg`.
+        let ptr = self as *const ConstArg<'hir> as *const ConstArg<'hir, AmbigArg>;
+        Some(unsafe { &*ptr })
+    }
 }
 
 impl<'hir> ConstArg<'hir> {
@@ -281,14 +305,15 @@ impl<'hir> ConstArg<'hir> {
         match self.kind {
             ConstArgKind::Path(path) => path.span(),
             ConstArgKind::Anon(anon) => anon.span,
-            ConstArgKind::Infer(span) => span,
+            ConstArgKind::Infer(span, _) => span,
         }
     }
 }
 
 /// See [`ConstArg`].
 #[derive(Clone, Copy, Debug, HashStable_Generic)]
-pub enum ConstArgKind<'hir> {
+#[repr(u8, C)]
+pub enum ConstArgKind<'hir, Unambig = ()> {
     /// **Note:** Currently this is only used for bare const params
     /// (`N` where `fn foo<const N: usize>(...)`),
     /// not paths to any const (`N` where `const N: usize = ...`).
@@ -300,7 +325,7 @@ pub enum ConstArgKind<'hir> {
     /// `ConstArgKind::Infer`. In cases where it is ambiguous whether
     /// a generic arg is a type or a const, inference variables are
     /// represented as `GenericArg::Infer` instead.
-    Infer(Span),
+    Infer(Span, Unambig),
 }
 
 #[derive(Clone, Copy, Debug, HashStable_Generic)]
@@ -311,15 +336,15 @@ pub struct InferArg {
 
 impl InferArg {
     pub fn to_ty(&self) -> Ty<'static> {
-        Ty { kind: TyKind::Infer, span: self.span, hir_id: self.hir_id }
+        Ty { kind: TyKind::Infer(()), span: self.span, hir_id: self.hir_id }
     }
 }
 
 #[derive(Debug, Clone, Copy, HashStable_Generic)]
 pub enum GenericArg<'hir> {
     Lifetime(&'hir Lifetime),
-    Type(&'hir Ty<'hir>),
-    Const(&'hir ConstArg<'hir>),
+    Type(&'hir Ty<'hir, AmbigArg>),
+    Const(&'hir ConstArg<'hir, AmbigArg>),
     /// **Note:** Inference variables are only represented as
     /// `GenericArg::Infer` in cases where it is ambiguous whether
     /// a generic arg is a type or a const. Otherwise, inference variables
@@ -332,7 +357,7 @@ impl GenericArg<'_> {
         match self {
             GenericArg::Lifetime(l) => l.ident.span,
             GenericArg::Type(t) => t.span,
-            GenericArg::Const(c) => c.span(),
+            GenericArg::Const(c) => c.as_unambig_ct().span(),
             GenericArg::Infer(i) => i.span,
         }
     }
@@ -351,7 +376,7 @@ impl GenericArg<'_> {
             GenericArg::Lifetime(_) => "lifetime",
             GenericArg::Type(_) => "type",
             GenericArg::Const(_) => "constant",
-            GenericArg::Infer(_) => "inferred",
+            GenericArg::Infer(_) => "placeholder",
         }
     }
 
@@ -2904,10 +2929,37 @@ impl<'hir> AssocItemConstraintKind<'hir> {
 }
 
 #[derive(Debug, Clone, Copy, HashStable_Generic)]
-pub struct Ty<'hir> {
+pub enum AmbigArg {}
+
+#[derive(Debug, Clone, Copy, HashStable_Generic)]
+#[repr(C)]
+pub struct Ty<'hir, Unambig = ()> {
     pub hir_id: HirId,
-    pub kind: TyKind<'hir>,
     pub span: Span,
+    pub kind: TyKind<'hir, Unambig>,
+}
+
+impl<'hir> Ty<'hir, AmbigArg> {
+    pub fn as_unambig_ty(&self) -> &Ty<'hir> {
+        // SAFETY: `Ty` is `repr(C)` and `TyKind` is marked `repr(u8)` so that the layout is
+        // the same across different ZST type arguments.
+        let ptr = self as *const Ty<'hir, AmbigArg> as *const Ty<'hir, ()>;
+        unsafe { &*ptr }
+    }
+}
+
+impl<'hir> Ty<'hir> {
+    pub fn try_as_ambig_ty(&self) -> Option<&Ty<'hir, AmbigArg>> {
+        if let TyKind::Infer(()) = self.kind {
+            return None;
+        }
+
+        // SAFETY: `Ty` is `repr(C)` and `TyKind` is marked `repr(u8)` so that the layout is
+        // the same across different ZST type arguments. We also asserted that the `self` is
+        // not a `TyKind::Infer` so there is no risk of transmuting a `()` to `AmbigArg`.
+        let ptr = self as *const Ty<'hir> as *const Ty<'hir, AmbigArg>;
+        Some(unsafe { &*ptr })
+    }
 }
 
 impl<'hir> Ty<'hir> {
@@ -2939,7 +2991,7 @@ impl<'hir> Ty<'hir> {
         use crate::intravisit::Visitor;
         struct MyVisitor(Vec<Span>);
         impl<'v> Visitor<'v> for MyVisitor {
-            fn visit_ty(&mut self, t: &'v Ty<'v>) {
+            fn visit_ty(&mut self, t: &'v Ty<'v, AmbigArg>) {
                 if matches!(
                     &t.kind,
                     TyKind::Path(QPath::Resolved(_, Path {
@@ -2955,7 +3007,7 @@ impl<'hir> Ty<'hir> {
         }
 
         let mut my_visitor = MyVisitor(vec![]);
-        my_visitor.visit_ty(self);
+        my_visitor.visit_unambig_ty(self);
         my_visitor.0
     }
 
@@ -2964,14 +3016,14 @@ impl<'hir> Ty<'hir> {
     pub fn is_suggestable_infer_ty(&self) -> bool {
         fn are_suggestable_generic_args(generic_args: &[GenericArg<'_>]) -> bool {
             generic_args.iter().any(|arg| match arg {
-                GenericArg::Type(ty) => ty.is_suggestable_infer_ty(),
+                GenericArg::Type(ty) => ty.as_unambig_ty().is_suggestable_infer_ty(),
                 GenericArg::Infer(_) => true,
                 _ => false,
             })
         }
         debug!(?self);
         match &self.kind {
-            TyKind::Infer => true,
+            TyKind::Infer(()) => true,
             TyKind::Slice(ty) => ty.is_suggestable_infer_ty(),
             TyKind::Array(ty, length) => {
                 ty.is_suggestable_infer_ty() || matches!(length.kind, ConstArgKind::Infer(..))
@@ -3183,7 +3235,9 @@ pub enum InferDelegationKind {
 
 /// The various kinds of types recognized by the compiler.
 #[derive(Debug, Clone, Copy, HashStable_Generic)]
-pub enum TyKind<'hir> {
+// SAFETY: `repr(u8)` is required so that `TyKind<()>` and `TyKind<!>` are layout compatible
+#[repr(u8, C)]
+pub enum TyKind<'hir, Unambig = ()> {
     /// Actual type should be inherited from `DefId` signature
     InferDelegation(DefId, InferDelegationKind),
     /// A variable length slice (i.e., `[T]`).
@@ -3216,6 +3270,10 @@ pub enum TyKind<'hir> {
     TraitObject(&'hir [PolyTraitRef<'hir>], TaggedRef<'hir, Lifetime, TraitObjectSyntax>),
     /// Unused for now.
     Typeof(&'hir AnonConst),
+    /// Placeholder for a type that has failed to be defined.
+    Err(rustc_span::ErrorGuaranteed),
+    /// Pattern types (`pattern_type!(u32 is 1..)`)
+    Pat(&'hir Ty<'hir>, &'hir Pat<'hir>),
     /// `TyKind::Infer` means the type should be inferred instead of it having been
     /// specified. This can appear anywhere in a type.
     ///
@@ -3223,11 +3281,7 @@ pub enum TyKind<'hir> {
     /// `TyKind::Infer`. In cases where it is ambiguous whether
     /// a generic arg is a type or a const, inference variables are
     /// represented as `GenericArg::Infer` instead.
-    Infer,
-    /// Placeholder for a type that has failed to be defined.
-    Err(rustc_span::ErrorGuaranteed),
-    /// Pattern types (`pattern_type!(u32 is 1..)`)
-    Pat(&'hir Ty<'hir>, &'hir Pat<'hir>),
+    Infer(Unambig),
 }
 
 #[derive(Debug, Clone, Copy, HashStable_Generic)]
