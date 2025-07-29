@@ -12,7 +12,7 @@ use super::interpret::ReportedErrorInfo;
 use crate::mir::interpret::{AllocId, AllocRange, ErrorHandled, GlobalAlloc, Scalar, alloc_range};
 use crate::mir::{Promoted, pretty_print_const_value};
 use crate::ty::print::{pretty_print_const, with_no_trimmed_paths};
-use crate::ty::{self, ConstKind, GenericArgsRef, ScalarInt, Ty, TyCtxt};
+use crate::ty::{self, ConstKind, GenericArgsRef, ScalarInt, Ty, TypingEnv, TyCtxt};
 
 ///////////////////////////////////////////////////////////////////////////
 /// Evaluated Constants
@@ -270,9 +270,19 @@ impl<'tcx> Const<'tcx> {
     }
 
     #[inline(always)]
-    pub fn ty(&self) -> Ty<'tcx> {
+    pub fn ty(&self, tcx: TyCtxt<'tcx>, typing_env: TypingEnv<'tcx>) -> Ty<'tcx> {
         match self {
-            Const::Ty(ct) => todo!(),
+            Const::Ty(ct) => match ct.kind() {
+                ty::ConstKind::Value(cv) => cv.ty,
+                ty::ConstKind::Param(param) => tcx.normalize_erasing_regions(typing_env, param.find_const_ty_from_env(typing_env.param_env)),
+                ty::ConstKind::Unevaluated(uv) => tcx.normalize_erasing_regions(typing_env, tcx.type_of(uv.def).instantiate(tcx, uv.args)),
+                
+                // GCE :c
+                ty::ConstKind::Expr(e) => todo!(),
+                ty::ConstKind::Error(e) => Ty::new_error(tcx, e),
+
+                ty::ConstKind::Infer(..) | ty::ConstKind::Placeholder(..) | ty::ConstKind::Bound(..) => unreachable!(),
+            },
             // Const::Ty(ty, ct) => {
             //     match ct.kind() {
             //         // Dont use the outer ty as on invalid code we can wind up with them not being the same.
@@ -407,8 +417,9 @@ impl<'tcx> Const<'tcx> {
         typing_env: ty::TypingEnv<'tcx>,
     ) -> Option<u128> {
         let int = self.try_eval_scalar_int(tcx, typing_env)?;
+        let env = typing_env.with_post_analysis_normalized(tcx);
         let size = tcx
-            .layout_of(typing_env.with_post_analysis_normalized(tcx).as_query_input(self.ty()))
+            .layout_of(env.as_query_input(self.ty(tcx, env)))
             .ok()?
             .size;
         Some(int.to_bits(size))
@@ -418,7 +429,7 @@ impl<'tcx> Const<'tcx> {
     #[inline]
     pub fn eval_bits(self, tcx: TyCtxt<'tcx>, typing_env: ty::TypingEnv<'tcx>) -> u128 {
         self.try_eval_bits(tcx, typing_env)
-            .unwrap_or_else(|| bug!("expected bits of {:#?}, got {:#?}", self.ty(), self))
+            .unwrap_or_else(|| bug!("expected bits of {:#?}, got {:#?}", self.ty(tcx, typing_env), self))
     }
 
     #[inline]

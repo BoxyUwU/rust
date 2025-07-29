@@ -962,7 +962,7 @@ impl<'tcx> PatRange<'tcx> {
         typing_env: ty::TypingEnv<'tcx>,
     ) -> Option<bool> {
         use Ordering::*;
-        debug_assert_eq!(self.ty, value.ty());
+        debug_assert_eq!(self.ty, value.ty(tcx, typing_env));
         let ty = self.ty;
         let value = PatRangeBoundary::Finite(value);
         // For performance, it's important to only do the second comparison if necessary.

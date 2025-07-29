@@ -1308,7 +1308,7 @@ impl<'tcx> Debug for ConstOperand<'tcx> {
 
 impl<'tcx> Display for ConstOperand<'tcx> {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> fmt::Result {
-        match self.ty().kind() {
+        match self.ty(todo!(), todo!()).kind() {
             ty::FnDef(..) => {}
             _ => write!(fmt, "const ")?,
         }
@@ -1455,7 +1455,7 @@ fn use_verbose(ty: Ty<'_>, fn_def: bool) -> bool {
 impl<'tcx> Visitor<'tcx> for ExtraComments<'tcx> {
     fn visit_const_operand(&mut self, constant: &ConstOperand<'tcx>, _location: Location) {
         let ConstOperand { span, user_ty, const_ } = constant;
-        if use_verbose(const_.ty(), true) {
+        if use_verbose(const_.ty(self.tcx, todo!()), true) {
             self.push("mir::ConstOperand");
             self.push(&format!(
                 "+ span: {}",
@@ -1509,7 +1509,7 @@ impl<'tcx> Visitor<'tcx> for ExtraComments<'tcx> {
             // This reflects what `Const` looked liked before `val` was renamed
             // as `kind`. We print it like this to avoid having to update
             // expected output in a lot of tests.
-            self.push(&format!("+ const_: Const {{ ty: {}, val: {} }}", const_.ty(), val));
+            self.push(&format!("+ const_: Const {{ ty: {}, val: {} }}", const_.ty(self.tcx, todo!()), val));
         }
     }
 

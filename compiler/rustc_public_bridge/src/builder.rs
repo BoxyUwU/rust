@@ -65,7 +65,7 @@ impl<'tcx> MutVisitor<'tcx> for BodyBuilder<'tcx> {
                 unreachable!("Failed to evaluate instance constant: {:?}", const_)
             }
         };
-        let ty = constant.ty();
+        let ty = constant.ty(self.tcx, ty::TypingEnv::fully_monomorphized());
         constant.const_ = mir::Const::Val(val, ty);
         self.super_const_operand(constant, location);
     }

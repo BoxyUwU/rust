@@ -592,7 +592,7 @@ impl<'tcx> Operand<'tcx> {
     /// While this is unlikely in general, it's the normal case of what you'll
     /// find as the `func` in a [`TerminatorKind::Call`].
     pub fn const_fn_def(&self) -> Option<(DefId, GenericArgsRef<'tcx>)> {
-        let const_ty = self.constant()?.const_.ty();
+        let const_ty = self.constant()?.const_.ty(todo!(), todo!());
         if let ty::FnDef(def_id, args) = *const_ty.kind() { Some((def_id, args)) } else { None }
     }
 
@@ -602,7 +602,7 @@ impl<'tcx> Operand<'tcx> {
     {
         match self {
             &Operand::Copy(ref l) | &Operand::Move(ref l) => l.ty(local_decls, tcx).ty,
-            Operand::Constant(c) => c.const_.ty(),
+            Operand::Constant(c) => c.const_.ty(tcx, todo!()),
         }
     }
 
@@ -634,8 +634,8 @@ impl<'tcx> ConstOperand<'tcx> {
     }
 
     #[inline]
-    pub fn ty(&self) -> Ty<'tcx> {
-        self.const_.ty()
+    pub fn ty(&self, tcx: TyCtxt<'tcx>, typing_env: TypingEnv<'tcx>) -> Ty<'tcx> {
+        self.const_.ty(tcx, typing_env)
     }
 }
 

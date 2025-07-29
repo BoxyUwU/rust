@@ -801,7 +801,7 @@ impl<'a, 'tcx> MirVisitor<'tcx> for MirUsedCollector<'a, 'tcx> {
                 for op in operands {
                     match *op {
                         mir::InlineAsmOperand::SymFn { ref value } => {
-                            let fn_ty = value.const_.ty();
+                            let fn_ty = value.const_.ty(self.tcx, ty::TypingEnv::fully_monomorphized());
                             // *Before* monomorphizing, record that we already handled this mention.
                             self.used_mentioned_items.insert(MentionedItem::Fn(fn_ty));
                             let fn_ty = self.monomorphize(fn_ty);
