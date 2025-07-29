@@ -1628,7 +1628,7 @@ impl<'a, 'tcx> Visitor<'tcx> for TypeChecker<'a, 'tcx> {
         self.super_operand(op, location);
         if let Operand::Constant(constant) = op {
             let maybe_uneval = match constant.const_ {
-                Const::Val(..) | Const::Ty(_, _) => None,
+                Const::Val(..) | Const::Ty(_) => None,
                 Const::Unevaluated(uv, _) => Some(uv),
             };
 
@@ -1687,7 +1687,7 @@ impl<'a, 'tcx> Visitor<'tcx> for TypeChecker<'a, 'tcx> {
         } else {
             let tcx = self.tcx();
             let maybe_uneval = match constant.const_ {
-                Const::Ty(_, ct) => match ct.kind() {
+                Const::Ty(ct) => match ct.kind() {
                     ty::ConstKind::Unevaluated(uv) => {
                         Some(UnevaluatedConst { def: uv.def, args: uv.args, promoted: None })
                     }
@@ -1734,7 +1734,7 @@ impl<'a, 'tcx> Visitor<'tcx> for TypeChecker<'a, 'tcx> {
                 {
                     span_mirbug!(self, constant, "bad static type {:?} ({:?})", constant, terr);
                 }
-            } else if let Const::Ty(_, ct) = constant.const_
+            } else if let Const::Ty(ct) = constant.const_
                 && let ty::ConstKind::Param(p) = ct.kind()
             {
                 let body_def_id = self.universal_regions.defining_ty.def_id();

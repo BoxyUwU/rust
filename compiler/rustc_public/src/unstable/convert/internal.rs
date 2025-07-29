@@ -352,8 +352,8 @@ impl RustcInternal for MirConst {
     ) -> Self::T<'tcx> {
         let constant = tables.mir_consts[self.id];
         match constant {
-            rustc_middle::mir::Const::Ty(ty, ct) => {
-                rustc_middle::mir::Const::Ty(tcx.lift(ty).unwrap(), tcx.lift(ct).unwrap())
+            rustc_middle::mir::Const::Ty( ct) => {
+                rustc_middle::mir::Const::Ty(tcx.lift(ct).unwrap())
             }
             rustc_middle::mir::Const::Unevaluated(uneval, ty) => {
                 rustc_middle::mir::Const::Unevaluated(

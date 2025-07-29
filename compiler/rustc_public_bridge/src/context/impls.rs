@@ -454,7 +454,7 @@ impl<'tcx, B: Bridge> CompilerCtxt<'tcx, B> {
             )));
         }
 
-        Ok(MirConst::Ty(ty_internal, self.const_zero_sized(ty_internal)))
+        Ok(MirConst::Ty(self.const_zero_sized(ty_internal)))
     }
 
     pub fn const_zero_sized(&self, ty_internal: Ty<'tcx>) -> ty::Const<'tcx> {

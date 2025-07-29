@@ -237,9 +237,7 @@ pub enum Const<'tcx> {
     /// Any way of turning `ty::Const` into `ConstValue` should go through `valtree_to_const_val`;
     /// this ensures that we consistently produce "clean" values without data in the padding or
     /// anything like that.
-    ///
-    /// FIXME(BoxyUwU): We should remove this `Ty` and look up the type for params via `ParamEnv`
-    Ty(Ty<'tcx>, ty::Const<'tcx>),
+    Ty(ty::Const<'tcx>),
 
     /// An unevaluated mir constant which is not part of the type system.
     ///
@@ -274,15 +272,16 @@ impl<'tcx> Const<'tcx> {
     #[inline(always)]
     pub fn ty(&self) -> Ty<'tcx> {
         match self {
-            Const::Ty(ty, ct) => {
-                match ct.kind() {
-                    // Dont use the outer ty as on invalid code we can wind up with them not being the same.
-                    // this then results in allowing const eval to add `1_i64 + 1_usize` in cases where the mir
-                    // was originally `({N: usize} + 1_usize)` under `generic_const_exprs`.
-                    ty::ConstKind::Value(cv) => cv.ty,
-                    _ => *ty,
-                }
-            }
+            Const::Ty(ct) => todo!(),
+            // Const::Ty(ty, ct) => {
+            //     match ct.kind() {
+            //         // Dont use the outer ty as on invalid code we can wind up with them not being the same.
+            //         // this then results in allowing const eval to add `1_i64 + 1_usize` in cases where the mir
+            //         // was originally `({N: usize} + 1_usize)` under `generic_const_exprs`.
+            //         ty::ConstKind::Value(cv) => cv.ty,
+            //         _ => *ty,
+            //     }
+            // }
             Const::Val(_, ty) | Const::Unevaluated(_, ty) => *ty,
         }
     }
@@ -292,7 +291,7 @@ impl<'tcx> Const<'tcx> {
     #[inline]
     pub fn is_required_const(&self) -> bool {
         match self {
-            Const::Ty(_, c) => match c.kind() {
+            Const::Ty(c) => match c.kind() {
                 ty::ConstKind::Value(_) => false, // already a value, cannot error
                 _ => true,
             },
@@ -304,7 +303,7 @@ impl<'tcx> Const<'tcx> {
     #[inline]
     pub fn try_to_scalar(self) -> Option<Scalar> {
         match self {
-            Const::Ty(_, c) => match c.kind() {
+            Const::Ty(c) => match c.kind() {
                 ty::ConstKind::Value(cv) if cv.ty.is_primitive() => {
                     // A valtree of a type where leaves directly represent the scalar const value.
                     // Just checking whether it is a leaf is insufficient as e.g. references are leafs
@@ -323,7 +322,7 @@ impl<'tcx> Const<'tcx> {
         // This is equivalent to `self.try_to_scalar()?.try_to_int().ok()`, but measurably faster.
         match self {
             Const::Val(ConstValue::Scalar(Scalar::Int(x)), _) => Some(x),
-            Const::Ty(_, c) => match c.kind() {
+            Const::Ty(c) => match c.kind() {
                 ty::ConstKind::Value(cv) if cv.ty.is_primitive() => Some(cv.valtree.unwrap_leaf()),
                 _ => None,
             },
@@ -349,7 +348,7 @@ impl<'tcx> Const<'tcx> {
         span: Span,
     ) -> Result<ConstValue, ErrorHandled> {
         match self {
-            Const::Ty(_, c) => {
+            Const::Ty(c) => {
                 if c.has_non_region_param() {
                     return Err(ErrorHandled::TooGeneric(span));
                 }
@@ -379,7 +378,7 @@ impl<'tcx> Const<'tcx> {
         tcx: TyCtxt<'tcx>,
         typing_env: ty::TypingEnv<'tcx>,
     ) -> Option<Scalar> {
-        if let Const::Ty(_, c) = self
+        if let Const::Ty(c) = self
             && let ty::ConstKind::Value(cv) = c.kind()
             && cv.ty.is_primitive()
         {
@@ -494,7 +493,7 @@ impl<'tcx> Const<'tcx> {
         // so using the same constant twice can yield two different results.
         // Notably, valtrees purposefully generate new allocations.
         match self {
-            Const::Ty(_, c) => match c.kind() {
+            Const::Ty(c) => match c.kind() {
                 ty::ConstKind::Param(..) => true,
                 // A valtree may be a reference. Valtree references correspond to a
                 // different allocation each time they are evaluated. Valtrees for primitive
@@ -553,7 +552,7 @@ impl<'tcx> UnevaluatedConst<'tcx> {
 impl<'tcx> Display for Const<'tcx> {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> fmt::Result {
         match *self {
-            Const::Ty(_, c) => pretty_print_const(c, fmt, true),
+            Const::Ty(c) => pretty_print_const(c, fmt, true),
             Const::Val(val, ty) => pretty_print_const_value(val, ty, fmt),
             // FIXME(valtrees): Correctly print mir constants.
             Const::Unevaluated(c, _ty) => {

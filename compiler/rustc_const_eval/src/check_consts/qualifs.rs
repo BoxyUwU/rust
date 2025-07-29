@@ -347,7 +347,7 @@ where
 
     // Check the qualifs of the value of `const` items.
     let uneval = match constant.const_ {
-        Const::Ty(_, ct)
+        Const::Ty(ct)
             if matches!(
                 ct.kind(),
                 ty::ConstKind::Param(_) | ty::ConstKind::Error(_) | ty::ConstKind::Value(_)
@@ -355,7 +355,7 @@ where
         {
             None
         }
-        Const::Ty(_, c) => {
+        Const::Ty(c) => {
             bug!("expected ConstKind::Param or ConstKind::Value here, found {:?}", c)
         }
         Const::Unevaluated(uv, _) => Some(uv),

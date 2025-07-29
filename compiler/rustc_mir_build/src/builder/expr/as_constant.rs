@@ -77,7 +77,7 @@ pub(crate) fn as_constant_inner<'tcx>(
         }
         ExprKind::ConstParam { param, def_id: _ } => {
             let const_param = ty::Const::new_param(tcx, param);
-            let const_ = Const::Ty(expr.ty, const_param);
+            let const_ = Const::Ty(const_param);
 
             ConstOperand { user_ty: None, span, const_ }
         }
@@ -102,7 +102,7 @@ fn lit_to_mir_constant<'tcx>(tcx: TyCtxt<'tcx>, lit_input: LitToConstInput<'tcx>
     let LitToConstInput { lit, ty, neg } = lit_input;
 
     if let Err(guar) = ty.error_reported() {
-        return Const::Ty(Ty::new_error(tcx, guar), ty::Const::new_error(tcx, guar));
+        return Const::Ty(ty::Const::new_error(tcx, guar));
     }
 
     let lit_ty = match *ty.kind() {
@@ -157,7 +157,7 @@ fn lit_to_mir_constant<'tcx>(tcx: TyCtxt<'tcx>, lit_input: LitToConstInput<'tcx>
         (ast::LitKind::Bool(b), ty::Bool) => ConstValue::Scalar(Scalar::from_bool(b)),
         (ast::LitKind::Char(c), ty::Char) => ConstValue::Scalar(Scalar::from_char(c)),
         (ast::LitKind::Err(guar), _) => {
-            return Const::Ty(Ty::new_error(tcx, guar), ty::Const::new_error(tcx, guar));
+            return Const::Ty(ty::Const::new_error(tcx, guar));
         }
         _ => bug!("invalid lit/ty combination in `lit_to_mir_constant`: {lit:?}: {ty:?}"),
     };

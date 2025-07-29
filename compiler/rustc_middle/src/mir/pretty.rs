@@ -1479,7 +1479,7 @@ impl<'tcx> Visitor<'tcx> for ExtraComments<'tcx> {
             };
 
             let val = match const_ {
-                Const::Ty(_, ct) => match ct.kind() {
+                Const::Ty(ct) => match ct.kind() {
                     ty::ConstKind::Param(p) => format!("ty::Param({p})"),
                     ty::ConstKind::Unevaluated(uv) => {
                         format!("ty::Unevaluated({}, {:?})", self.tcx.def_path_str(uv.def), uv.args,)
@@ -1579,7 +1579,7 @@ pub fn write_allocations<'tcx>(
     impl<'tcx> Visitor<'tcx> for CollectAllocIds {
         fn visit_const_operand(&mut self, c: &ConstOperand<'tcx>, _: Location) {
             match c.const_ {
-                Const::Ty(_, _) | Const::Unevaluated(..) => {}
+                Const::Ty(_) | Const::Unevaluated(..) => {}
                 Const::Val(val, _) => {
                     if let Some(id) = alloc_id_from_const_val(val) {
                         self.0.insert(id);

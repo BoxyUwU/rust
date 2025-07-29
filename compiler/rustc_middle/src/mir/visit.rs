@@ -938,7 +938,7 @@ macro_rules! make_mir_visitor {
 
                 self.visit_span($(& $mutability)? *span);
                 match const_ {
-                    Const::Ty(_, ct) => self.visit_ty_const($(&$mutability)? *ct, location),
+                    Const::Ty(ct) => self.visit_ty_const($(&$mutability)? *ct, location),
                     Const::Val(_, ty) => {
                         self.visit_ty($(& $mutability)? *ty, TyContext::Location(location));
                     }
