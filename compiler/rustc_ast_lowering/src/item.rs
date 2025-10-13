@@ -201,7 +201,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
                     |this| {
                         let ty = this
                             .lower_ty(ty, ImplTraitContext::Disallowed(ImplTraitPosition::ConstTy));
-                        let body = this.lower_item_body_to_const_arg(body.as_deref());
+                        let body = this.lower_const_item_rhs(attrs, body.as_ref(), span);
                         (ty, body)
                     },
                 );
@@ -813,8 +813,8 @@ impl<'hir> LoweringContext<'_, 'hir> {
                         let ty = this
                             .lower_ty(ty, ImplTraitContext::Disallowed(ImplTraitPosition::ConstTy));
                         let body = body
-                            .as_deref()
-                            .map(|body| this.lower_item_body_to_const_arg(Some(body)));
+                            .as_ref()
+                            .map(|body| this.lower_const_item_rhs(attrs, Some(body), i.span));
                         hir::TraitItemKind::Const(ty, body)
                     },
                 );
@@ -1028,7 +1028,7 @@ impl<'hir> LoweringContext<'_, 'hir> {
                         let ty = this
                             .lower_ty(ty, ImplTraitContext::Disallowed(ImplTraitPosition::ConstTy));
                         this.lower_define_opaque(hir_id, &define_opaque);
-                        let body = this.lower_item_body_to_const_arg(body.as_deref());
+                        let body = this.lower_const_item_rhs(attrs, body.as_ref(), i.span);
                         hir::ImplItemKind::Const(ty, body)
                     },
                 ),

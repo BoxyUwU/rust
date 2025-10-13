@@ -289,9 +289,8 @@ pub(crate) fn expand_test_or_bench(
                     ty: cx.ty(sp, ast::TyKind::Path(None, test_path("TestDescAndFn"))),
                     define_opaque: None,
                     // test::TestDescAndFn {
-                    body: Some(Box::new(ast::AnonConst {
-                        id: ast::DUMMY_NODE_ID,
-                        value: cx.expr_struct(
+                    body: Some(ast::ConstItemRhs::Body(
+                        cx.expr_struct(
                             sp,
                             test_path("TestDescAndFn"),
                             thin_vec![
@@ -372,7 +371,7 @@ pub(crate) fn expand_test_or_bench(
                         field("testfn", test_fn), // }
                     ],
                         ), // }
-                    })),
+                    )),
                 }
                 .into(),
             ),

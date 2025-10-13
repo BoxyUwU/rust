@@ -170,7 +170,7 @@ pub(super) fn type_of(tcx: TyCtxt<'_>, def_id: LocalDefId) -> ty::EarlyBinder<'_
                         infer_placeholder_type(
                             icx.lowerer(),
                             def_id,
-                            ct_arg.hir_id,
+                            ct_arg.hir_id(),
                             ty.span,
                             item.ident,
                             "associated constant",
@@ -194,7 +194,7 @@ pub(super) fn type_of(tcx: TyCtxt<'_>, def_id: LocalDefId) -> ty::EarlyBinder<'_
                     infer_placeholder_type(
                         icx.lowerer(),
                         def_id,
-                        ct_arg.hir_id,
+                        ct_arg.hir_id(),
                         ty.span,
                         item.ident,
                         "associated constant",
@@ -240,7 +240,7 @@ pub(super) fn type_of(tcx: TyCtxt<'_>, def_id: LocalDefId) -> ty::EarlyBinder<'_
                     infer_placeholder_type(
                         icx.lowerer(),
                         def_id,
-                        body.hir_id,
+                        body.hir_id(),
                         ty.span,
                         ident,
                         "constant",

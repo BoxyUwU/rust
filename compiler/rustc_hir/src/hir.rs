@@ -402,6 +402,21 @@ impl<'hir> PathSegment<'hir> {
     }
 }
 
+#[derive(Clone, Copy, Debug, HashStable_Generic)]
+pub enum ConstItemRhs<'hir> {
+    Body(BodyId),
+    TypeConst(&'hir ConstArg<'hir>),
+}
+
+impl<'hir> ConstItemRhs<'hir> {
+    pub fn hir_id(&self) -> HirId {
+        match self {
+            ConstItemRhs::Body(body_id) => body_id.hir_id,
+            ConstItemRhs::TypeConst(ct_arg) => ct_arg.hir_id,
+        }
+    }
+}
+
 /// A constant that enters the type system, used for arguments to const generics (e.g. array lengths).
 ///
 /// These are distinct from [`AnonConst`] as anon consts in the type system are not allowed
@@ -3165,7 +3180,7 @@ impl<'hir> TraitItem<'hir> {
     }
 
     expect_methods_self_kind! {
-        expect_const, (&'hir Ty<'hir>, Option<&'hir ConstArg<'hir>>),
+        expect_const, (&'hir Ty<'hir>, Option<ConstItemRhs<'hir>>),
             TraitItemKind::Const(ty, body), (ty, *body);
 
         expect_fn, (&FnSig<'hir>, &TraitFn<'hir>),
@@ -3190,7 +3205,7 @@ pub enum TraitFn<'hir> {
 #[derive(Debug, Clone, Copy, HashStable_Generic)]
 pub enum TraitItemKind<'hir> {
     /// An associated constant with an optional value (otherwise `impl`s must contain a value).
-    Const(&'hir Ty<'hir>, Option<&'hir ConstArg<'hir>>),
+    Const(&'hir Ty<'hir>, Option<ConstItemRhs<'hir>>),
     /// An associated function with an optional body.
     Fn(FnSig<'hir>, TraitFn<'hir>),
     /// An associated type with (possibly empty) bounds and optional concrete
@@ -3259,9 +3274,9 @@ impl<'hir> ImplItem<'hir> {
     }
 
     expect_methods_self_kind! {
-        expect_const, (&'hir Ty<'hir>, &'hir ConstArg<'hir>), ImplItemKind::Const(ty, body), (ty, body);
-        expect_fn,    (&FnSig<'hir>, BodyId),                 ImplItemKind::Fn(ty, body),    (ty, *body);
-        expect_type,  &'hir Ty<'hir>,                         ImplItemKind::Type(ty),        ty;
+        expect_const, (&'hir Ty<'hir>, ConstItemRhs<'hir>), ImplItemKind::Const(ty, body), (ty, *body);
+        expect_fn,    (&FnSig<'hir>, BodyId),               ImplItemKind::Fn(ty, body),    (ty, *body);
+        expect_type,  &'hir Ty<'hir>,                       ImplItemKind::Type(ty),        ty;
     }
 }
 
@@ -3270,7 +3285,7 @@ impl<'hir> ImplItem<'hir> {
 pub enum ImplItemKind<'hir> {
     /// An associated constant of the given type, set to the constant result
     /// of the expression.
-    Const(&'hir Ty<'hir>, &'hir ConstArg<'hir>),
+    Const(&'hir Ty<'hir>, ConstItemRhs<'hir>),
     /// An associated function implementation with the given signature and body.
     Fn(FnSig<'hir>, BodyId),
     /// An associated type.
@@ -4199,8 +4214,8 @@ impl<'hir> Item<'hir> {
         expect_static, (Mutability, Ident, &'hir Ty<'hir>, BodyId),
             ItemKind::Static(mutbl, ident, ty, body), (*mutbl, *ident, ty, *body);
 
-        expect_const, (Ident, &'hir Generics<'hir>, &'hir Ty<'hir>, &'hir ConstArg<'hir>),
-            ItemKind::Const(ident, generics, ty, ct_arg), (*ident, generics, ty, ct_arg);
+        expect_const, (Ident, &'hir Generics<'hir>, &'hir Ty<'hir>, ConstItemRhs<'hir>),
+            ItemKind::Const(ident, generics, ty, ct_arg), (*ident, generics, ty, *ct_arg);
 
         expect_fn, (Ident, &FnSig<'hir>, &'hir Generics<'hir>, BodyId),
             ItemKind::Fn { ident, sig, generics, body, .. }, (*ident, sig, generics, *body);
@@ -4372,7 +4387,7 @@ pub enum ItemKind<'hir> {
     Static(Mutability, Ident, &'hir Ty<'hir>, BodyId),
     /// A `const` item.
     // TODO: make sure we only allow usage of path RHS in generic contexts under mgca, not stable!
-    Const(Ident, &'hir Generics<'hir>, &'hir Ty<'hir>, &'hir ConstArg<'hir>),
+    Const(Ident, &'hir Generics<'hir>, &'hir Ty<'hir>, ConstItemRhs<'hir>),
     /// A function declaration.
     Fn {
         sig: FnSig<'hir>,
@@ -4610,29 +4625,18 @@ impl<'hir> OwnerNode<'hir> {
             OwnerNode::Item(Item {
                 kind:
                     ItemKind::Static(_, _, _, body)
-                    | ItemKind::Const(
-                        ..,
-                        ConstArg { kind: ConstArgKind::Anon(AnonConst { body, .. }), .. },
-                    )
+                    | ItemKind::Const(.., ConstItemRhs::Body(body))
                     | ItemKind::Fn { body, .. },
                 ..
             })
             | OwnerNode::TraitItem(TraitItem {
                 kind:
                     TraitItemKind::Fn(_, TraitFn::Provided(body))
-                    | TraitItemKind::Const(
-                        _,
-                        Some(ConstArg { kind: ConstArgKind::Anon(AnonConst { body, .. }), .. }),
-                    ),
+                    | TraitItemKind::Const(_, Some(ConstItemRhs::Body(body))),
                 ..
             })
             | OwnerNode::ImplItem(ImplItem {
-                kind:
-                    ImplItemKind::Fn(_, body)
-                    | ImplItemKind::Const(
-                        _,
-                        ConstArg { kind: ConstArgKind::Anon(AnonConst { body, .. }), .. },
-                    ),
+                kind: ImplItemKind::Fn(_, body) | ImplItemKind::Const(_, ConstItemRhs::Body(body)),
                 ..
             }) => Some(*body),
             _ => None,
@@ -4882,17 +4886,24 @@ impl<'hir> Node<'hir> {
         match self {
             Node::Item(Item {
                 owner_id,
-                kind: ItemKind::Static(.., body) | ItemKind::Fn { body, .. },
+                kind:
+                    ItemKind::Const(.., ConstItemRhs::Body(body))
+                    | ItemKind::Static(.., body)
+                    | ItemKind::Fn { body, .. },
                 ..
             })
             | Node::TraitItem(TraitItem {
                 owner_id,
-                kind: TraitItemKind::Fn(_, TraitFn::Provided(body)),
+                kind:
+                    TraitItemKind::Const(.., Some(ConstItemRhs::Body(body)))
+                    | TraitItemKind::Fn(_, TraitFn::Provided(body)),
                 ..
             })
-            | Node::ImplItem(ImplItem { owner_id, kind: ImplItemKind::Fn(_, body), .. }) => {
-                Some((owner_id.def_id, *body))
-            }
+            | Node::ImplItem(ImplItem {
+                owner_id,
+                kind: ImplItemKind::Const(.., ConstItemRhs::Body(body)) | ImplItemKind::Fn(_, body),
+                ..
+            }) => Some((owner_id.def_id, *body)),
 
             Node::Item(Item {
                 owner_id, kind: ItemKind::GlobalAsm { asm: _, fake_body }, ..

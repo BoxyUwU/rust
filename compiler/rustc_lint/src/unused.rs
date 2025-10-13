@@ -1008,7 +1008,7 @@ trait UnusedDelimLint {
         use ast::ItemKind::*;
 
         let expr = if let Const(box ast::ConstItem { body: Some(body), .. }) = &item.kind {
-            &body.value
+            body.expr()
         } else if let Static(box ast::StaticItem { expr: Some(expr), .. }) = &item.kind {
             expr
         } else {

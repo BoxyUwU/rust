@@ -6,7 +6,9 @@ use rustc_ast::ast::*;
 use rustc_ast::token::{self, Delimiter, InvisibleOrigin, MetaVarKind, TokenKind};
 use rustc_ast::tokenstream::{DelimSpan, TokenStream, TokenTree};
 use rustc_ast::util::case::Case;
-use rustc_ast::{self as ast};
+use rustc_ast::{
+    attr, {self as ast},
+};
 use rustc_ast_pretty::pprust;
 use rustc_errors::codes::*;
 use rustc_errors::{Applicability, PResult, StashKey, struct_span_code_err};
@@ -255,7 +257,7 @@ impl<'a> Parser<'a> {
             } else {
                 self.recover_const_mut(const_span);
                 self.recover_missing_kw_before_item()?;
-                let (ident, generics, ty, body) = self.parse_const_item()?;
+                let (ident, generics, ty, body) = self.parse_const_item(attrs)?;
                 ItemKind::Const(Box::new(ConstItem {
                     defaultness: def_(),
                     ident,
@@ -1013,8 +1015,7 @@ impl<'a> Parser<'a> {
                             define_opaque,
                         }) => {
                             self.dcx().emit_err(errors::AssociatedStaticItemNotAllowed { span });
-                            let body =
-                                expr.map(|e| Box::new(AnonConst { id: DUMMY_NODE_ID, value: e }));
+                            let body = expr.map(ConstItemRhs::Body);
                             AssocItemKind::Const(Box::new(ConstItem {
                                 defaultness: Defaultness::Final,
                                 ident,
@@ -1286,7 +1287,10 @@ impl<'a> Parser<'a> {
                                 ident,
                                 ty,
                                 mutability: Mutability::Not,
-                                expr: body.map(|ct| ct.value),
+                                expr: body.map(|b| match b {
+                                    ConstItemRhs::TypeConst(anon_const) => anon_const.value,
+                                    ConstItemRhs::Body(expr) => expr,
+                                }),
                                 safety: Safety::Default,
                                 define_opaque: None,
                             }))
@@ -1457,7 +1461,8 @@ impl<'a> Parser<'a> {
     /// ```
     fn parse_const_item(
         &mut self,
-    ) -> PResult<'a, (Ident, Generics, Box<Ty>, Option<Box<ast::AnonConst>>)> {
+        attrs: &[Attribute],
+    ) -> PResult<'a, (Ident, Generics, Box<Ty>, Option<ast::ConstItemRhs>)> {
         let ident = self.parse_ident_or_underscore()?;
 
         let mut generics = self.parse_generics()?;
@@ -1484,8 +1489,15 @@ impl<'a> Parser<'a> {
         let before_where_clause =
             if self.may_recover() { self.parse_where_clause()? } else { WhereClause::default() };
 
-        let body =
-            if self.eat(exp!(Eq)) { Some(Box::new(self.parse_expr_anon_const()?)) } else { None };
+        let body = if self.eat(exp!(Eq)) {
+            if attr::contains_name(attrs, sym::type_const) {
+                Some(ConstItemRhs::TypeConst(self.parse_expr_anon_const()?))
+            } else {
+                Some(ConstItemRhs::Body(self.parse_expr()?))
+            }
+        } else {
+            None
+        };
 
         let after_where_clause = self.parse_where_clause()?;
 
@@ -1498,13 +1510,13 @@ impl<'a> Parser<'a> {
             self.dcx().emit_err(errors::WhereClauseBeforeConstBody {
                 span: before_where_clause.span,
                 name: ident.span,
-                body: body.value.span,
+                body: body.span(),
                 sugg: if !after_where_clause.has_where_token {
-                    self.psess.source_map().span_to_snippet(body.value.span).ok().map(|body_s| {
+                    self.psess.source_map().span_to_snippet(body.span()).ok().map(|body_s| {
                         errors::WhereClauseBeforeConstBodySugg {
                             left: before_where_clause.span.shrink_to_lo(),
                             snippet: body_s,
-                            right: before_where_clause.span.shrink_to_hi().to(body.value.span),
+                            right: before_where_clause.span.shrink_to_hi().to(body.span()),
                         }
                     })
                 } else {

@@ -1604,10 +1604,14 @@ impl<'a, 'tcx> EncodeContext<'a, 'tcx> {
             if let DefKind::AnonConst = def_kind {
                 record!(self.tables.anon_const_kind[def_id] <- self.tcx.anon_const_kind(def_id));
             }
-            if let DefKind::Const = def_kind {
+            if let DefKind::Const = def_kind
+                && tcx.has_attr(def_id, sym::type_const)
+            {
                 record!(self.tables.const_of_item[def_id] <- self.tcx.const_of_item(def_id));
             }
-            if let DefKind::AssocConst = def_kind {
+            if let DefKind::AssocConst = def_kind
+                && tcx.has_attr(def_id, sym::type_const)
+            {
                 let assoc_item = tcx.associated_item(def_id);
                 let should_encode = match assoc_item.container {
                     ty::AssocContainer::InherentImpl | ty::AssocContainer::TraitImpl(_) => true,

@@ -1528,19 +1528,7 @@ fn anon_const_kind<'tcx>(tcx: TyCtxt<'tcx>, def: LocalDefId) -> ty::AnonConstKin
     match tcx.hir_node(const_arg_id) {
         hir::Node::ConstArg(_) => {
             let parent_hir_node = tcx.hir_node(tcx.parent_hir_id(const_arg_id));
-            if let hir::Node::Item(hir::Item { kind: hir::ItemKind::Const(.., body), .. })
-            | hir::Node::TraitItem(hir::TraitItem {
-                kind: hir::TraitItemKind::Const(.., Some(body)),
-                ..
-            })
-            | hir::Node::ImplItem(hir::ImplItem {
-                kind: hir::ImplItemKind::Const(.., body),
-                ..
-            }) = parent_hir_node
-                && body.hir_id == const_arg_id
-            {
-                return ty::AnonConstKind::ItemBody;
-            } else if tcx.features().generic_const_exprs() {
+            if tcx.features().generic_const_exprs() {
                 ty::AnonConstKind::GCE
             } else if tcx.features().min_generic_const_args() {
                 ty::AnonConstKind::MCG
@@ -1563,14 +1551,20 @@ fn const_of_item<'tcx>(
     tcx: TyCtxt<'tcx>,
     def_id: LocalDefId,
 ) -> ty::EarlyBinder<'tcx, Const<'tcx>> {
-    let ct_arg = match tcx.hir_node_by_def_id(def_id) {
-        hir::Node::Item(hir::Item { kind: hir::ItemKind::Const(.., ct), .. }) => ct,
+    let ct_rhs = match tcx.hir_node_by_def_id(def_id) {
+        hir::Node::Item(hir::Item { kind: hir::ItemKind::Const(.., ct), .. }) => *ct,
         hir::Node::TraitItem(hir::TraitItem {
             kind: hir::TraitItemKind::Const(.., ct), ..
         }) => ct.expect("no default value for trait assoc const"),
-        hir::Node::ImplItem(hir::ImplItem { kind: hir::ImplItemKind::Const(.., ct), .. }) => ct,
+        hir::Node::ImplItem(hir::ImplItem { kind: hir::ImplItemKind::Const(.., ct), .. }) => *ct,
         _ => {
             span_bug!(tcx.def_span(def_id), "`const_of_item` expected a const or assoc const item")
+        }
+    };
+    let ct_arg = match ct_rhs {
+        hir::ConstItemRhs::TypeConst(ct_arg) => ct_arg,
+        hir::ConstItemRhs::Body(body_id) => {
+            bug!("cannot call const_of_item on a non-type_const {body_id:?}")
         }
     };
     let icx = ItemCtxt::new(tcx, def_id);
