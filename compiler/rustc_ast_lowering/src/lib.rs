@@ -2311,13 +2311,20 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
     ) -> hir::ConstItemRhs<'hir> {
         match rhs {
             Some(ConstItemRhs::TypeConst(anon)) => {
-                hir::ConstItemRhs::TypeConst(self.lower_item_body_to_const_arg(Some(anon)))
+                hir::ConstItemRhs::TypeConst(self.lower_anon_const_to_const_arg(anon))
+            }
+            None if attr::contains_name(attrs, sym::type_const) => {
+                let const_arg = ConstArg {
+                    hir_id: self.next_id(),
+                    kind: hir::ConstArgKind::Error(
+                        DUMMY_SP,
+                        self.dcx().span_delayed_bug(DUMMY_SP, "no block"),
+                    ),
+                };
+                hir::ConstItemRhs::TypeConst(self.arena.alloc(const_arg))
             }
             Some(ConstItemRhs::Body(body)) => {
                 hir::ConstItemRhs::Body(self.lower_const_body(span, Some(body)))
-            }
-            None if attr::contains_name(attrs, sym::type_const) => {
-                hir::ConstItemRhs::TypeConst(self.lower_item_body_to_const_arg(None))
             }
             None => hir::ConstItemRhs::Body(self.lower_const_body(span, None)),
         }
@@ -2325,38 +2332,14 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
 
     /// See [`hir::ConstArg`] for when to use this function vs
     /// [`Self::lower_anon_const_to_anon_const`].
-    fn lower_item_body_to_const_arg(
-        &mut self,
-        anon: Option<&AnonConst>,
-    ) -> &'hir hir::ConstArg<'hir> {
-        let Some(anon) = anon else {
-            let const_arg = ConstArg {
-                hir_id: self.next_id(),
-                kind: hir::ConstArgKind::Error(
-                    DUMMY_SP,
-                    self.dcx().span_delayed_bug(DUMMY_SP, "no block"),
-                ),
-            };
-            return self.arena.alloc(const_arg);
-        };
-
-        self.arena.alloc(self.lower_anon_const_to_const_arg_direct(
-            anon,
-            !self.tcx.features().min_generic_const_args(),
-        ))
-    }
-
-    /// See [`hir::ConstArg`] for when to use this function vs
-    /// [`Self::lower_anon_const_to_anon_const`].
     fn lower_anon_const_to_const_arg(&mut self, anon: &AnonConst) -> &'hir hir::ConstArg<'hir> {
-        self.arena.alloc(self.lower_anon_const_to_const_arg_direct(anon, false))
+        self.arena.alloc(self.lower_anon_const_to_const_arg_direct(anon))
     }
 
     #[instrument(level = "debug", skip(self))]
     fn lower_anon_const_to_const_arg_direct(
         &mut self,
         anon: &AnonConst,
-        always_lower_to_anon_const: bool,
     ) -> hir::ConstArg<'hir> {
         let tcx = self.tcx;
         // Unwrap a block, so that e.g. `{ P }` is recognised as a parameter. Const arguments
@@ -2376,7 +2359,6 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
             && path.is_potential_trivial_const_arg(tcx.features().min_generic_const_args())
             && (tcx.features().min_generic_const_args()
                 || matches!(maybe_res, Some(Res::Def(DefKind::ConstParam, _))))
-            && !always_lower_to_anon_const
         {
             let qpath = self.lower_qpath(
                 expr.id,
