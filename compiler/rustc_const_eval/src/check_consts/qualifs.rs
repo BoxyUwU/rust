@@ -7,6 +7,7 @@
 
 use rustc_errors::ErrorGuaranteed;
 use rustc_hir::LangItem;
+use rustc_hir::def::DefKind;
 use rustc_infer::infer::TyCtxtInferExt;
 use rustc_middle::mir::*;
 use rustc_middle::ty::{self, AdtDef, Ty};
@@ -367,12 +368,14 @@ where
         // check performed after the promotion. Verify that with an assertion.
         assert!(promoted.is_none() || Q::ALLOW_PROMOTED);
 
-        // Const items don't themselves have bodies -- they will have either a path or an anon const instead.
-        // FIXME(mgca): is this really the right behavior? should we return the qualifs of the anon const body instead?
-        //              (note also that original code ignored trait assoc items)
+        let is_type_const_item = matches!(cx.tcx.def_kind(def), DefKind::Const | DefKind::AssocConst)
+        && cx.tcx.has_attr(def, sym::type_const);
+        
+        // Don't peak inside trait associated consatnts, also `#[type_const] const` items
+        // don't have bodies so there's nothing to look at
         if promoted.is_none()
             && cx.tcx.trait_of_assoc(def).is_none()
-            && !cx.tcx.has_attr(def, sym::type_const)
+            && !is_type_const_item
         {
             let qualifs = cx.tcx.at(constant.span).mir_const_qualif(def);
 
