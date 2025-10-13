@@ -29,7 +29,8 @@ use rustc_errors::{
 };
 use rustc_hir::def::{CtorKind, CtorOf, DefKind, Res};
 use rustc_hir::def_id::{DefId, LocalDefId};
-use rustc_hir::{self as hir, AnonConst, GenericArg, GenericArgs, HirId};
+use rustc_hir::{self as hir, find_attr, AnonConst, GenericArg, GenericArgs, HirId};
+use rustc_hir::attrs::AttributeKind;
 use rustc_infer::infer::{InferCtxt, TyCtxtInferExt};
 use rustc_infer::traits::DynCompatibilityViolation;
 use rustc_macros::{TypeFoldable, TypeVisitable};
@@ -1231,7 +1232,7 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
             LowerTypeRelativePathMode::Const,
         )? {
             TypeRelativePath::AssocItem(def_id, args) => {
-                if !tcx.associated_item(def_id).is_type_const_capable(tcx) {
+                if !find_attr!(self.tcx().get_all_attrs(def_id), AttributeKind::TypeConst(_)) {
                     let mut err = self.dcx().struct_span_err(
                         span,
                         "use of trait associated const without `#[type_const]`",
@@ -1672,6 +1673,15 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
             ty::AssocTag::Const,
         ) {
             Ok((item_def_id, item_args)) => {
+                if !find_attr!(self.tcx().get_all_attrs(item_def_id), AttributeKind::TypeConst(_)) {
+                    let mut err = self.dcx().struct_span_err(
+                        span,
+                        "use of `const` in the type system without `#[type_const]`",
+                    );
+                    err.note("the declaration must be marked with `#[type_const]`");
+                    return Const::new_error(self.tcx(), err.emit());
+                }
+
                 let uv = ty::UnevaluatedConst::new(item_def_id, item_args);
                 Const::new_unevaluated(self.tcx(), uv)
             }
