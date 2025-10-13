@@ -1605,12 +1605,12 @@ impl<'a, 'tcx> EncodeContext<'a, 'tcx> {
                 record!(self.tables.anon_const_kind[def_id] <- self.tcx.anon_const_kind(def_id));
             }
             if let DefKind::Const = def_kind
-                && tcx.has_attr(def_id, sym::type_const)
+                && find_attr!(tcx.get_all_attrs(def_id), AttributeKind::TypeConst(_))
             {
                 record!(self.tables.const_of_item[def_id] <- self.tcx.const_of_item(def_id));
             }
             if let DefKind::AssocConst = def_kind
-                && tcx.has_attr(def_id, sym::type_const)
+                && find_attr!(tcx.get_all_attrs(def_id), AttributeKind::TypeConst(_))
             {
                 let assoc_item = tcx.associated_item(def_id);
                 let should_encode = match assoc_item.container {

@@ -93,6 +93,8 @@ pub use errors::NoVariantNamed;
 use rustc_abi::{CVariadicStatus, ExternAbi};
 use rustc_hir::def::DefKind;
 use rustc_hir::lints::DelayedLint;
+use rustc_hir::attrs::AttributeKind;
+use rustc_hir::find_attr;
 use rustc_hir::{self as hir};
 use rustc_middle::mir::interpret::GlobalId;
 use rustc_middle::query::Providers;
@@ -229,7 +231,7 @@ pub fn check_crate(tcx: TyCtxt<'_>) {
             }
             DefKind::Const
                 if !tcx.generics_of(item_def_id).own_requires_monomorphization()
-                    && !tcx.has_attr(item_def_id, sym::type_const) =>
+                    && !find_attr!(tcx.get_all_attrs(item_def_id), AttributeKind::TypeConst(_)) =>
             {
                 // FIXME(generic_const_items): Passing empty instead of identity args is fishy but
                 //                             seems to be fine for now. Revisit this!

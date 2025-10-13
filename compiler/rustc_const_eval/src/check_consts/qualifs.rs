@@ -8,6 +8,8 @@
 use rustc_errors::ErrorGuaranteed;
 use rustc_hir::LangItem;
 use rustc_hir::def::DefKind;
+use rustc_hir::attrs::AttributeKind;
+use rustc_hir::find_attr;
 use rustc_infer::infer::TyCtxtInferExt;
 use rustc_middle::mir::*;
 use rustc_middle::ty::{self, AdtDef, Ty};
@@ -369,7 +371,7 @@ where
         assert!(promoted.is_none() || Q::ALLOW_PROMOTED);
 
         let is_type_const_item = matches!(cx.tcx.def_kind(def), DefKind::Const | DefKind::AssocConst)
-        && cx.tcx.has_attr(def, sym::type_const);
+            && find_attr!(cx.tcx.get_all_attrs(def), AttributeKind::TypeConst(_));
         
         // Don't peak inside trait associated consatnts, also `#[type_const] const` items
         // don't have bodies so there's nothing to look at
