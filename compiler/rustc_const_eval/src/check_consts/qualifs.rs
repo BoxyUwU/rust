@@ -7,11 +7,11 @@
 
 use rustc_errors::ErrorGuaranteed;
 use rustc_hir::LangItem;
-use rustc_hir::def::DefKind;
 use rustc_infer::infer::TyCtxtInferExt;
 use rustc_middle::mir::*;
 use rustc_middle::ty::{self, AdtDef, Ty};
 use rustc_middle::{bug, mir};
+use rustc_span::sym;
 use rustc_trait_selection::traits::{Obligation, ObligationCause, ObligationCtxt};
 use tracing::instrument;
 
@@ -371,7 +371,8 @@ where
         // FIXME(mgca): is this really the right behavior? should we return the qualifs of the anon const body instead?
         //              (note also that original code ignored trait assoc items)
         if promoted.is_none()
-            && !matches!(cx.tcx.def_kind(def), DefKind::Const | DefKind::AssocConst)
+            && cx.tcx.trait_of_assoc(def).is_none()
+            && !cx.tcx.has_attr(def, sym::type_const)
         {
             let qualifs = cx.tcx.at(constant.span).mir_const_qualif(def);
 
