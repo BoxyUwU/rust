@@ -57,14 +57,19 @@ fn track_diagnostic<R>(diagnostic: DiagInner, f: &mut dyn FnMut(DiagInner) -> R)
 /// This is a callback from `rustc_hir` as it cannot access the implicit state
 /// in `rustc_middle` otherwise.
 fn def_id_debug(def_id: rustc_hir::def_id::DefId, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "DefId({}:{}", def_id.krate, def_id.index.index())?;
     tls::with_opt(|opt_tcx| {
+        let noop_print =
+            opt_tcx.map(|tcx| tcx.sess.opts.unstable_opts.noop_defid_printing).unwrap_or(false);
+        if noop_print {
+            return write!(f, "DefId(..)");
+        };
+
+        write!(f, "DefId({}:{}", def_id.krate, def_id.index.index())?;
         if let Some(tcx) = opt_tcx {
             write!(f, " ~ {}", tcx.def_path_debug_str(def_id))?;
         }
-        Ok(())
-    })?;
-    write!(f, ")")
+        write!(f, ")")
+    })
 }
 
 /// This is a callback from `rustc_query_system` as it cannot access the implicit state

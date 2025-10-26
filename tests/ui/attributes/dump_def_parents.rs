@@ -1,4 +1,4 @@
-//@ normalize-stderr: "DefId\(.+?\)" -> "DefId(..)"
+//@ compile-flags: -Znoop_defid_printing
 #![feature(rustc_attrs)]
 
 fn bar() {

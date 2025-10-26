@@ -2491,6 +2491,8 @@ options! {
         "disable generation of trait vptr in vtable for upcasting"),
     no_unique_section_names: bool = (false, parse_bool, [TRACKED],
         "do not use unique names for text and data sections when -Z function-sections is used"),
+    noop_defid_printing: bool = (false, parse_no_value, [UNTRACKED],
+        "print `DefId`s as just `DefId(..)`. Useful for rustc's ui tests"),
     normalize_docs: bool = (false, parse_bool, [TRACKED],
         "normalize associated items in rustdoc when generating documentation"),
     offload: Vec<crate::config::Offload> = (Vec::new(), parse_offload, [TRACKED],
