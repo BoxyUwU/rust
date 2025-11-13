@@ -1372,6 +1372,13 @@ pub enum UnsafeSource {
     UserProvided,
 }
 
+#[derive(Clone, PartialEq, Encodable, Decodable, Debug, Copy, Walkable)]
+pub enum MgcaDisambiguation {
+    TSAnonConst,
+    NonTSAnonConst,
+    Direct,
+}
+
 /// A constant (expression) that's not an item or associated item,
 /// but needs its own `DefId` for type-checking, const-eval, etc.
 /// These are usually found nested inside types (e.g., array lengths)
@@ -1381,6 +1388,7 @@ pub enum UnsafeSource {
 pub struct AnonConst {
     pub id: NodeId,
     pub value: Box<Expr>,
+    pub mgca_disambiguation: MgcaDisambiguation,
 }
 
 /// An expression.
