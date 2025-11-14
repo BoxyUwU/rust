@@ -665,7 +665,7 @@ impl<'a> Parser<'a> {
             } else {
                 self.parse_expr_anon_const(MgcaDisambiguation::Direct)?
             };
-            
+
             if let Err(e) = self.expect(exp!(CloseBracket)) {
                 // Try to recover from `X<Y, ...>` when `X::<Y, ...>` works
                 self.check_mistyped_turbofish_with_multiple_type_params(e, &mut length.value)?;

@@ -1618,7 +1618,9 @@ impl<'a> Parser<'a> {
             let first_expr = self.parse_expr()?;
             if self.eat(exp!(Semi)) {
                 // Repeating array syntax: `[ 0; 512 ]`
-                let count = if self.token.is_keyword(kw::Const) && self.look_ahead(1, |t| *t == token::OpenBrace) {
+                let count = if self.token.is_keyword(kw::Const)
+                    && self.look_ahead(1, |t| *t == token::OpenBrace)
+                {
                     self.parse_expr_anon_const(MgcaDisambiguation::TSAnonConst)?
                 } else {
                     self.parse_expr_anon_const(MgcaDisambiguation::Direct)?
