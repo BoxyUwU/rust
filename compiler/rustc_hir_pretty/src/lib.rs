@@ -1136,6 +1136,8 @@ impl<'a> State<'a> {
 
     fn print_const_arg(&mut self, const_arg: &hir::ConstArg<'_>) {
         match &const_arg.kind {
+            // TODO(thispr)
+            ConstArgKind::Struct(..) => self.word("/* STRUCT EXPR */"),
             ConstArgKind::Path(qpath) => self.print_qpath(qpath, true),
             ConstArgKind::Anon(anon) => self.print_anon_const(anon),
             ConstArgKind::Error(_, _) => self.word("/*ERROR*/"),
