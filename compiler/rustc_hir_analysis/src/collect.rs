@@ -1619,6 +1619,7 @@ fn const_of_item<'tcx>(
             return ty::EarlyBinder::bind(Const::new_error(tcx, e));
         }
     };
+
     let icx = ItemCtxt::new(tcx, def_id);
     let identity_args = ty::GenericArgs::identity_for_item(tcx, def_id);
     let ct = icx
