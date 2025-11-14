@@ -2354,6 +2354,76 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
         }
     }
 
+    fn lower_expr_to_const_arg_direct(&mut self, expr: &Expr) -> hir::ConstArg<'hir> {
+        let overly_complex_const = |this: &mut Self| {
+            let e = this.dcx().struct_span_err(
+                expr.span,
+                "complex const arguments must be placed inside of a `const` block",
+            );
+
+            ConstArg { hir_id: this.next_id(), kind: hir::ConstArgKind::Error(expr.span, e.emit()) }
+        };
+
+        match &expr.kind {
+            ExprKind::Path(qself, path) => {
+                let qpath = self.lower_qpath(
+                    expr.id,
+                    qself,
+                    path,
+                    ParamMode::Explicit,
+                    AllowReturnTypeNotation::No,
+                    // FIXME(mgca): update for `fn foo() -> Bar<FOO<impl Trait>>` support
+                    ImplTraitContext::Disallowed(ImplTraitPosition::Path),
+                    None,
+                );
+
+                ConstArg { hir_id: self.next_id(), kind: hir::ConstArgKind::Path(qpath) }
+            }
+            ExprKind::Struct(se) => {
+                let path = self.lower_qpath(
+                    expr.id,
+                    &se.qself,
+                    &se.path,
+                    ParamMode::Explicit,
+                    AllowReturnTypeNotation::No,
+                    ImplTraitContext::Disallowed(ImplTraitPosition::Path),
+                    None,
+                );
+
+                let fields = self.arena.alloc_from_iter(se.fields.iter().map(|f| {
+                    let hir_id = self.lower_node_id(f.id);
+                    self.lower_attrs(hir_id, &f.attrs, f.span, Target::ExprField);
+
+                    let expr = if let ExprKind::ConstBlock(anon_const) = &f.expr.kind {
+                        self.lower_anon_const_to_const_arg_direct(anon_const)
+                    } else {
+                        self.lower_expr_to_const_arg_direct(&f.expr)
+                    };
+
+                    &*self.arena.alloc(hir::ConstArgExprField {
+                        hir_id,
+                        field: self.lower_ident(f.ident),
+                        expr: self.arena.alloc(expr),
+                        span: self.lower_span(f.span),
+                    })
+                }));
+
+                ConstArg { hir_id: self.next_id(), kind: hir::ConstArgKind::Struct(path, fields) }
+            }
+            ExprKind::Block(block, _) => {
+                if let [stmt] = block.stmts.as_slice()
+                    && let StmtKind::Expr(expr) = &stmt.kind
+                    && let ExprKind::Path(..) = &expr.kind
+                {
+                    return self.lower_expr_to_const_arg_direct(expr);
+                }
+
+                overly_complex_const(self)
+            }
+            _ => overly_complex_const(self),
+        }
+    }
+
     /// See [`hir::ConstArg`] for when to use this function vs
     /// [`Self::lower_anon_const_to_anon_const`].
     fn lower_anon_const_to_const_arg(&mut self, anon: &AnonConst) -> &'hir hir::ConstArg<'hir> {
@@ -2378,42 +2448,14 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
 
         if tcx.features().min_generic_const_args() {
             match anon.mgca_disambiguation {
-                MgcaDisambiguation::NonTSAnonConst => unreachable!(),
-                MgcaDisambiguation::TSAnonConst => {
+                MgcaDisambiguation::NonTSAnonConst | MgcaDisambiguation::TSAnonConst => {
                     let lowered_anon = self.lower_anon_const_to_anon_const(anon);
                     return ConstArg {
                         hir_id: self.next_id(),
                         kind: hir::ConstArgKind::Anon(lowered_anon),
                     };
                 }
-                MgcaDisambiguation::Direct if let ExprKind::Path(qself, path) = &expr.kind => {
-                    let qpath = self.lower_qpath(
-                        expr.id,
-                        qself,
-                        path,
-                        ParamMode::Explicit,
-                        AllowReturnTypeNotation::No,
-                        // FIXME(mgca): update for `fn foo() -> Bar<FOO<impl Trait>>` support
-                        ImplTraitContext::Disallowed(ImplTraitPosition::Path),
-                        None,
-                    );
-
-                    return ConstArg {
-                        hir_id: self.lower_node_id(anon.id),
-                        kind: hir::ConstArgKind::Path(qpath),
-                    };
-                }
-                MgcaDisambiguation::Direct => {
-                    let e = tcx.dcx().struct_span_err(
-                        expr.span,
-                        "complex const arguments must be placed inside of a `const` block",
-                    );
-
-                    return ConstArg {
-                        hir_id: self.lower_node_id(anon.id),
-                        kind: hir::ConstArgKind::Error(expr.span, e.emit()),
-                    };
-                }
+                MgcaDisambiguation::Direct => return self.lower_expr_to_const_arg_direct(expr),
             }
         }
 
