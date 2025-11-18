@@ -98,15 +98,11 @@ impl<'tcx> ValTree<'tcx> {
     }
 
     pub fn from_raw_bytes(tcx: TyCtxt<'tcx>, bytes: &[u8]) -> Self {
-        let branches = bytes.iter().map(|&b| Self::from_scalar_int(tcx, b.into()));
+        let branches = bytes.iter().map(|&b| ty::Const::new_value(tcx, Self::from_scalar_int(tcx, b.into()), tcx.types.u8));
         Self::from_branches(tcx, branches)
     }
 
-    pub fn from_branches(tcx: TyCtxt<'tcx>, branches: impl IntoIterator<Item = Self>) -> Self {
-        todo!()
-    }
-
-    pub fn from_ty_const_branches(tcx: TyCtxt<'tcx>, branches: impl IntoIterator<Item = ty::Const<'tcx>>) -> Self {
+    pub fn from_branches(tcx: TyCtxt<'tcx>, branches: impl IntoIterator<Item = ty::Const<'tcx>>) -> Self {
         tcx.intern_valtree(ValTreeKind::Branch(branches.into_iter().collect()))
 
     }

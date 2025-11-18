@@ -2333,7 +2333,7 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
                     None
                 };
 
-                let valtree = ty::ValTree::from_ty_const_branches(tcx, opt_discr_const.into_iter().chain(fields));
+                let valtree = ty::ValTree::from_branches(tcx, opt_discr_const.into_iter().chain(fields));
                 ty::Const::new_value(tcx, valtree, ty)
             }
             hir::ConstArgKind::Anon(anon) => self.lower_anon_const(anon),

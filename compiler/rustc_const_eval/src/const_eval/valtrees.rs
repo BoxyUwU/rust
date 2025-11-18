@@ -36,13 +36,13 @@ fn branches<'tcx>(
     // For enums, we prepend their variant index before the variant's fields so we can figure out
     // the variant again when just seeing a valtree.
     if let Some(variant) = variant {
-        branches.push(ty::ValTree::from_scalar_int(*ecx.tcx, variant.as_u32().into()));
+        branches.push(ty::Const::new_value(*ecx.tcx, ty::ValTree::from_scalar_int(*ecx.tcx, variant.as_u32().into()), ecx.tcx.types.u32));
     }
 
     for i in 0..field_count {
         let field = ecx.project_field(&place, FieldIdx::from_usize(i)).unwrap();
         let valtree = const_to_valtree_inner(ecx, &field, num_nodes)?;
-        branches.push(valtree);
+        branches.push(ty::Const::new_value(*ecx.tcx, valtree, field.layout.ty));
     }
 
     // Have to account for ZSTs here
@@ -65,7 +65,7 @@ fn slice_branches<'tcx>(
     for i in 0..n {
         let place_elem = ecx.project_index(place, i).unwrap();
         let valtree = const_to_valtree_inner(ecx, &place_elem, num_nodes)?;
-        elems.push(valtree);
+        elems.push(ty::Const::new_value(*ecx.tcx, valtree, place_elem.layout.ty));
     }
 
     Ok(ty::ValTree::from_branches(*ecx.tcx, elems))
