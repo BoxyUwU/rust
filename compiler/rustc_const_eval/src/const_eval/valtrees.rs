@@ -201,7 +201,7 @@ fn reconstruct_place_meta<'tcx>(
         |ty| ty,
         || {
             let branches = last_valtree.unwrap_branch();
-            last_valtree = *branches.last().unwrap();
+            last_valtree = branches.last().unwrap().to_value().valtree;
             debug!(?branches, ?last_valtree);
         },
     );
@@ -306,7 +306,7 @@ pub fn valtree_to_const_value<'tcx>(
                 for (i, &inner_valtree) in branches.iter().enumerate() {
                     let field = layout.field(&LayoutCx::new(tcx, typing_env), i);
                     if !field.is_zst() {
-                        let cv = ty::Value { valtree: inner_valtree, ty: field.ty };
+                        let cv = ty::Value { valtree: inner_valtree.to_value().valtree, ty: field.ty };
                         return valtree_to_const_value(tcx, typing_env, cv);
                     }
                 }
@@ -397,7 +397,7 @@ fn valtree_into_mplace<'tcx>(
             let (place_adjusted, branches, variant_idx) = match ty.kind() {
                 ty::Adt(def, _) if def.is_enum() => {
                     // First element of valtree corresponds to variant
-                    let scalar_int = branches[0].unwrap_leaf();
+                    let scalar_int = branches[0].to_value().valtree.unwrap_leaf();
                     let variant_idx = VariantIdx::from_u32(scalar_int.to_u32());
                     let variant = def.variant(variant_idx);
                     debug!(?variant);
@@ -425,7 +425,7 @@ fn valtree_into_mplace<'tcx>(
                 };
 
                 debug!(?place_inner);
-                valtree_into_mplace(ecx, &place_inner, *inner_valtree);
+                valtree_into_mplace(ecx, &place_inner, inner_valtree.to_value().valtree);
                 dump_place(ecx, &place_inner);
             }
 

@@ -23,7 +23,7 @@ use crate::ty::{self, Ty, TyCtxt};
 /// `ValTree` does not have this problem with representation, as it only contains integers or
 /// lists of (nested) `ValTree`.
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
-#[derive(HashStable, TyEncodable, TyDecodable)]
+#[derive(HashStable, TyEncodable, TyDecodable, TypeFoldable, TypeVisitable)]
 pub enum ValTreeKind<'tcx> {
     /// integers, `bool`, `char` are represented as scalars.
     /// See the `ScalarInt` documentation for how `ScalarInt` guarantees that equal values
@@ -39,7 +39,7 @@ pub enum ValTreeKind<'tcx> {
     /// the fields of the variant.
     ///
     /// ZST types are represented as an empty slice.
-    Branch(Box<[ValTree<'tcx>]>),
+    Branch(Box<[ty::Const<'tcx>]>),
 }
 
 impl<'tcx> ValTreeKind<'tcx> {
@@ -52,7 +52,7 @@ impl<'tcx> ValTreeKind<'tcx> {
     }
 
     #[inline]
-    pub fn unwrap_branch(&self) -> &[ValTree<'tcx>] {
+    pub fn unwrap_branch(&self) -> &[ty::Const<'tcx>] {
         match self {
             Self::Branch(branch) => &**branch,
             _ => bug!("expected branch, got {:?}", self),
@@ -70,7 +70,7 @@ impl<'tcx> ValTreeKind<'tcx> {
         }
     }
 
-    pub fn try_to_branch(&self) -> Option<&[ValTree<'tcx>]> {
+    pub fn try_to_branch(&self) -> Option<&[ty::Const<'tcx>]> {
         match self {
             Self::Branch(branch) => Some(&**branch),
             Self::Leaf(_) => None,
@@ -103,7 +103,12 @@ impl<'tcx> ValTree<'tcx> {
     }
 
     pub fn from_branches(tcx: TyCtxt<'tcx>, branches: impl IntoIterator<Item = Self>) -> Self {
+        todo!()
+    }
+
+    pub fn from_ty_const_branches(tcx: TyCtxt<'tcx>, branches: impl IntoIterator<Item = ty::Const<'tcx>>) -> Self {
         tcx.intern_valtree(ValTreeKind::Branch(branches.into_iter().collect()))
+
     }
 
     pub fn from_scalar_int(tcx: TyCtxt<'tcx>, i: ScalarInt) -> Self {
@@ -193,7 +198,7 @@ impl<'tcx> Value<'tcx> {
         }
 
         Some(tcx.arena.alloc_from_iter(
-            self.valtree.unwrap_branch().into_iter().map(|v| v.unwrap_leaf().to_u8()),
+            self.valtree.unwrap_branch().into_iter().map(|ct| ct.to_value().valtree.unwrap_leaf().to_u8()),
         ))
     }
 }

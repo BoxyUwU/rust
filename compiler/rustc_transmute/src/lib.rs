@@ -158,7 +158,7 @@ mod rustc {
                     .enumerate()
                     .find(|(_, field_def)| name == field_def.name)
                     .unwrap_or_else(|| panic!("There were no fields named `{name}`."));
-                fields[field_idx].unwrap_leaf() == ScalarInt::TRUE
+                fields[field_idx].to_value().valtree.unwrap_leaf() == ScalarInt::TRUE
             };
 
             Some(Self {
