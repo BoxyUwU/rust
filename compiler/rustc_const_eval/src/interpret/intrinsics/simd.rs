@@ -552,8 +552,12 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
                 assert_eq!(u64::try_from(index_len).unwrap(), dest_len);
 
                 for i in 0..dest_len {
-                    let src_index: u64 =
-                        index[usize::try_from(i).unwrap()].to_value().valtree.unwrap_leaf().to_u32().into();
+                    let src_index: u64 = index[usize::try_from(i).unwrap()]
+                        .to_value()
+                        .valtree
+                        .unwrap_leaf()
+                        .to_u32()
+                        .into();
                     let dest = self.project_index(&dest, i)?;
 
                     let val = if src_index < left_len {
@@ -658,7 +662,9 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
                     ptr,
                     dest_layout,
                     generic_args[3].expect_const().to_value().valtree.unwrap_branch()[0]
-                        .to_value().valtree.unwrap_leaf()
+                        .to_value()
+                        .valtree
+                        .unwrap_leaf()
                         .to_simd_alignment(),
                 )?;
 
@@ -690,7 +696,9 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
                     ptr,
                     args[2].layout,
                     generic_args[3].expect_const().to_value().valtree.unwrap_branch()[0]
-                        .to_value().valtree.unwrap_leaf()
+                        .to_value()
+                        .valtree
+                        .unwrap_leaf()
                         .to_simd_alignment(),
                 )?;
 

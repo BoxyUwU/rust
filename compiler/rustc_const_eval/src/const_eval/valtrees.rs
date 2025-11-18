@@ -36,7 +36,11 @@ fn branches<'tcx>(
     // For enums, we prepend their variant index before the variant's fields so we can figure out
     // the variant again when just seeing a valtree.
     if let Some(variant) = variant {
-        branches.push(ty::Const::new_value(*ecx.tcx, ty::ValTree::from_scalar_int(*ecx.tcx, variant.as_u32().into()), ecx.tcx.types.u32));
+        branches.push(ty::Const::new_value(
+            *ecx.tcx,
+            ty::ValTree::from_scalar_int(*ecx.tcx, variant.as_u32().into()),
+            ecx.tcx.types.u32,
+        ));
     }
 
     for i in 0..field_count {
@@ -306,7 +310,8 @@ pub fn valtree_to_const_value<'tcx>(
                 for (i, &inner_valtree) in branches.iter().enumerate() {
                     let field = layout.field(&LayoutCx::new(tcx, typing_env), i);
                     if !field.is_zst() {
-                        let cv = ty::Value { valtree: inner_valtree.to_value().valtree, ty: field.ty };
+                        let cv =
+                            ty::Value { valtree: inner_valtree.to_value().valtree, ty: field.ty };
                         return valtree_to_const_value(tcx, typing_env, cv);
                     }
                 }

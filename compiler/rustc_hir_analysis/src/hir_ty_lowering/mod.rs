@@ -2329,11 +2329,12 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
                 let opt_discr_const = if adt_def.is_enum() {
                     let valtree = ty::ValTree::from_scalar_int(tcx, variant_idx.into());
                     Some(ty::Const::new_value(tcx, valtree, tcx.types.u32))
-                } else { 
+                } else {
                     None
                 };
 
-                let valtree = ty::ValTree::from_branches(tcx, opt_discr_const.into_iter().chain(fields));
+                let valtree =
+                    ty::ValTree::from_branches(tcx, opt_discr_const.into_iter().chain(fields));
                 ty::Const::new_value(tcx, valtree, ty)
             }
             hir::ConstArgKind::Anon(anon) => self.lower_anon_const(anon),

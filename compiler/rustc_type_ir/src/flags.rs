@@ -477,12 +477,12 @@ impl<I: Interner> FlagComputation<I> {
             ty::ConstKind::Placeholder(_) => {
                 self.add_flags(TypeFlags::HAS_CT_PLACEHOLDER);
             }
-            ty::ConstKind::Value(cv) => { 
+            ty::ConstKind::Value(cv) => {
                 self.add_ty(cv.ty());
                 cv.valtree().for_each_branch(|ct| {
                     self.add_const(ct);
                 })
-            },
+            }
             ty::ConstKind::Expr(e) => self.add_args(e.args().as_slice()),
             ty::ConstKind::Error(_) => self.add_flags(TypeFlags::HAS_ERROR),
         }

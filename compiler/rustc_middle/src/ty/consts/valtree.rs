@@ -88,10 +88,14 @@ impl<'tcx> ValTreeKind<'tcx> {
 pub struct ValTree<'tcx>(pub(crate) Interned<'tcx, ValTreeKind<'tcx>>);
 
 impl<'tcx> rustc_type_ir::inherent::ValTree<TyCtxt<'tcx>> for ValTree<'tcx> {
-    fn relate<R: crate::ty::relate::TypeRelation<TyCtxt<'tcx>>>(self, other: Self, relation: &mut R) -> bool {
+    fn relate<R: crate::ty::relate::TypeRelation<TyCtxt<'tcx>>>(
+        self,
+        other: Self,
+        relation: &mut R,
+    ) -> bool {
         match (&*self, &*other) {
             (ValTreeKind::Leaf(scalar_a), ValTreeKind::Leaf(scalar_b)) => scalar_a == scalar_b,
-            (ValTreeKind::Branch(branches_a), ValTreeKind::Branch(branches_b)) 
+            (ValTreeKind::Branch(branches_a), ValTreeKind::Branch(branches_b))
                 if branches_a.len() == branches_b.len() =>
             {
                 for (a, b) in branches_a.iter().zip(branches_b) {
@@ -108,8 +112,10 @@ impl<'tcx> rustc_type_ir::inherent::ValTree<TyCtxt<'tcx>> for ValTree<'tcx> {
 
     fn for_each_branch(self, mut f: impl FnMut(ty::Const<'tcx>)) {
         match &*self {
-            ValTreeKind::Branch(branches) => for ct in branches {
-                f(*ct);
+            ValTreeKind::Branch(branches) => {
+                for ct in branches {
+                    f(*ct);
+                }
             }
             ValTreeKind::Leaf(_) => (),
         }
@@ -127,13 +133,17 @@ impl<'tcx> ValTree<'tcx> {
     }
 
     pub fn from_raw_bytes(tcx: TyCtxt<'tcx>, bytes: &[u8]) -> Self {
-        let branches = bytes.iter().map(|&b| ty::Const::new_value(tcx, Self::from_scalar_int(tcx, b.into()), tcx.types.u8));
+        let branches = bytes.iter().map(|&b| {
+            ty::Const::new_value(tcx, Self::from_scalar_int(tcx, b.into()), tcx.types.u8)
+        });
         Self::from_branches(tcx, branches)
     }
 
-    pub fn from_branches(tcx: TyCtxt<'tcx>, branches: impl IntoIterator<Item = ty::Const<'tcx>>) -> Self {
+    pub fn from_branches(
+        tcx: TyCtxt<'tcx>,
+        branches: impl IntoIterator<Item = ty::Const<'tcx>>,
+    ) -> Self {
         tcx.intern_valtree(ValTreeKind::Branch(branches.into_iter().collect()))
-
     }
 
     pub fn from_scalar_int(tcx: TyCtxt<'tcx>, i: ScalarInt) -> Self {
@@ -222,9 +232,14 @@ impl<'tcx> Value<'tcx> {
             _ => return None,
         }
 
-        Some(tcx.arena.alloc_from_iter(
-            self.valtree.unwrap_branch().into_iter().map(|ct| ct.to_value().valtree.unwrap_leaf().to_u8()),
-        ))
+        Some(
+            tcx.arena.alloc_from_iter(
+                self.valtree
+                    .unwrap_branch()
+                    .into_iter()
+                    .map(|ct| ct.to_value().valtree.unwrap_leaf().to_u8()),
+            ),
+        )
     }
 }
 

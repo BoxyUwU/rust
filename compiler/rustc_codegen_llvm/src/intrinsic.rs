@@ -1864,7 +1864,9 @@ fn generic_simd_intrinsic<'ll, 'tcx>(
         // The memory addresses corresponding to the “off” lanes are not accessed.
 
         let alignment = fn_args[3].expect_const().to_value().valtree.unwrap_branch()[0]
-            .to_value().valtree.unwrap_leaf()
+            .to_value()
+            .valtree
+            .unwrap_leaf()
             .to_simd_alignment();
 
         // The element type of the "mask" argument must be a signed integer type of any width
@@ -1959,7 +1961,9 @@ fn generic_simd_intrinsic<'ll, 'tcx>(
         // The memory addresses corresponding to the “off” lanes are not accessed.
 
         let alignment = fn_args[3].expect_const().to_value().valtree.unwrap_branch()[0]
-            .to_value().valtree.unwrap_leaf()
+            .to_value()
+            .valtree
+            .unwrap_leaf()
             .to_simd_alignment();
 
         // The element type of the "mask" argument must be a signed integer type of any width
