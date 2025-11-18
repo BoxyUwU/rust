@@ -73,10 +73,13 @@ impl<'tcx> ValTree<'tcx> {
     }
 
     pub fn from_raw_bytes(tcx: TyCtxt<'tcx>, bytes: &[u8]) -> Self {
-        let branches = bytes.iter().map(|&b| ty::Const::new_value(tcx, Self::from_scalar_int(tcx, b.into()), tcx.types.u8));
+        let branches = bytes.iter().map(|&b| {
+            ty::Const::new_value(tcx, Self::from_scalar_int(tcx, b.into()), tcx.types.u8)
+        });
         Self::from_branches(tcx, branches)
     }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
     pub fn from_branches(tcx: TyCtxt<'tcx>, branches: impl IntoIterator<Item = ty::Const<'tcx>>) -> Self {
         tcx.intern_valtree(ValTreeKind::Branch(branches.into_iter().collect()))
@@ -88,6 +91,13 @@ impl<'tcx> ValTree<'tcx> {
     ) -> Self {
         tcx.intern_valtree(ty::ValTreeKind::Branch(branches.into_iter().collect()))
 >>>>>>> 1f82971a0d0 (uplift valtree to type ir)
+=======
+    pub fn from_branches(
+        tcx: TyCtxt<'tcx>,
+        branches: impl IntoIterator<Item = ty::Const<'tcx>>,
+    ) -> Self {
+        tcx.intern_valtree(ValTreeKind::Branch(branches.into_iter().collect()))
+>>>>>>> b61b270380a (fmt the world)
     }
 
     pub fn from_scalar_int(tcx: TyCtxt<'tcx>, i: ScalarInt) -> Self {
@@ -176,9 +186,14 @@ impl<'tcx> Value<'tcx> {
             _ => return None,
         }
 
-        Some(tcx.arena.alloc_from_iter(
-            self.valtree.unwrap_branch().into_iter().map(|ct| ct.to_value().valtree.unwrap_leaf().to_u8()),
-        ))
+        Some(
+            tcx.arena.alloc_from_iter(
+                self.valtree
+                    .unwrap_branch()
+                    .into_iter()
+                    .map(|ct| ct.to_value().valtree.unwrap_leaf().to_u8()),
+            ),
+        )
     }
 }
 

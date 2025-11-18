@@ -400,13 +400,8 @@ impl<'a, 'ra, 'tcx> visit::Visitor<'a> for DefCollector<'a, 'ra, 'tcx> {
                 return;
             }
             ExprKind::Struct(ref se) if self.invocation_parent.const_arg_ctxt => {
-                let StructExpr {
-                    qself,
-                    path,
-                    fields,
-                    rest,
-                } = &**se;
-                
+                let StructExpr { qself, path, fields, rest } = &**se;
+
                 for init_expr in fields {
                     if let ExprKind::ConstBlock(ref constant) = init_expr.expr.kind {
                         handle_const_block(self, constant, DefKind::AnonConst);

@@ -959,7 +959,10 @@ pub fn walk_expr_field<'v, V: Visitor<'v>>(visitor: &mut V, field: &'v ExprField
     visitor.visit_expr(*expr)
 }
 
-pub fn walk_const_arg_expr_field<'v, V: Visitor<'v>>(visitor: &mut V, field: &'v ConstArgExprField<'v>) -> V::Result {
+pub fn walk_const_arg_expr_field<'v, V: Visitor<'v>>(
+    visitor: &mut V,
+    field: &'v ConstArgExprField<'v>,
+) -> V::Result {
     let ConstArgExprField { hir_id, field, expr, span: _ } = field;
     try_visit!(visitor.visit_id(*hir_id));
     try_visit!(visitor.visit_ident(*field));

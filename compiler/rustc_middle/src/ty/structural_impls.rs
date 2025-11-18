@@ -722,7 +722,6 @@ impl<'tcx> TypeFoldable<TyCtxt<'tcx>> for ty::ValTree<'tcx> {
         let inner: &ty::ValTreeKind<TyCtxt<'tcx>> = &*self;
         let valtree = folder.cx().intern_valtree(inner.clone().try_fold_with(folder)?);
         Ok(valtree)
-
     }
 
     fn fold_with<F: TypeFolder<TyCtxt<'tcx>>>(self, folder: &mut F) -> Self {
