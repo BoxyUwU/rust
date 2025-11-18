@@ -3014,7 +3014,8 @@ impl<'a, 'tcx> Builder<'a, 'tcx> {
                     bug!("malformed valtree for an enum")
                 };
 
-                let ValTreeKind::Leaf(actual_variant_idx) = *actual_variant_idx.to_value().valtree else {
+                let ValTreeKind::Leaf(actual_variant_idx) = *actual_variant_idx.to_value().valtree
+                else {
                     bug!("malformed valtree for an enum")
                 };
 
