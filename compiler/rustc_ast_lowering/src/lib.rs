@@ -2411,13 +2411,14 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
 
                 ConstArg { hir_id: self.next_id(), kind: hir::ConstArgKind::Struct(path, fields) }
             }
-            ExprKind::Underscore => {
-                ConstArg { hir_id: self.lower_node_id(expr.id), kind: hir::ConstArgKind::Infer(expr.span, ()) }
-            }
+            ExprKind::Underscore => ConstArg {
+                hir_id: self.lower_node_id(expr.id),
+                kind: hir::ConstArgKind::Infer(expr.span, ()),
+            },
             ExprKind::Block(block, _) => {
                 if let [stmt] = block.stmts.as_slice()
                     && let StmtKind::Expr(expr) = &stmt.kind
-                    && matches!(expr.kind, ExprKind::Path(..) | ExprKind::Struct(..) )
+                    && matches!(expr.kind, ExprKind::Path(..) | ExprKind::Struct(..))
                 {
                     return self.lower_expr_to_const_arg_direct(expr);
                 }

@@ -287,7 +287,7 @@ impl<'a, 'hir> Visitor<'hir> for NodeCollector<'a, 'hir> {
             intravisit::walk_const_arg_expr_field(this, field);
         })
     }
-    
+
     fn visit_stmt(&mut self, stmt: &'hir Stmt<'hir>) {
         self.insert(stmt.span, stmt.hir_id, Node::Stmt(stmt));
 

@@ -477,7 +477,7 @@ impl<I: Interner> FlagComputation<I> {
             ty::ConstKind::Placeholder(_) => {
                 self.add_flags(TypeFlags::HAS_CT_PLACEHOLDER);
             }
-            ty::ConstKind::Value(cv) => { 
+            ty::ConstKind::Value(cv) => {
                 self.add_ty(cv.ty());
                 match cv.valtree().kind() {
                     ty::ValTreeKind::Leaf(_) => (),

@@ -52,7 +52,8 @@ fn destructure_const<'tcx>(
 
             for (field, field_valtree) in iter::zip(fields, branches) {
                 let field_ty = field.ty(tcx, args);
-                let field_const = ty::Const::new_value(tcx, field_valtree.to_value().valtree, field_ty);
+                let field_const =
+                    ty::Const::new_value(tcx, field_valtree.to_value().valtree, field_ty);
                 field_consts.push(field_const);
             }
             debug!(?field_consts);
@@ -61,7 +62,9 @@ fn destructure_const<'tcx>(
         }
         ty::Tuple(elem_tys) => {
             let fields = iter::zip(*elem_tys, branches)
-                .map(|(elem_ty, elem_valtree)| ty::Const::new_value(tcx, elem_valtree.to_value().valtree, elem_ty))
+                .map(|(elem_ty, elem_valtree)| {
+                    ty::Const::new_value(tcx, elem_valtree.to_value().valtree, elem_ty)
+                })
                 .collect::<Vec<_>>();
 
             (fields, None)
