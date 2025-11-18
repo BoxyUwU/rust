@@ -87,6 +87,35 @@ impl<'tcx> ValTreeKind<'tcx> {
 #[derive(HashStable)]
 pub struct ValTree<'tcx>(pub(crate) Interned<'tcx, ValTreeKind<'tcx>>);
 
+impl<'tcx> rustc_type_ir::inherent::ValTree<TyCtxt<'tcx>> for ValTree<'tcx> {
+    fn relate<R: crate::ty::relate::TypeRelation<TyCtxt<'tcx>>>(self, other: Self, relation: &mut R) -> bool {
+        match (&*self, &*other) {
+            (ValTreeKind::Leaf(scalar_a), ValTreeKind::Leaf(scalar_b)) => scalar_a == scalar_b,
+            (ValTreeKind::Branch(branches_a), ValTreeKind::Branch(branches_b)) 
+                if branches_a.len() == branches_b.len() =>
+            {
+                for (a, b) in branches_a.iter().zip(branches_b) {
+                    if relation.relate(*a, *b).is_err() {
+                        return false;
+                    }
+                }
+
+                true
+            }
+            _ => false,
+        }
+    }
+
+    fn for_each_branch(self, mut f: impl FnMut(ty::Const<'tcx>)) {
+        match &*self {
+            ValTreeKind::Branch(branches) => for ct in branches {
+                f(*ct);
+            }
+            ValTreeKind::Leaf(_) => (),
+        }
+    }
+}
+
 impl<'tcx> ValTree<'tcx> {
     /// Returns the zero-sized valtree: `Branch([])`.
     pub fn zst(tcx: TyCtxt<'tcx>) -> Self {

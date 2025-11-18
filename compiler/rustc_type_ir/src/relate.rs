@@ -600,7 +600,7 @@ pub fn structurally_relate_consts<I: Interner, R: TypeRelation<I>>(
         }
         (ty::ConstKind::Placeholder(p1), ty::ConstKind::Placeholder(p2)) => p1 == p2,
         (ty::ConstKind::Value(a_val), ty::ConstKind::Value(b_val)) => {
-            a_val.valtree() == b_val.valtree()
+            a_val.valtree().relate(b_val.valtree(), relation)
         }
 
         // While this is slightly incorrect, it shouldn't matter for `min_const_generics`

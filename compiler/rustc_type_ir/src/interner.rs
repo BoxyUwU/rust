@@ -153,7 +153,7 @@ pub trait Interner:
     type PlaceholderConst: PlaceholderConst<Self>;
     type ValueConst: ValueConst<Self>;
     type ExprConst: ExprConst<Self>;
-    type ValTree: Copy + Debug + Hash + Eq;
+    type ValTree: ValTree<Self>;
 
     // Kinds of regions
     type Region: Region<Self>;
