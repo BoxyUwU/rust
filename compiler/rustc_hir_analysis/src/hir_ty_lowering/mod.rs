@@ -2309,6 +2309,7 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
                 };
 
                 let variant_def = adt_def.variant_with_id(variant_did);
+                let variant_idx = adt_def.variant_index_with_id(variant_did).as_u32();
 
                 let fields = variant_def
                     .fields
@@ -2325,13 +2326,15 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
                     })
                     .collect::<Vec<_>>();
 
-                span_bug!(
-                    const_arg.span(),
-                    "cannot yet represent {:?} {:?} with fields {:?}",
-                    ty,
-                    variant_did,
-                    fields
-                );
+                let opt_discr_const = if adt_def.is_enum() {
+                    let valtree = ty::ValTree::from_scalar_int(tcx, variant_idx.into());
+                    Some(ty::Const::new_value(tcx, valtree, tcx.types.u32))
+                } else { 
+                    None
+                };
+
+                let valtree = ty::ValTree::from_ty_const_branches(tcx, opt_discr_const.into_iter().chain(fields));
+                ty::Const::new_value(tcx, valtree, ty)
             }
             hir::ConstArgKind::Anon(anon) => self.lower_anon_const(anon),
             hir::ConstArgKind::Infer(span, ()) => self.ct_infer(None, span),
