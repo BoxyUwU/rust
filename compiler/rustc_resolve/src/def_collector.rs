@@ -430,19 +430,6 @@ impl<'a, 'ra, 'tcx> visit::Visitor<'a> for DefCollector<'a, 'ra, 'tcx> {
                     self.invocation_parent.parent_def
                 }
             }
-            ExprKind::Call(_, ref args) if self.invocation_parent.const_arg_ctxt => {
-                for arg in args {
-                    if let ExprKind::ConstBlock(ref constant) = arg.kind {
-                        handle_const_block(self, constant, DefKind::AnonConst);
-                    } else {
-                        self.with_parent(self.invocation_parent.parent_def, |this| {
-                            visit::walk_expr(this, &*arg)
-                        });
-                    }
-                }
-
-                return;
-            }
             _ => self.invocation_parent.parent_def,
         };
 
