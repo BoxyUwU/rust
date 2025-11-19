@@ -1,7 +1,7 @@
 use rustc_abi::BackendRepr;
 use rustc_middle::mir::interpret::ErrorHandled;
 use rustc_middle::ty::layout::{HasTyCtxt, HasTypingEnv};
-use rustc_middle::ty::{self, Ty};
+use rustc_middle::ty::{self, Ty, ValTreeKindExt};
 use rustc_middle::{bug, mir, span_bug};
 
 use super::FunctionCx;

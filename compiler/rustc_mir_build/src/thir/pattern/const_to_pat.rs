@@ -14,7 +14,7 @@ use rustc_middle::mir::interpret::ErrorHandled;
 use rustc_middle::span_bug;
 use rustc_middle::thir::{FieldPat, Pat, PatKind};
 use rustc_middle::ty::{
-    self, Ty, TyCtxt, TypeSuperVisitable, TypeVisitableExt, TypeVisitor, ValTree,
+    self, Ty, TyCtxt, TypeSuperVisitable, TypeVisitableExt, TypeVisitor, ValTree, ValTreeKindExt,
 };
 use rustc_span::def_id::DefId;
 use rustc_span::{DUMMY_SP, Span};

@@ -154,6 +154,7 @@ pub trait Interner:
     type ValueConst: ValueConst<Self>;
     type ExprConst: ExprConst<Self>;
     type ValTree: ValTree<Self>;
+    type ScalarInt: Copy + Debug + Hash + Eq;
 
     // Kinds of regions
     type Region: Region<Self>;

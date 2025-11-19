@@ -188,6 +188,7 @@ impl<D: Decoder> Decodable<D> for ScalarInt {
     }
 }
 
+
 impl ScalarInt {
     pub const TRUE: ScalarInt = ScalarInt { data: 1_u128, size: NonZero::new(1).unwrap() };
     pub const FALSE: ScalarInt = ScalarInt { data: 0_u128, size: NonZero::new(1).unwrap() };

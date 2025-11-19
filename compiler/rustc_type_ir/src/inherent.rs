@@ -293,8 +293,8 @@ pub trait ValueConst<I: Interner<ValueConst = Self>>: Copy + Debug + Hash + Eq {
 }
 
 pub trait ValTree<I: Interner<ValTree = Self>>: Copy + Debug + Hash + Eq {
-    fn relate<R: crate::relate::TypeRelation<I>>(self, other: Self, relation: &mut R) -> bool;
-    fn for_each_branch(self, f: impl FnMut(I::Const));
+    // This isnt' `IntoKind` because then we can't return a reference
+    fn kind(&self) -> &ty::ValTreeKind<I>;
 }
 
 pub trait ExprConst<I: Interner<ExprConst = Self>>: Copy + Debug + Hash + Eq + Relate<I> {

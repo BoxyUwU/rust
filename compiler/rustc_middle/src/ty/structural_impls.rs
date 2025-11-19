@@ -709,7 +709,7 @@ impl<'tcx> TypeSuperVisitable<TyCtxt<'tcx>> for ty::Const<'tcx> {
 
 impl<'tcx> TypeVisitable<TyCtxt<'tcx>> for ty::ValTree<'tcx> {
     fn visit_with<V: TypeVisitor<TyCtxt<'tcx>>>(&self, visitor: &mut V) -> V::Result {
-        let inner: &ty::ValTreeKind<'tcx> = &*self;
+        let inner: &ty::ValTreeKind<TyCtxt<'tcx>> = &*self;
         inner.visit_with(visitor)
     }
 }
@@ -719,13 +719,13 @@ impl<'tcx> TypeFoldable<TyCtxt<'tcx>> for ty::ValTree<'tcx> {
         self,
         folder: &mut F,
     ) -> Result<Self, F::Error> {
-        let inner: &ty::ValTreeKind<'tcx> = &*self;
+        let inner: &ty::ValTreeKind<TyCtxt<'tcx>> = &*self;
         let valtree = folder.cx().intern_valtree(inner.clone().try_fold_with(folder)?);
         Ok(valtree)
     }
 
     fn fold_with<F: TypeFolder<TyCtxt<'tcx>>>(self, folder: &mut F) -> Self {
-        let inner: &ty::ValTreeKind<'tcx> = &*self;
+        let inner: &ty::ValTreeKind<TyCtxt<'tcx>> = &*self;
         folder.cx().intern_valtree(inner.clone().fold_with(folder))
     }
 }

@@ -479,9 +479,14 @@ impl<I: Interner> FlagComputation<I> {
             }
             ty::ConstKind::Value(cv) => {
                 self.add_ty(cv.ty());
-                cv.valtree().for_each_branch(|ct| {
-                    self.add_const(ct);
-                })
+                match cv.valtree().kind() {
+                    ty::ValTreeKind::Leaf(_) => (),
+                    ty::ValTreeKind::Branch(cts) => {
+                        for ct in cts {
+                            self.add_const(*ct);
+                        }
+                    }
+                }
             }
             ty::ConstKind::Expr(e) => self.add_args(e.args().as_slice()),
             ty::ConstKind::Error(_) => self.add_flags(TypeFlags::HAS_ERROR),

@@ -9,7 +9,7 @@ use rustc_middle::query::Providers;
 use rustc_middle::thir::visit;
 use rustc_middle::thir::visit::Visitor;
 use rustc_middle::ty::abstract_const::CastKind;
-use rustc_middle::ty::{self, Expr, TyCtxt, TypeVisitableExt};
+use rustc_middle::ty::{self, Expr, TyCtxt, TypeVisitableExt, ValTreeKindExt};
 use rustc_middle::{bug, mir, thir};
 use rustc_span::Span;
 use tracing::{debug, instrument};
