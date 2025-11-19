@@ -38,7 +38,7 @@ const ITEM2<const N: usize>: usize = { N };
 const ITEM3<const N: usize>: usize = const { N };
 //~^ ERROR: generic parameters may not be used in const operations
 #[type_const]
-const ITEM4<const N: usize>: usize = 1 + 1;
+const ITEM4<const N: usize>: usize = { 1 + 1 };
 //~^ ERROR: complex const arguments must be placed inside of a `const` block
 #[type_const]
 const ITEM5<const N: usize>: usize = const { 1 + 1};
