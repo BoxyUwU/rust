@@ -180,7 +180,7 @@ impl<'a> State<'a> {
             Node::ConstArg(a) => self.print_const_arg(a),
             Node::Expr(a) => self.print_expr(a),
             Node::ExprField(a) => self.print_expr_field(a),
-            // TODO(thispr)
+            // FIXME(mgca): proper printing for struct exprs
             Node::ConstArgExprField(_) => self.word("/* STRUCT EXPR */"),
             Node::Stmt(a) => self.print_stmt(a),
             Node::PathSegment(a) => self.print_path_segment(a),
@@ -1138,7 +1138,7 @@ impl<'a> State<'a> {
 
     fn print_const_arg(&mut self, const_arg: &hir::ConstArg<'_>) {
         match &const_arg.kind {
-            // TODO(thispr)
+            // FIXME(mgca): proper printing for struct exprs
             ConstArgKind::Struct(..) => self.word("/* STRUCT EXPR */"),
             ConstArgKind::Path(qpath) => self.print_qpath(qpath, true),
             ConstArgKind::Anon(anon) => self.print_anon_const(anon),
