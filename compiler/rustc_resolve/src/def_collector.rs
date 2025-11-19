@@ -399,6 +399,34 @@ impl<'a, 'ra, 'tcx> visit::Visitor<'a> for DefCollector<'a, 'ra, 'tcx> {
                 handle_const_block(self, constant, DefKind::InlineConst);
                 return;
             }
+            ExprKind::Struct(ref se) if self.invocation_parent.const_arg_ctxt => {
+                let StructExpr {
+                    qself,
+                    path,
+                    fields,
+                    rest,
+                } = &**se;
+                
+                for init_expr in fields {
+                    if let ExprKind::ConstBlock(ref constant) = init_expr.expr.kind {
+                        handle_const_block(self, constant, DefKind::AnonConst);
+                    } else {
+                        visit::walk_expr_field(self, init_expr);
+                    }
+                }
+
+                if let Some(qself) = qself {
+                    self.visit_qself(qself);
+                }
+                self.visit_path(path);
+
+                match rest {
+                    StructRest::Base(expr) => self.visit_expr(expr),
+                    _ => (),
+                }
+
+                return;
+            }
             ExprKind::Field(ref init_expr, _) if self.invocation_parent.const_arg_ctxt => {
                 if let ExprKind::ConstBlock(ref constant) = init_expr.kind {
                     handle_const_block(self, constant, DefKind::AnonConst);
