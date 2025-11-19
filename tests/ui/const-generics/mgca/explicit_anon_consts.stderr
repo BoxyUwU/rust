@@ -19,8 +19,8 @@ LL |     let _4 = [(); 1 + 1];
 error: complex const arguments must be placed inside of a `const` block
   --> $DIR/explicit_anon_consts.rs:41:38
    |
-LL | const ITEM4<const N: usize>: usize = 1 + 1;
-   |                                      ^^^^^
+LL | const ITEM4<const N: usize>: usize = { 1 + 1 };
+   |                                      ^^^^^^^^^
 
 error: complex const arguments must be placed inside of a `const` block
   --> $DIR/explicit_anon_consts.rs:58:23
