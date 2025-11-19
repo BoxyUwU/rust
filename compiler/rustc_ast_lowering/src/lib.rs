@@ -2354,6 +2354,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
         }
     }
 
+    #[instrument(level = "debug", skip(self), ret)]
     fn lower_expr_to_const_arg_direct(&mut self, expr: &Expr) -> hir::ConstArg<'hir> {
         let overly_complex_const = |this: &mut Self| {
             let e = this.dcx().struct_span_err(
@@ -2410,10 +2411,13 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
 
                 ConstArg { hir_id: self.next_id(), kind: hir::ConstArgKind::Struct(path, fields) }
             }
+            ExprKind::Underscore => {
+                ConstArg { hir_id: self.lower_node_id(expr.id), kind: hir::ConstArgKind::Infer(expr.span, ()) }
+            }
             ExprKind::Block(block, _) => {
                 if let [stmt] = block.stmts.as_slice()
                     && let StmtKind::Expr(expr) = &stmt.kind
-                    && let ExprKind::Path(..) = &expr.kind
+                    && matches!(expr.kind, ExprKind::Path(..) | ExprKind::Struct(..) )
                 {
                     return self.lower_expr_to_const_arg_direct(expr);
                 }

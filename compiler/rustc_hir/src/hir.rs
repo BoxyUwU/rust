@@ -4655,6 +4655,7 @@ pub enum Node<'hir> {
     ConstArg(&'hir ConstArg<'hir>),
     Expr(&'hir Expr<'hir>),
     ExprField(&'hir ExprField<'hir>),
+    ConstArgExprField(&'hir ConstArgExprField<'hir>),
     Stmt(&'hir Stmt<'hir>),
     PathSegment(&'hir PathSegment<'hir>),
     Ty(&'hir Ty<'hir>),
@@ -4714,6 +4715,7 @@ impl<'hir> Node<'hir> {
             Node::AssocItemConstraint(c) => Some(c.ident),
             Node::PatField(f) => Some(f.ident),
             Node::ExprField(f) => Some(f.ident),
+            Node::ConstArgExprField(f) => Some(f.field),
             Node::PreciseCapturingNonLifetimeArg(a) => Some(a.ident),
             Node::Param(..)
             | Node::AnonConst(..)
