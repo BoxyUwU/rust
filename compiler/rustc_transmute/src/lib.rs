@@ -3,8 +3,8 @@
 #![feature(never_type)]
 // tidy-alphabetical-end
 
-use rustc_middle::ty::ValTreeKindExt;
 pub(crate) use rustc_data_structures::fx::{FxIndexMap as Map, FxIndexSet as Set};
+use rustc_middle::ty::ValTreeKindExt;
 
 pub mod layout;
 mod maybe_transmutable;

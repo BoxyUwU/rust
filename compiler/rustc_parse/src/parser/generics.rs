@@ -113,11 +113,7 @@ impl<'a> Parser<'a> {
         let ty = self.parse_ty()?;
 
         // Parse optional const generics default value.
-        let default = if self.eat(exp!(Eq)) {
-            Some(self.parse_const_arg()?)
-        } else {
-            None
-        };
+        let default = if self.eat(exp!(Eq)) { Some(self.parse_const_arg()?) } else { None };
         let span = if let Some(ref default) = default {
             const_span.to(default.value.span)
         } else {
