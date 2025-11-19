@@ -5,9 +5,9 @@ use ast::token::IdentIsRaw;
 use rustc_ast::token::{self, Lit, LitKind, Token, TokenKind};
 use rustc_ast::util::parser::AssocOp;
 use rustc_ast::{
-    self as ast, MgcaDisambiguation, AngleBracketedArg, AngleBracketedArgs, AnonConst, AttrVec, BinOpKind, BindingMode,
-    Block, BlockCheckMode, Expr, ExprKind, GenericArg, Generics, Item, ItemKind, Param, Pat,
-    PatKind, Path, PathSegment, QSelf, Recovered, Ty, TyKind,
+    self as ast, AngleBracketedArg, AngleBracketedArgs, AnonConst, AttrVec, BinOpKind, BindingMode,
+    Block, BlockCheckMode, Expr, ExprKind, GenericArg, Generics, Item, ItemKind,
+    MgcaDisambiguation, Param, Pat, PatKind, Path, PathSegment, QSelf, Recovered, Ty, TyKind,
 };
 use rustc_ast_pretty::pprust;
 use rustc_data_structures::fx::FxHashSet;

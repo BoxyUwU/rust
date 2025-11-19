@@ -4869,7 +4869,10 @@ impl<'a, 'ast, 'ra, 'tcx> LateResolutionVisitor<'a, 'ast, 'ra, 'tcx> {
             AnonConstKind::FieldDefaultValue => ConstantHasGenerics::Yes,
             AnonConstKind::InlineConst => ConstantHasGenerics::Yes,
             AnonConstKind::ConstArg(_) => {
-                if self.r.tcx.features().generic_const_exprs() || self.r.tcx.features().min_generic_const_args() ||  is_trivial_const_arg {
+                if self.r.tcx.features().generic_const_exprs()
+                    || self.r.tcx.features().min_generic_const_args()
+                    || is_trivial_const_arg
+                {
                     ConstantHasGenerics::Yes
                 } else {
                     ConstantHasGenerics::No(NoConstantGenericsReason::NonTrivialConstArg)

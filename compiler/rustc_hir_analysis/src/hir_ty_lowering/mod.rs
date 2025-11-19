@@ -2263,6 +2263,9 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
                 )
                 .unwrap_or_else(|guar| Const::new_error(tcx, guar))
             }
+            hir::ConstArgKind::Struct(..) => {
+                span_bug!(const_arg.span(), "lowering `{:?}` is not yet implemented", const_arg)
+            }
             hir::ConstArgKind::Anon(anon) => self.lower_anon_const(anon),
             hir::ConstArgKind::Infer(span, ()) => self.ct_infer(None, span),
             hir::ConstArgKind::Error(_, e) => ty::Const::new_error(tcx, e),
@@ -2377,7 +2380,7 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
 
         let expr = &tcx.hir_body(anon.body).value;
         debug!(?expr);
-        
+
         // If the rhs is an anon const naming generics it shouldn't have
         // access to then we lower to `ConstKind::Error`.
         if let ty::AnonConstKind::MCG = tcx.anon_const_kind(anon.def_id)
