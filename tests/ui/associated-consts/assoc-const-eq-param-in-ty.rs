@@ -15,19 +15,21 @@ trait Trait<'a, T: 'a + ConstParamTy_, const N: usize> {
     const K: &'a [T; N];
 }
 
-fn take0<'r, A: 'r + ConstParamTy_, const Q: usize>(_: impl Trait<'r, A, Q, K = const { loop {} }>) {}
-//~^ ERROR the type of the associated constant `K` must not depend on generic parameters
-//~| NOTE its type must not depend on the lifetime parameter `'r`
-//~| NOTE the lifetime parameter `'r` is defined here
-//~| NOTE `K` has type `&'r [A; Q]`
-//~| ERROR the type of the associated constant `K` must not depend on generic parameters
-//~| NOTE its type must not depend on the type parameter `A`
-//~| NOTE the type parameter `A` is defined here
-//~| NOTE `K` has type `&'r [A; Q]`
-//~| ERROR the type of the associated constant `K` must not depend on generic parameters
-//~| NOTE its type must not depend on the const parameter `Q`
-//~| NOTE the const parameter `Q` is defined here
-//~| NOTE `K` has type `&'r [A; Q]`
+fn take0<'r, A: 'r + ConstParamTy_, const Q: usize>(
+    //~^ NOTE the lifetime parameter `'r` is defined here
+    //~| NOTE the type parameter `A` is defined here
+    //~| NOTE the const parameter `Q` is defined here
+    _: impl Trait<'r, A, Q, K = const { loop {} }>
+    //~^ ERROR the type of the associated constant `K` must not depend on generic parameters
+    //~| NOTE its type must not depend on the lifetime parameter `'r`
+    //~| NOTE `K` has type `&'r [A; Q]`
+    //~| ERROR the type of the associated constant `K` must not depend on generic parameters
+    //~| NOTE its type must not depend on the type parameter `A`
+    //~| NOTE `K` has type `&'r [A; Q]`
+    //~| ERROR the type of the associated constant `K` must not depend on generic parameters
+    //~| NOTE its type must not depend on the const parameter `Q`
+    //~| NOTE `K` has type `&'r [A; Q]`
+) {}
 
 trait Project: ConstParamTy_ {
     #[type_const]
