@@ -126,20 +126,20 @@ LL | type MustFail = dyn Iterator<Item = i32, Item = u32>;
    |                              `Item` is specified to be `i32` here
 
 error[E0719]: the value of the associated type `ASSOC` in trait `Trait2` is already specified
-  --> $DIR/duplicate-bound-err.rs:95:43
+  --> $DIR/duplicate-bound-err.rs:95:53
    |
-LL | type MustFail2 = dyn Trait2<ASSOC = 3u32, ASSOC = 4u32>;
-   |                             ------------  ^^^^^^^^^^^^ re-bound here
+LL | type MustFail2 = dyn Trait2<ASSOC = const { 3u32 }, ASSOC = const { 4u32 }>;
+   |                             ----------------------  ^^^^^^^^^^^^^^^^^^^^^^ re-bound here
    |                             |
    |                             `ASSOC` bound here first
 
 error: conflicting associated type bounds for `ASSOC`
   --> $DIR/duplicate-bound-err.rs:95:18
    |
-LL | type MustFail2 = dyn Trait2<ASSOC = 3u32, ASSOC = 4u32>;
-   |                  ^^^^^^^^^^^------------^^------------^
-   |                             |             |
-   |                             |             `ASSOC` is specified to be `4` here
+LL | type MustFail2 = dyn Trait2<ASSOC = const { 3u32 }, ASSOC = const { 4u32 }>;
+   |                  ^^^^^^^^^^^----------------------^^----------------------^
+   |                             |                       |
+   |                             |                       `ASSOC` is specified to be `4` here
    |                             `ASSOC` is specified to be `3` here
 
 error[E0719]: the value of the associated type `Item` in trait `Iterator` is already specified
@@ -151,10 +151,10 @@ LL | type MustFail3 = dyn Iterator<Item = i32, Item = i32>;
    |                               `Item` bound here first
 
 error[E0719]: the value of the associated type `ASSOC` in trait `Trait2` is already specified
-  --> $DIR/duplicate-bound-err.rs:102:43
+  --> $DIR/duplicate-bound-err.rs:102:53
    |
-LL | type MustFail4 = dyn Trait2<ASSOC = 3u32, ASSOC = 3u32>;
-   |                             ------------  ^^^^^^^^^^^^ re-bound here
+LL | type MustFail4 = dyn Trait2<ASSOC = const { 3u32 }, ASSOC = const { 3u32 }>;
+   |                             ----------------------  ^^^^^^^^^^^^^^^^^^^^^^ re-bound here
    |                             |
    |                             `ASSOC` bound here first
 
@@ -209,10 +209,10 @@ LL |     uncallable_const(());
    = note: expected constant `4`
               found constant `3`
 note: required by a bound in `uncallable_const`
-  --> $DIR/duplicate-bound-err.rs:82:46
+  --> $DIR/duplicate-bound-err.rs:82:56
    |
-LL | fn uncallable_const(_: impl Trait<ASSOC = 3, ASSOC = 4>) {}
-   |                                              ^^^^^^^^^ required by this bound in `uncallable_const`
+LL | fn uncallable_const(_: impl Trait<ASSOC = const { 3 }, ASSOC = const { 4 }>) {}
+   |                                                        ^^^^^^^^^^^^^^^^^^^ required by this bound in `uncallable_const`
 
 error[E0271]: type mismatch resolving `<u32 as Trait>::ASSOC == 3`
   --> $DIR/duplicate-bound-err.rs:121:22
@@ -227,8 +227,8 @@ LL |     uncallable_const(4u32);
 note: required by a bound in `uncallable_const`
   --> $DIR/duplicate-bound-err.rs:82:35
    |
-LL | fn uncallable_const(_: impl Trait<ASSOC = 3, ASSOC = 4>) {}
-   |                                   ^^^^^^^^^ required by this bound in `uncallable_const`
+LL | fn uncallable_const(_: impl Trait<ASSOC = const { 3 }, ASSOC = const { 4 }>) {}
+   |                                   ^^^^^^^^^^^^^^^^^^^ required by this bound in `uncallable_const`
 
 error[E0271]: type mismatch resolving `<() as Trait>::ASSOC == 4`
   --> $DIR/duplicate-bound-err.rs:122:20
@@ -241,10 +241,10 @@ LL |     uncallable_rtn(());
    = note: expected constant `4`
               found constant `3`
 note: required by a bound in `uncallable_rtn`
-  --> $DIR/duplicate-bound-err.rs:84:75
+  --> $DIR/duplicate-bound-err.rs:84:85
    |
-LL | fn uncallable_rtn(_: impl Trait<foo(..): Trait<ASSOC = 3>, foo(..): Trait<ASSOC = 4>>) {}
-   |                                                                           ^^^^^^^^^ required by this bound in `uncallable_rtn`
+LL | fn uncallable_rtn(_: impl Trait<foo(..): Trait<ASSOC = const { 3 }>, foo(..): Trait<ASSOC = const { 4 }>>) {}
+   |                                                                                     ^^^^^^^^^^^^^^^^^^^ required by this bound in `uncallable_rtn`
 
 error[E0271]: type mismatch resolving `<u32 as Trait>::ASSOC == 3`
   --> $DIR/duplicate-bound-err.rs:123:20
@@ -259,8 +259,8 @@ LL |     uncallable_rtn(17u32);
 note: required by a bound in `uncallable_rtn`
   --> $DIR/duplicate-bound-err.rs:84:48
    |
-LL | fn uncallable_rtn(_: impl Trait<foo(..): Trait<ASSOC = 3>, foo(..): Trait<ASSOC = 4>>) {}
-   |                                                ^^^^^^^^^ required by this bound in `uncallable_rtn`
+LL | fn uncallable_rtn(_: impl Trait<foo(..): Trait<ASSOC = const { 3 }>, foo(..): Trait<ASSOC = const { 4 }>>) {}
+   |                                                ^^^^^^^^^^^^^^^^^^^ required by this bound in `uncallable_rtn`
 
 error: aborting due to 25 previous errors
 

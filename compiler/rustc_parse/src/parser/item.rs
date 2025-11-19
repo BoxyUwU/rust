@@ -1471,7 +1471,7 @@ impl<'a> Parser<'a> {
 
         let rhs = if self.eat(exp!(Eq)) {
             if attr::contains_name(attrs, sym::type_const) {
-                Some(ConstItemRhs::TypeConst(self.parse_expr_anon_const()?))
+                Some(ConstItemRhs::TypeConst(self.parse_const_arg()?))
             } else {
                 Some(ConstItemRhs::Body(self.parse_expr()?))
             }
@@ -1690,8 +1690,11 @@ impl<'a> Parser<'a> {
                 VariantData::Unit(DUMMY_NODE_ID)
             };
 
-            let disr_expr =
-                if this.eat(exp!(Eq)) { Some(this.parse_expr_anon_const()?) } else { None };
+            let disr_expr = if this.eat(exp!(Eq)) {
+                Some(this.parse_expr_anon_const(MgcaDisambiguation::NonTSAnonConst)?)
+            } else {
+                None
+            };
 
             let vr = ast::Variant {
                 ident,
@@ -1904,7 +1907,7 @@ impl<'a> Parser<'a> {
                 if p.token == token::Eq {
                     let mut snapshot = p.create_snapshot_for_diagnostic();
                     snapshot.bump();
-                    match snapshot.parse_expr_anon_const() {
+                    match snapshot.parse_expr_anon_const(MgcaDisambiguation::NonTSAnonConst) {
                         Ok(const_expr) => {
                             let sp = ty.span.shrink_to_hi().to(const_expr.value.span);
                             p.psess.gated_spans.gate(sym::default_field_values, sp);
@@ -2106,7 +2109,7 @@ impl<'a> Parser<'a> {
         }
         let default = if self.token == token::Eq {
             self.bump();
-            let const_expr = self.parse_expr_anon_const()?;
+            let const_expr = self.parse_expr_anon_const(MgcaDisambiguation::NonTSAnonConst)?;
             let sp = ty.span.shrink_to_hi().to(const_expr.value.span);
             self.psess.gated_spans.gate(sym::default_field_values, sp);
             Some(const_expr)

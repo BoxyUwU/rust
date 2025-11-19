@@ -7,12 +7,12 @@ trait AssocConst {
 }
 
 impl<T> AssocConst for (T,) {
-    const A: u8 = 0;
+    const A: u8 = const { 0 };
 }
 
 trait Trait {}
 
-impl<U> Trait for () where (U,): AssocConst<A = { 0 }> {}
+impl<U> Trait for () where (U,): AssocConst<A = const { 0 }> {}
 //~^ ERROR associated const equality is incomplete
 //~| ERROR the type parameter `U` is not constrained by the impl trait
 

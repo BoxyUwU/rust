@@ -10,7 +10,7 @@ struct S;
 impl Tr for S {
     #[type_const]
     //~^ ERROR experimental
-    const N: usize = 0;
+    const N: usize = const { 0 };
 }
 
 fn main() {}

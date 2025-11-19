@@ -4839,9 +4839,12 @@ impl<'a, 'ast, 'ra, 'tcx> LateResolutionVisitor<'a, 'ast, 'ra, 'tcx> {
             constant, anon_const_kind
         );
 
-        let is_trivial_const_arg = constant
-            .value
-            .is_potential_trivial_const_arg(self.r.tcx.features().min_generic_const_args());
+        let is_trivial_const_arg = if self.r.tcx.features().min_generic_const_args() {
+            matches!(constant.mgca_disambiguation, MgcaDisambiguation::Direct)
+        } else {
+            constant.value.is_potential_trivial_const_arg(false)
+        };
+
         self.resolve_anon_const_manual(is_trivial_const_arg, anon_const_kind, |this| {
             this.resolve_expr(&constant.value, None)
         })
