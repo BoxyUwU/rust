@@ -706,8 +706,8 @@ impl<'a> Parser<'a> {
         _ = self.eat(exp!(Comma)) || self.eat(exp!(Colon)) || self.eat(exp!(Star));
         let suggestion_span = self.prev_token.span.with_lo(hi);
 
+        // FIXME(mgca): recovery is broken for `const {` args
         // we first try to parse pattern like `[u8 5]`
-        // TODO allow for `const {`
         let length = match self.parse_expr_anon_const(MgcaDisambiguation::Direct) {
             Ok(length) => length,
             Err(e) => {
