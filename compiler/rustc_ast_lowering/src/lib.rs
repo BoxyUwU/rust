@@ -2363,6 +2363,7 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
     #[instrument(level = "debug", skip(self))]
     fn lower_anon_const_to_const_arg_direct(&mut self, anon: &AnonConst) -> hir::ConstArg<'hir> {
         let tcx = self.tcx;
+
         // Unwrap a block, so that e.g. `{ P }` is recognised as a parameter. Const arguments
         // currently have to be wrapped in curly brackets, so it's necessary to special-case.
         let expr = if let ExprKind::Block(block, _) = &anon.value.kind
@@ -2374,12 +2375,53 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
         } else {
             &anon.value
         };
+
+        if tcx.features().min_generic_const_args() {
+            match anon.mgca_disambiguation {
+                MgcaDisambiguation::NonTSAnonConst => unreachable!(),
+                MgcaDisambiguation::TSAnonConst => {
+                    let lowered_anon = self.lower_anon_const_to_anon_const(anon);
+                    return ConstArg {
+                        hir_id: self.next_id(),
+                        kind: hir::ConstArgKind::Anon(lowered_anon),
+                    };
+                }
+                MgcaDisambiguation::Direct if let ExprKind::Path(qself, path) = &expr.kind => {
+                    let qpath = self.lower_qpath(
+                        expr.id,
+                        qself,
+                        path,
+                        ParamMode::Explicit,
+                        AllowReturnTypeNotation::No,
+                        // FIXME(mgca): update for `fn foo() -> Bar<FOO<impl Trait>>` support
+                        ImplTraitContext::Disallowed(ImplTraitPosition::Path),
+                        None,
+                    );
+
+                    return ConstArg {
+                        hir_id: self.lower_node_id(anon.id),
+                        kind: hir::ConstArgKind::Path(qpath),
+                    };
+                }
+                MgcaDisambiguation::Direct => {
+                    let e = tcx.dcx().struct_span_err(
+                        expr.span,
+                        "complex const arguments must be placed inside of a `const` block",
+                    );
+
+                    return ConstArg {
+                        hir_id: self.lower_node_id(anon.id),
+                        kind: hir::ConstArgKind::Error(expr.span, e.emit()),
+                    };
+                }
+            }
+        }
+
         let maybe_res =
             self.resolver.get_partial_res(expr.id).and_then(|partial_res| partial_res.full_res());
         if let ExprKind::Path(qself, path) = &expr.kind
-            && path.is_potential_trivial_const_arg(tcx.features().min_generic_const_args())
-            && (tcx.features().min_generic_const_args()
-                || matches!(maybe_res, Some(Res::Def(DefKind::ConstParam, _))))
+            && path.is_potential_trivial_const_arg(false)
+            && matches!(maybe_res, Some(Res::Def(DefKind::ConstParam, _)))
         {
             let qpath = self.lower_qpath(
                 expr.id,
@@ -2387,7 +2429,6 @@ impl<'a, 'hir> LoweringContext<'a, 'hir> {
                 path,
                 ParamMode::Explicit,
                 AllowReturnTypeNotation::No,
-                // FIXME(mgca): update for `fn foo() -> Bar<FOO<impl Trait>>` support
                 ImplTraitContext::Disallowed(ImplTraitPosition::Path),
                 None,
             );
