@@ -880,11 +880,7 @@ impl<'a> Parser<'a> {
             let value = self.handle_unambiguous_unbraced_const_arg()?;
             (value, MgcaDisambiguation::Direct)
         };
-        Ok(AnonConst {
-            id: ast::DUMMY_NODE_ID,
-            value,
-            mgca_disambiguation,
-        })
+        Ok(AnonConst { id: ast::DUMMY_NODE_ID, value, mgca_disambiguation })
     }
 
     /// Parse a generic argument in a path segment.
