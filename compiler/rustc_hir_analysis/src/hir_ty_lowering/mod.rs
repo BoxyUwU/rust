@@ -2367,14 +2367,14 @@ impl<'tcx> dyn HirTyLowerer<'tcx> + '_ {
             .collect::<Vec<_>>();
 
         let opt_discr_const = if adt_def.is_enum() {
-            let valtree = ty::ValTree::from_scalar_int(tcx, variant_idx.into());
-            Some(ty::Const::new_value(tcx, valtree, tcx.types.u32))
+            let val = ty::Value::from_scalar_int(tcx, variant_idx.into(), tcx.types.u32);
+            Some(ty::Const::new_value_direct(tcx, val))
         } else {
             None
         };
 
-        let valtree = ty::ValTree::from_branches(tcx, opt_discr_const.into_iter().chain(fields));
-        ty::Const::new_value(tcx, valtree, ty)
+        let val = ty::Value::from_branches(tcx, opt_discr_const.into_iter().chain(fields), ty);
+        ty::Const::new_value_direct(tcx, val)
     }
 
     /// Lower a [resolved][hir::QPath::Resolved] path to a (type-level) constant.

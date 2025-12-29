@@ -1,7 +1,7 @@
 use rustc_abi::BackendRepr;
 use rustc_middle::mir::interpret::ErrorHandled;
 use rustc_middle::ty::layout::{HasTyCtxt, HasTypingEnv};
-use rustc_middle::ty::{self, Ty};
+use rustc_middle::ty::{self, Ty, ValTreeKindExt};
 use rustc_middle::{bug, mir, span_bug};
 
 use super::FunctionCx;
@@ -43,7 +43,7 @@ impl<'a, 'tcx, Bx: BuilderMethods<'a, 'tcx>> FunctionCx<'a, 'tcx, Bx> {
             mir::Const::Ty(_, c) => match c.kind() {
                 // A constant that came from a const generic but was then used as an argument to
                 // old-style simd_shuffle (passing as argument instead of as a generic param).
-                ty::ConstKind::Value(cv) => return Ok(Ok(cv.valtree)),
+                ty::ConstKind::Value(cv) => return Ok(Ok(cv.to_full_valtree())),
                 other => span_bug!(constant.span, "{other:#?}"),
             },
             // We should never encounter `Const::Val` unless MIR opts (like const prop) evaluate

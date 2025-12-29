@@ -48,7 +48,7 @@ impl<'tcx> PatCtxt<'tcx> {
 
         match c.kind() {
             ty::ConstKind::Unevaluated(uv) => convert.unevaluated_to_pat(uv, ty),
-            ty::ConstKind::Value(cv) => convert.valtree_to_pat(cv.valtree, cv.ty),
+            ty::ConstKind::Value(cv) => convert.valtree_to_pat(cv),
             _ => span_bug!(span, "Invalid `ConstKind` for `const_to_pat`: {:?}", c),
         }
     }
@@ -113,8 +113,11 @@ impl<'tcx> ConstToPat<'tcx> {
 
         // try to resolve e.g. associated constants to their definition on an impl, and then
         // evaluate the const.
-        let valtree = match self.tcx.const_eval_resolve_for_typeck(typing_env, uv, self.span) {
-            Ok(Ok(c)) => c,
+        let val = match self.tcx.const_eval_resolve_for_typeck(typing_env, uv, self.span) {
+            Ok(Ok(c)) => { 
+                // TODO
+                todo!()   
+            },
             Err(ErrorHandled::Reported(_, _)) => {
                 // Let's tell the use where this failing const occurs.
                 let mut err =
@@ -175,7 +178,7 @@ impl<'tcx> ConstToPat<'tcx> {
         };
 
         // Convert the valtree to a const.
-        let inlined_const_as_pat = self.valtree_to_pat(valtree, ty);
+        let inlined_const_as_pat = self.valtree_to_pat(val);
 
         if !inlined_const_as_pat.references_error() {
             // Always check for `PartialEq` if we had no other errors yet.
@@ -194,22 +197,20 @@ impl<'tcx> ConstToPat<'tcx> {
 
     fn field_pats(
         &self,
-        vals: impl Iterator<Item = (ValTree<'tcx>, Ty<'tcx>)>,
+        vals: impl Iterator<Item = ty::Value<'tcx>>,
     ) -> Vec<FieldPat<'tcx>> {
         vals.enumerate()
-            .map(|(idx, (val, ty))| {
+            .map(|(idx, cv)| {
                 let field = FieldIdx::new(idx);
-                // Patterns can only use monomorphic types.
-                let ty = self.tcx.normalize_erasing_regions(self.typing_env, ty);
-                FieldPat { field, pattern: *self.valtree_to_pat(val, ty) }
+                FieldPat { field, pattern: *self.valtree_to_pat(cv) }
             })
             .collect()
     }
 
     // Recursive helper for `to_pat`; invoke that (instead of calling this directly).
-    // FIXME(valtrees): Accept `ty::Value` instead of `Ty` and `ty::ValTree` separately.
     #[instrument(skip(self), level = "debug")]
-    fn valtree_to_pat(&self, cv: ValTree<'tcx>, ty: Ty<'tcx>) -> Box<Pat<'tcx>> {
+    fn valtree_to_pat(&self, cv: ty::Value<'tcx>) -> Box<Pat<'tcx>> {
+        let ty = cv.ty;
         let span = self.span;
         let tcx = self.tcx;
         let kind = match ty.kind() {
@@ -246,35 +247,28 @@ impl<'tcx> ConstToPat<'tcx> {
                     args,
                     variant_index,
                     subpatterns: self.field_pats(
-                        fields.iter().map(|ct| ct.to_value().valtree).zip(
-                            adt_def.variants()[variant_index]
-                                .fields
-                                .iter()
-                                .map(|field| field.ty(tcx, args)),
-                        ),
+                        fields.iter().map(|ct| ct.to_value()),
                     ),
                 }
             }
-            ty::Adt(def, args) => {
+            ty::Adt(def, _) => {
                 assert!(!def.is_union()); // Valtree construction would never succeed for unions.
                 PatKind::Leaf {
                     subpatterns: self.field_pats(
-                        cv.to_branch().iter().map(|ct| ct.to_value().valtree).zip(
-                            def.non_enum_variant().fields.iter().map(|field| field.ty(tcx, args)),
-                        ),
+                        cv.to_branch().iter().map(|ct| ct.to_value()),
                     ),
                 }
             }
-            ty::Tuple(fields) => PatKind::Leaf {
+            ty::Tuple(_) => PatKind::Leaf {
                 subpatterns: self.field_pats(
-                    cv.to_branch().iter().map(|ct| ct.to_value().valtree).zip(fields.iter()),
+                    cv.to_branch().iter().map(|ct| ct.to_value()),
                 ),
             },
             ty::Slice(elem_ty) => PatKind::Slice {
                 prefix: cv
                     .to_branch()
                     .iter()
-                    .map(|val| *self.valtree_to_pat(val.to_value().valtree, *elem_ty))
+                    .map(|val| *self.valtree_to_pat(val.to_value()))
                     .collect(),
                 slice: None,
                 suffix: Box::new([]),
@@ -283,7 +277,7 @@ impl<'tcx> ConstToPat<'tcx> {
                 prefix: cv
                     .to_branch()
                     .iter()
-                    .map(|val| *self.valtree_to_pat(val.to_value().valtree, *elem_ty))
+                    .map(|val| *self.valtree_to_pat(val.to_value()))
                     .collect(),
                 slice: None,
                 suffix: Box::new([]),
@@ -294,12 +288,12 @@ impl<'tcx> ConstToPat<'tcx> {
                 // when lowering to MIR in `Builder::perform_test`, treat the constant as a `&str`.
                 // This works because `str` and `&str` have the same valtree representation.
                 let ref_str_ty = Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, ty);
-                PatKind::Constant { value: ty::Value { ty: ref_str_ty, valtree: cv } }
+                PatKind::Constant { value: ty::Value { ty: ref_str_ty, valtree: cv.valtree } }
             }
             ty::Ref(_, pointee_ty, ..) => match *pointee_ty.kind() {
                 // `&str` is represented as a valtree, let's keep using this
                 // optimization for now.
-                ty::Str => PatKind::Constant { value: ty::Value { ty, valtree: cv } },
+                ty::Str => PatKind::Constant { value: ty::Value { ty, valtree: cv.valtree } },
                 // All other references are converted into deref patterns and then recursively
                 // convert the dereferenced constant to a pattern that is the sub-pattern of the
                 // deref pattern.
@@ -311,7 +305,7 @@ impl<'tcx> ConstToPat<'tcx> {
                         );
                     } else {
                         // References have the same valtree representation as their pointee.
-                        PatKind::Deref { subpattern: self.valtree_to_pat(cv, *pointee_ty) }
+                        PatKind::Deref { subpattern: self.valtree_to_pat(ty::Value { ty: *pointee_ty, valtree: cv.valtree }) }
                     }
                 }
             },
@@ -328,13 +322,13 @@ impl<'tcx> ConstToPat<'tcx> {
                     // Also see <https://github.com/rust-lang/rfcs/pull/3535>.
                     return self.mk_err(tcx.dcx().create_err(NaNPattern { span }), ty);
                 } else {
-                    PatKind::Constant { value: ty::Value { ty, valtree: cv } }
+                    PatKind::Constant { value: cv }
                 }
             }
             ty::Pat(..) | ty::Bool | ty::Char | ty::Int(_) | ty::Uint(_) | ty::RawPtr(..) => {
                 // The raw pointers we see here have been "vetted" by valtree construction to be
                 // just integers, so we simply allow them.
-                PatKind::Constant { value: ty::Value { ty, valtree: cv } }
+                PatKind::Constant { value: cv }
             }
             ty::FnPtr(..) => {
                 unreachable!(

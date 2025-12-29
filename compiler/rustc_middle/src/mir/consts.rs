@@ -433,7 +433,7 @@ impl<'tcx> Const<'tcx> {
 
     #[inline]
     pub fn from_ty_value(tcx: TyCtxt<'tcx>, val: ty::Value<'tcx>) -> Self {
-        Self::Ty(val.ty, ty::Const::new_value(tcx, val.valtree, val.ty))
+        Self::Ty(val.ty, ty::Const::new_value_direct(tcx, val))
     }
 
     pub fn from_bits(

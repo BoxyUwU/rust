@@ -82,7 +82,7 @@ use crate::ty::{
     GenericArgsRef, GenericParamDefKind, List, ListWithCachedTypeInfo, ParamConst, ParamTy,
     Pattern, PatternKind, PolyExistentialPredicate, PolyFnSig, Predicate, PredicateKind,
     PredicatePolarity, Region, RegionKind, ReprOptions, TraitObjectVisitor, Ty, TyKind, TyVid,
-    ValTree, ValTreeKind, Visibility,
+    ValTree, Visibility, Value, PartialValTree, FullValTreeKind, PartialValTreeKind
 };
 
 #[allow(rustc::usage_of_ty_tykind)]
@@ -157,15 +157,16 @@ impl<'tcx> Interner for TyCtxt<'tcx> {
     type PatList = &'tcx List<Pattern<'tcx>>;
     type Safety = hir::Safety;
     type Abi = ExternAbi;
+    
     type Const = ty::Const<'tcx>;
+    type Consts = &'tcx List<ty::Const<'tcx>>;
     type PlaceholderConst = ty::PlaceholderConst<'tcx>;
-
     type ParamConst = ty::ParamConst;
     type BoundConst = ty::BoundConst;
     type ValueConst = ty::Value<'tcx>;
     type ExprConst = ty::Expr<'tcx>;
-    type ValTree = ty::ValTree<'tcx>;
     type ScalarInt = ty::ScalarInt;
+    type PartialValTree = ty::PartialValTree<'tcx>;
 
     type Region = Region<'tcx>;
     type EarlyParamRegion = ty::EarlyParamRegion;
@@ -934,9 +935,10 @@ pub struct CtxtInterners<'tcx> {
     // Specifically use a speedy hash algorithm for these hash sets, since
     // they're accessed quite often.
     type_: InternedSet<'tcx, WithCachedTypeInfo<TyKind<'tcx>>>,
-    const_lists: InternedSet<'tcx, List<ty::Const<'tcx>>>,
     args: InternedSet<'tcx, GenericArgs<'tcx>>,
     type_lists: InternedSet<'tcx, List<Ty<'tcx>>>,
+    const_lists: InternedSet<'tcx, List<ty::Const<'tcx>>>,
+    valtree_lists: InternedSet<'tcx, List<ty::ValTree<'tcx>>>,
     canonical_var_kinds: InternedSet<'tcx, List<CanonicalVarKind<'tcx>>>,
     region: InternedSet<'tcx, RegionKind<'tcx>>,
     poly_existential_predicates: InternedSet<'tcx, List<PolyExistentialPredicate<'tcx>>>,
@@ -955,7 +957,8 @@ pub struct CtxtInterners<'tcx> {
     fields: InternedSet<'tcx, List<FieldIdx>>,
     local_def_ids: InternedSet<'tcx, List<LocalDefId>>,
     captures: InternedSet<'tcx, List<&'tcx ty::CapturedPlace<'tcx>>>,
-    valtree: InternedSet<'tcx, ty::ValTreeKind<TyCtxt<'tcx>>>,
+    valtree_full_kinds: InternedSet<'tcx, ty::FullValTreeKind<'tcx>>,
+    valtree_partial_kinds: InternedSet<'tcx, ty::PartialValTreeKind<'tcx>>,
     patterns: InternedSet<'tcx, List<ty::Pattern<'tcx>>>,
     outlives: InternedSet<'tcx, List<ty::ArgOutlivesPredicate<'tcx>>>,
 }
@@ -971,9 +974,10 @@ impl<'tcx> CtxtInterners<'tcx> {
             // To get the interner sizes, insert `eprintln` printing the size of the interner in functions like `intern_ty`.
             // Bigger benchmarks tend to give more accurate ratios, so use something like `x perf eprintln --includes cargo`.
             type_: InternedSet::with_capacity(N * 16),
-            const_lists: InternedSet::with_capacity(N * 4),
             args: InternedSet::with_capacity(N * 4),
             type_lists: InternedSet::with_capacity(N * 4),
+            const_lists: InternedSet::with_capacity(N * 4),
+            valtree_lists: InternedSet::with_capacity(N * 4),
             region: InternedSet::with_capacity(N * 4),
             poly_existential_predicates: InternedSet::with_capacity(N / 4),
             canonical_var_kinds: InternedSet::with_capacity(N / 2),
@@ -992,7 +996,8 @@ impl<'tcx> CtxtInterners<'tcx> {
             fields: InternedSet::with_capacity(N * 4),
             local_def_ids: InternedSet::with_capacity(N),
             captures: InternedSet::with_capacity(N),
-            valtree: InternedSet::with_capacity(N),
+            valtree_partial_kinds: InternedSet::with_capacity(N),
+            valtree_full_kinds: InternedSet::with_capacity(N),
             patterns: InternedSet::with_capacity(N),
             outlives: InternedSet::with_capacity(N),
         }
@@ -1351,15 +1356,23 @@ impl<'tcx> CommonConsts<'tcx> {
             )
         };
 
-        let mk_valtree = |v| {
-            ty::ValTree(Interned::new_unchecked(
-                interners.valtree.intern(v, |v| InternedInSet(interners.arena.alloc(v))).0,
+        let mk_valtree_partial = |v| {
+            ty::PartialValTree(Interned::new_unchecked(
+                interners.valtree_partial_kinds.intern(v, |v| InternedInSet(interners.arena.alloc(v))).0,
             ))
         };
 
-        let valtree_zst = mk_valtree(ty::ValTreeKind::Branch(Box::default()));
-        let valtree_true = mk_valtree(ty::ValTreeKind::Leaf(ty::ScalarInt::TRUE));
-        let valtree_false = mk_valtree(ty::ValTreeKind::Leaf(ty::ScalarInt::FALSE));
+        let mk_valtree_full = |v| {
+            ty::ValTree(Interned::new_unchecked(
+                interners.valtree_full_kinds.intern(v, |v| InternedInSet(interners.arena.alloc(v))).0,
+            ))
+        };
+
+        let valtree_zst = mk_valtree_partial(ty::ValTreeKind::Branch(List::empty()));
+        let valtree_true = mk_valtree_partial(ty::ValTreeKind::Leaf(ty::ScalarInt::TRUE));
+        let valtree_false = mk_valtree_partial(ty::ValTreeKind::Leaf(ty::ScalarInt::FALSE));
+
+        let valtree_zst_full = mk_valtree_full(ty::ValTreeKind::Branch(List::empty()));
 
         CommonConsts {
             unit: mk_const(ty::ConstKind::Value(ty::Value {
@@ -1374,7 +1387,7 @@ impl<'tcx> CommonConsts<'tcx> {
                 ty: types.bool,
                 valtree: valtree_false,
             })),
-            valtree_zst,
+            valtree_zst: valtree_zst_full,
         }
     }
 }
@@ -2527,7 +2540,8 @@ nop_lift! { const_allocation; ConstAllocation<'a> => ConstAllocation<'tcx> }
 nop_lift! { predicate; Predicate<'a> => Predicate<'tcx> }
 nop_lift! { predicate; Clause<'a> => Clause<'tcx> }
 nop_lift! { layout; Layout<'a> => Layout<'tcx> }
-nop_lift! { valtree; ValTree<'a> => ValTree<'tcx> }
+nop_lift! { valtree_full_kinds; ValTree<'a> => ValTree<'tcx> }
+nop_lift! { valtree_partial_kinds; PartialValTree<'a> => PartialValTree<'tcx> }
 
 nop_list_lift! { type_lists; Ty<'a> => Ty<'tcx> }
 nop_list_lift! {
@@ -2784,7 +2798,8 @@ macro_rules! direct_interners {
 // crate only, and have a corresponding `mk_` function.
 direct_interners! {
     region: pub(crate) intern_region(RegionKind<'tcx>): Region -> Region<'tcx>,
-    valtree: pub(crate) intern_valtree(ValTreeKind<TyCtxt<'tcx>>): ValTree -> ValTree<'tcx>,
+    valtree_full_kinds: pub(crate) intern_full_valtree(FullValTreeKind<'tcx>): ValTree -> ValTree<'tcx>,
+    valtree_partial_kinds: pub(crate) intern_partial_valtree(PartialValTreeKind<'tcx>): PartialValTree -> PartialValTree<'tcx>,
     pat: pub mk_pat(PatternKind<'tcx>): Pattern -> Pattern<'tcx>,
     const_allocation: pub mk_const_alloc(Allocation): ConstAllocation -> ConstAllocation<'tcx>,
     layout: pub mk_layout(LayoutData<FieldIdx, VariantIdx>): Layout -> Layout<'tcx>,
@@ -2813,9 +2828,10 @@ macro_rules! slice_interners {
 // `mk_foo_from_iter` function that interns an iterator. The slice version
 // should be used when possible, because it's faster.
 slice_interners!(
-    const_lists: pub mk_const_list(Const<'tcx>),
     args: pub mk_args(GenericArg<'tcx>),
     type_lists: pub mk_type_list(Ty<'tcx>),
+    const_lists: pub mk_const_list(Const<'tcx>),
+    valtree_lists: pub mk_valtree_list(ty::ValTree<'tcx>),
     canonical_var_kinds: pub mk_canonical_var_kinds(CanonicalVarKind<'tcx>),
     poly_existential_predicates: intern_poly_existential_predicates(PolyExistentialPredicate<'tcx>),
     projs: pub mk_projs(ProjectionKind),
@@ -3141,6 +3157,14 @@ impl<'tcx> TyCtxt<'tcx> {
         T: CollectAndApply<ty::Const<'tcx>, &'tcx List<ty::Const<'tcx>>>,
     {
         T::collect_and_apply(iter, |xs| self.mk_const_list(xs))
+    }
+
+    pub fn mk_valtree_list_from_iter<I, T>(self, iter: I) -> T::Output
+    where
+        I: Iterator<Item = T>,
+        T: CollectAndApply<ty::ValTree<'tcx>, &'tcx List<ty::ValTree<'tcx>>>,
+    {
+        T::collect_and_apply(iter, |xs| self.mk_valtree_list(xs))
     }
 
     // Unlike various other `mk_*_from_iter` functions, this one uses `I:

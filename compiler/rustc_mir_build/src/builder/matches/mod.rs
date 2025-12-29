@@ -2953,11 +2953,15 @@ impl<'a, 'tcx> Builder<'a, 'tcx> {
 
         match pat.ctor() {
             Constructor::Variant(variant_index) => {
-                let ValTreeKind::Branch(box [actual_variant_idx]) = *valtree else {
+                let ValTreeKind::Branch(branches) = *valtree else {
                     bug!("malformed valtree for an enum")
                 };
 
-                let ValTreeKind::Leaf(actual_variant_idx) = *actual_variant_idx.to_value().valtree
+                let [actual_variant_idx] = branches.as_slice() else {
+                    bug!("malformed valtree for an enum")
+                };
+
+                let ValTreeKind::Leaf(actual_variant_idx) = **actual_variant_idx
                 else {
                     bug!("malformed valtree for an enum")
                 };

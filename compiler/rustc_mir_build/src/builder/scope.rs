@@ -843,7 +843,7 @@ impl<'a, 'tcx> Builder<'a, 'tcx> {
             mir::Const::Ty(_, c) => match c.kind() {
                 // A constant that came from a const generic but was then used as an argument to
                 // old-style simd_shuffle (passing as argument instead of as a generic param).
-                ty::ConstKind::Value(cv) => return Ok((cv.valtree, cv.ty)),
+                ty::ConstKind::Value(cv) => return Ok((cv.to_full_valtree(), cv.ty)),
                 other => span_bug!(constant.span, "{other:#?}"),
             },
             mir::Const::Val(mir::ConstValue::Scalar(mir::interpret::Scalar::Int(val)), ty) => {
@@ -893,20 +893,20 @@ impl<'a, 'tcx> Builder<'a, 'tcx> {
                     user_ty: None,
                     const_: Const::Ty(
                         self.thir[value].ty,
-                        ty::Const::new_value(
+                        ty::Const::new_value_direct(
                             self.tcx,
-                            ValTree::from_branches(
+                            ty::Value::from_branches(
                                 self.tcx,
-                                [ty::Const::new_value(
+                                [ty::Const::new_value_direct(
                                     self.tcx,
-                                    ValTree::from_scalar_int(
+                                    ty::Value::from_scalar_int(
                                         self.tcx,
                                         variant_index.as_u32().into(),
+                                        self.tcx.types.u32,
                                     ),
-                                    self.tcx.types.u32,
                                 )],
+                                self.thir[value].ty,
                             ),
-                            self.thir[value].ty,
                         ),
                     ),
                 }

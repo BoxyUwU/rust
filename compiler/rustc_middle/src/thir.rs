@@ -954,7 +954,7 @@ impl<'tcx> PatRange<'tcx> {
         use Ordering::*;
         debug_assert_eq!(value.ty, self.ty);
         let ty = self.ty;
-        let value = PatRangeBoundary::Finite(value.valtree);
+        let value = PatRangeBoundary::Finite(value);
         // For performance, it's important to only do the second comparison if necessary.
         Some(
             match self.lo.compare_with(value, ty, tcx)? {
@@ -989,13 +989,11 @@ impl<'tcx> PatRange<'tcx> {
 
 impl<'tcx> fmt::Display for PatRange<'tcx> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let &PatRangeBoundary::Finite(valtree) = &self.lo {
-            let value = ty::Value { ty: self.ty, valtree };
+        if let &PatRangeBoundary::Finite(value) = &self.lo {
             write!(f, "{value}")?;
         }
-        if let &PatRangeBoundary::Finite(valtree) = &self.hi {
+        if let &PatRangeBoundary::Finite(value) = &self.hi {
             write!(f, "{}", self.end)?;
-            let value = ty::Value { ty: self.ty, valtree };
             write!(f, "{value}")?;
         } else {
             // `0..` is parsed as an inclusive range, we must display it correctly.
@@ -1010,7 +1008,8 @@ impl<'tcx> fmt::Display for PatRange<'tcx> {
 #[derive(Copy, Clone, Debug, PartialEq, HashStable, TypeVisitable)]
 pub enum PatRangeBoundary<'tcx> {
     /// The type of this valtree is stored in the surrounding `PatRange`.
-    Finite(ty::ValTree<'tcx>),
+    /// TODO(thispr): :<
+    Finite(ty::Value<'tcx>),
     NegInfinity,
     PosInfinity,
 }
@@ -1021,7 +1020,7 @@ impl<'tcx> PatRangeBoundary<'tcx> {
         matches!(self, Self::Finite(..))
     }
     #[inline]
-    pub fn as_finite(self) -> Option<ty::ValTree<'tcx>> {
+    pub fn as_finite(self) -> Option<ty::Value<'tcx>> {
         match self {
             Self::Finite(value) => Some(value),
             Self::NegInfinity | Self::PosInfinity => None,

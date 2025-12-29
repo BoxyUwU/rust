@@ -14,6 +14,7 @@ use crate::relate::Relate;
 use crate::solve::{CanonicalInput, Certainty, ExternalConstraintsData, QueryResult, inspect};
 use crate::visit::{Flags, TypeVisitable};
 use crate::{self as ty, CanonicalParamEnvCacheEntry, search_graph};
+use crate::ValTreeRecur;
 
 #[cfg_attr(feature = "nightly", rustc_diagnostic_item = "type_ir_interner")]
 pub trait Interner:
@@ -148,13 +149,14 @@ pub trait Interner:
 
     // Kinds of consts
     type Const: Const<Self>;
+    type Consts: Copy + Default + Debug + Hash + Eq + SliceLike<Item = Self::Const>;
     type ParamConst: Copy + Debug + Hash + Eq + ParamLike;
     type BoundConst: BoundVarLike<Self>;
     type PlaceholderConst: PlaceholderConst<Self>;
     type ValueConst: ValueConst<Self>;
     type ExprConst: ExprConst<Self>;
-    type ValTree: ValTree<Self>;
     type ScalarInt: Copy + Debug + Hash + Eq;
+    type PartialValTree: Copy + Debug + Hash + Eq + IntoKind<Kind = ty::ValTreeKind<Self, Self::Consts>>; 
 
     // Kinds of regions
     type Region: Region<Self>;

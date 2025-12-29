@@ -175,6 +175,80 @@ impl<'tcx> fmt::Debug for ty::Const<'tcx> {
     }
 }
 
+impl<'tcx> TypeFoldable<TyCtxt<'tcx>> for &'tcx ty::List<ty::Const<'tcx>> {
+    fn try_fold_with<F: FallibleTypeFolder<TyCtxt<'tcx>>>(
+        self,
+        folder: &mut F,
+    ) -> Result<Self, F::Error> {
+        // Fast path copied from `List<Ty>`'s type foldable impl
+        match self.len() {
+            2 => {
+                let param0 = self[0].try_fold_with(folder)?;
+                let param1 = self[1].try_fold_with(folder)?;
+                if param0 == self[0] && param1 == self[1] {
+                    Ok(self)
+                } else {
+                    Ok(folder.cx().mk_const_list(&[param0, param1]))
+                }
+            }
+            _ => ty::util::try_fold_list(self, folder, |tcx, v| tcx.mk_const_list(v)),
+        }
+    }
+
+    fn fold_with<F: TypeFolder<TyCtxt<'tcx>>>(self, folder: &mut F) -> Self {
+        // See comment justifying behavior in `List<Ty>`'s `try_fold_with`.
+        match self.len() {
+            2 => {
+                let param0 = self[0].fold_with(folder);
+                let param1 = self[1].fold_with(folder);
+                if param0 == self[0] && param1 == self[1] {
+                    self
+                } else {
+                    folder.cx().mk_const_list(&[param0, param1])
+                }
+            }
+            _ => ty::util::fold_list(self, folder, |tcx, v| tcx.mk_const_list(v)),
+        }
+    }
+}
+
+impl<'tcx> TypeFoldable<TyCtxt<'tcx>> for &'tcx ty::List<ty::ValTree<'tcx>> {
+    fn try_fold_with<F: FallibleTypeFolder<TyCtxt<'tcx>>>(
+        self,
+        folder: &mut F,
+    ) -> Result<Self, F::Error> {
+        // Fast path copied from `List<Ty>`'s type foldable impl
+        match self.len() {
+            2 => {
+                let param0 = self[0].try_fold_with(folder)?;
+                let param1 = self[1].try_fold_with(folder)?;
+                if param0 == self[0] && param1 == self[1] {
+                    Ok(self)
+                } else {
+                    Ok(folder.cx().mk_valtree_list(&[param0, param1]))
+                }
+            }
+            _ => ty::util::try_fold_list(self, folder, |tcx, v| tcx.mk_valtree_list(v)),
+        }
+    }
+
+    fn fold_with<F: TypeFolder<TyCtxt<'tcx>>>(self, folder: &mut F) -> Self {
+        // See comment justifying behavior in `List<Ty>`'s `try_fold_with`.
+        match self.len() {
+            2 => {
+                let param0 = self[0].fold_with(folder);
+                let param1 = self[1].fold_with(folder);
+                if param0 == self[0] && param1 == self[1] {
+                    self
+                } else {
+                    folder.cx().mk_valtree_list(&[param0, param1])
+                }
+            }
+            _ => ty::util::fold_list(self, folder, |tcx, v| tcx.mk_valtree_list(v)),
+        }
+    }
+}
+
 impl fmt::Debug for ty::BoundTy {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.kind {
@@ -699,7 +773,7 @@ impl<'tcx> TypeSuperVisitable<TyCtxt<'tcx>> for ty::Const<'tcx> {
 
 impl<'tcx> TypeVisitable<TyCtxt<'tcx>> for ty::ValTree<'tcx> {
     fn visit_with<V: TypeVisitor<TyCtxt<'tcx>>>(&self, visitor: &mut V) -> V::Result {
-        let inner: &ty::ValTreeKind<TyCtxt<'tcx>> = &*self;
+        let inner: &ty::FullValTreeKind<'tcx> = &**self;
         inner.visit_with(visitor)
     }
 }
@@ -709,22 +783,57 @@ impl<'tcx> TypeFoldable<TyCtxt<'tcx>> for ty::ValTree<'tcx> {
         self,
         folder: &mut F,
     ) -> Result<Self, F::Error> {
-        let inner: &ty::ValTreeKind<TyCtxt<'tcx>> = &*self;
-        let new_inner = inner.clone().try_fold_with(folder)?;
+        let inner: ty::FullValTreeKind<'tcx> = *self.0;
+        let new_inner = inner.try_fold_with(folder)?;
 
-        if inner == &new_inner {
+        if inner ==  new_inner {
             Ok(self)
         } else {
-            let valtree = folder.cx().intern_valtree(new_inner);
+            let valtree = folder.cx().intern_full_valtree(new_inner);
             Ok(valtree)
         }
     }
 
     fn fold_with<F: TypeFolder<TyCtxt<'tcx>>>(self, folder: &mut F) -> Self {
-        let inner: &ty::ValTreeKind<TyCtxt<'tcx>> = &*self;
-        let new_inner = inner.clone().fold_with(folder);
+        let inner: ty::FullValTreeKind<'tcx> = *self.0;
+        let new_inner = inner.fold_with(folder);
 
-        if inner == &new_inner { self } else { folder.cx().intern_valtree(new_inner) }
+        if inner == new_inner { self } else { 
+            folder.cx().intern_full_valtree(new_inner)
+        }
+    }
+}
+
+impl<'tcx> TypeVisitable<TyCtxt<'tcx>> for ty::PartialValTree<'tcx> {
+    fn visit_with<V: TypeVisitor<TyCtxt<'tcx>>>(&self, visitor: &mut V) -> V::Result {
+        let inner: &ty::PartialValTreeKind<'tcx> = &**self;
+        inner.visit_with(visitor)
+    }
+}
+
+impl<'tcx> TypeFoldable<TyCtxt<'tcx>> for ty::PartialValTree<'tcx> {
+    fn try_fold_with<F: FallibleTypeFolder<TyCtxt<'tcx>>>(
+        self,
+        folder: &mut F,
+    ) -> Result<Self, F::Error> {
+        let inner: ty::PartialValTreeKind<'tcx> = *self.0;
+        let new_inner = inner.try_fold_with(folder)?;
+
+        if inner ==  new_inner {
+            Ok(self)
+        } else {
+            let valtree = folder.cx().intern_partial_valtree(new_inner);
+            Ok(valtree)
+        }
+    }
+
+    fn fold_with<F: TypeFolder<TyCtxt<'tcx>>>(self, folder: &mut F) -> Self {
+        let inner: ty::PartialValTreeKind<'tcx> = *self.0;
+        let new_inner = inner.fold_with(folder);
+
+        if inner == new_inner { self } else { 
+            folder.cx().intern_partial_valtree(new_inner)
+        }
     }
 }
 

@@ -32,7 +32,7 @@ fn destructure_const<'tcx>(
             // construct the consts for the elements of the array/slice
             let field_consts = branches
                 .iter()
-                .map(|b| ty::Const::new_value(tcx, b.to_value().valtree, *inner_ty))
+                .map(|b| ty::Const::new_value_direct(tcx, ty::Value { valtree: b.to_value().valtree, ty: *inner_ty }))
                 .collect::<Vec<_>>();
             debug!(?field_consts);
 
@@ -53,7 +53,7 @@ fn destructure_const<'tcx>(
         ty::Tuple(elem_tys) => {
             let fields = iter::zip(*elem_tys, branches)
                 .map(|(elem_ty, elem_valtree)| {
-                    ty::Const::new_value(tcx, elem_valtree.to_value().valtree, elem_ty)
+                    ty::Const::new_value_direct(tcx, ty::Value { valtree: elem_valtree.to_value().valtree, ty: elem_ty })
                 })
                 .collect::<Vec<_>>();
 
@@ -116,8 +116,8 @@ fn recurse_build<'tcx>(
             tcx.at(sp).lit_to_const(LitToConstInput { lit: lit.node, ty: node.ty, neg })
         }
         &ExprKind::NonHirLiteral { lit, user_ty: _ } => {
-            let val = ty::ValTree::from_scalar_int(tcx, lit);
-            ty::Const::new_value(tcx, val, node.ty)
+            let val = ty::Value::from_scalar_int(tcx, lit, node.ty);
+            ty::Const::new_value_direct(tcx, val)
         }
         &ExprKind::ZstLiteral { user_ty: _ } => ty::Const::zero_sized(tcx, node.ty),
         &ExprKind::NamedConst { def_id, args, user_ty: _ } => {

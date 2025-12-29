@@ -713,10 +713,13 @@ pub fn try_evaluate_const<'tcx>(
             // FIXME: `def_span` will point at the definition of this const; ideally, we'd point at
             // where it gets used as a const generic.
             match tcx.const_eval_resolve_for_typeck(typing_env, erased_uv, tcx.def_span(uv.def)) {
-                Ok(Ok(val)) => Ok(ty::Const::new_value(
+                Ok(Ok(val)) => Ok(ty::Const::new_value_direct(
                     tcx,
-                    val,
-                    tcx.type_of(uv.def).instantiate(tcx, uv.args),
+                    ty::Value {
+                        // TODO
+                        valtree: todo!(),
+                        ty: tcx.type_of(uv.def).instantiate(tcx, uv.args),
+                    }
                 )),
                 Ok(Err(_)) => {
                     let e = tcx.dcx().delayed_bug(

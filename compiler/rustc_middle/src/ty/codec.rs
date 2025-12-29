@@ -179,7 +179,13 @@ impl<'tcx, E: TyEncoder<'tcx>> Encodable<E> for ty::Pattern<'tcx> {
 
 impl<'tcx, E: TyEncoder<'tcx>> Encodable<E> for ty::ValTree<'tcx> {
     fn encode(&self, e: &mut E) {
-        self.0.0.encode(e);
+        self.0.encode(e);
+    }
+}
+
+impl<'tcx, E: TyEncoder<'tcx>> Encodable<E> for ty::PartialValTree<'tcx> {
+    fn encode(&self, e: &mut E) {
+        self.0.encode(e);
     }
 }
 
@@ -384,7 +390,13 @@ impl<'tcx, D: TyDecoder<'tcx>> Decodable<D> for ty::Pattern<'tcx> {
 
 impl<'tcx, D: TyDecoder<'tcx>> Decodable<D> for ty::ValTree<'tcx> {
     fn decode(decoder: &mut D) -> Self {
-        decoder.interner().intern_valtree(Decodable::decode(decoder))
+        decoder.interner().intern_full_valtree(Decodable::decode(decoder))
+    }
+}
+
+impl<'tcx, D: TyDecoder<'tcx>> Decodable<D> for ty::PartialValTree<'tcx> {
+    fn decode(decoder: &mut D) -> Self {
+        decoder.interner().intern_partial_valtree(Decodable::decode(decoder))
     }
 }
 
@@ -454,6 +466,15 @@ impl<'tcx, D: TyDecoder<'tcx>> RefDecodable<'tcx, D> for ty::List<ty::Const<'tcx
     }
 }
 
+impl<'tcx, D: TyDecoder<'tcx>> RefDecodable<'tcx, D> for ty::List<ty::ValTree<'tcx>> {
+    fn decode(decoder: &mut D) -> &'tcx Self {
+        let len = decoder.read_usize();
+        decoder.interner().mk_valtree_list_from_iter(
+            (0..len).map::<ty::ValTree<'tcx>, _>(|_| Decodable::decode(decoder)),
+        )
+    }
+}
+
 impl<'tcx, D: TyDecoder<'tcx>> RefDecodable<'tcx, D>
     for ty::ListWithCachedTypeInfo<ty::Clause<'tcx>>
 {
@@ -498,6 +519,8 @@ impl_decodable_via_ref! {
     &'tcx ty::List<ty::BoundVariableKind>,
     &'tcx ty::List<ty::Pattern<'tcx>>,
     &'tcx ty::ListWithCachedTypeInfo<ty::Clause<'tcx>>,
+    &'tcx ty::List<ty::ValTree<'tcx>>,
+    &'tcx ty::List<ty::Const<'tcx>>,
 }
 
 #[macro_export]

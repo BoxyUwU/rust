@@ -9,6 +9,8 @@ use rustc_type_ir_macros::{
     GenericTypeVisitable, Lift_Generic, TypeFoldable_Generic, TypeVisitable_Generic,
 };
 
+use crate::inherent::*;
+
 use crate::{self as ty, BoundVarIndexKind, Interner};
 
 /// Represents a constant in Rust.
@@ -140,13 +142,13 @@ impl<CTX> HashStable<CTX> for InferConst {
 ///
 /// `ValTree` does not have this problem with representation, as it only contains integers or
 /// lists of (nested) `ty::Const`s (which may indirectly contain more `ValTree`s).
-#[derive_where(Clone, Debug, Hash, Eq, PartialEq; I: Interner)]
+#[derive_where(Copy, Clone, Debug, Hash, Eq, PartialEq; I: Interner, R: Copy + std::fmt::Debug + core::hash::Hash + Eq + Default)]
 #[derive(TypeVisitable_Generic, TypeFoldable_Generic)]
 #[cfg_attr(
     feature = "nightly",
     derive(Decodable_NoContext, Encodable_NoContext, HashStable_NoContext)
 )]
-pub enum ValTreeKind<I: Interner> {
+pub enum ValTreeKind<I: Interner, R: Copy + std::fmt::Debug + core::hash::Hash + Eq + Default> {
     /// integers, `bool`, `char` are represented as scalars.
     /// See the `ScalarInt` documentation for how `ScalarInt` guarantees that equal values
     /// of these types have the same representation.
@@ -159,11 +161,14 @@ pub enum ValTreeKind<I: Interner> {
     /// the fields of the variant.
     ///
     /// ZST types are represented as an empty slice.
-    // FIXME(mgca): Use a `List` here instead of a boxed slice
-    Branch(Box<[I::Const]>),
+    Branch(R),
 }
 
-impl<I: Interner> ValTreeKind<I> {
+impl<I: Interner, R: Copy + std::fmt::Debug + core::hash::Hash + Eq + SliceLike + Default> ValTreeKind<I, R> {
+    pub fn is_zst(self) -> bool {
+        matches!(self, ty::ValTreeKind::Branch(branches) if branches.len() == 0)
+    }
+    
     /// Converts to a `ValTreeKind::Leaf` value, `panic`'ing
     /// if this valtree is some other kind.
     #[inline]
@@ -177,9 +182,9 @@ impl<I: Interner> ValTreeKind<I> {
     /// Converts to a `ValTreeKind::Branch` value, `panic`'ing
     /// if this valtree is some other kind.
     #[inline]
-    pub fn to_branch(&self) -> &[I::Const] {
+    pub fn to_branch(&self) -> &[R::Item] {
         match self {
-            ValTreeKind::Branch(branch) => &**branch,
+            ValTreeKind::Branch(branch) => branch.as_slice(),
             ValTreeKind::Leaf(..) => panic!("expected branch, got {:?}", self),
         }
     }
@@ -193,10 +198,12 @@ impl<I: Interner> ValTreeKind<I> {
     }
 
     /// Attempts to convert to a `ValTreeKind::Branch` value.
-    pub fn try_to_branch(&self) -> Option<&[I::Const]> {
+    pub fn try_to_branch(&self) -> Option<&[R::Item]> {
         match self {
-            ValTreeKind::Branch(branch) => Some(&**branch),
+            ValTreeKind::Branch(branch) => Some(branch.as_slice()),
             ValTreeKind::Leaf(_) => None,
         }
     }
 }
+
+pub trait ValTreeRecur<I: Interner>: std::fmt::Debug + Clone + Copy + core::hash::Hash + Eq + SliceLike {}

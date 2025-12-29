@@ -121,9 +121,14 @@ impl<'tcx> Const<'tcx> {
         Const::new(tcx, ty::ConstKind::Unevaluated(uv))
     }
 
+    // #[inline]
+    // pub fn new_value(tcx: TyCtxt<'tcx>, valtree: Interned<'tcx, ty::PartialValTreeKind<'tcx>, ty: Ty<'tcx>) -> Const<'tcx> {
+    //     Const::new(tcx, ty::ConstKind::Value(ty::Value { ty, valtree }))
+    // }
+
     #[inline]
-    pub fn new_value(tcx: TyCtxt<'tcx>, valtree: ty::ValTree<'tcx>, ty: Ty<'tcx>) -> Const<'tcx> {
-        Const::new(tcx, ty::ConstKind::Value(ty::Value { ty, valtree }))
+    pub fn new_value_direct(tcx: TyCtxt<'tcx>, cv: ty::Value<'tcx>) -> Const<'tcx> {
+        Const::new(tcx, ty::ConstKind::Value(cv))
     }
 
     #[inline]
@@ -226,17 +231,16 @@ impl<'tcx> Const<'tcx> {
             .layout_of(typing_env.as_query_input(ty))
             .unwrap_or_else(|e| panic!("could not compute layout for {ty:?}: {e:?}"))
             .size;
-        ty::Const::new_value(
+        ty::Const::new_value_direct(
             tcx,
-            ty::ValTree::from_scalar_int(tcx, ScalarInt::try_from_uint(bits, size).unwrap()),
-            ty,
+            ty::Value::from_scalar_int(tcx, ScalarInt::try_from_uint(bits, size).unwrap(), ty),
         )
     }
 
     #[inline]
     /// Creates an interned zst constant.
     pub fn zero_sized(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Self {
-        ty::Const::new_value(tcx, ty::ValTree::zst(tcx), ty)
+        ty::Const::new_value_direct(tcx, ty::Value::zst(tcx, ty))
     }
 
     #[inline]

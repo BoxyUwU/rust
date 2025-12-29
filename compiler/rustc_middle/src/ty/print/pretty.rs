@@ -1921,10 +1921,9 @@ pub trait PrettyPrinter<'tcx>: Printer<'tcx> + fmt::Write {
             }
             // Aggregates, printed as array/tuple/struct/variant construction syntax.
             (ty::ValTreeKind::Branch(_), ty::Array(..) | ty::Tuple(..) | ty::Adt(..)) => {
-                let contents = self.tcx().destructure_const(ty::Const::new_value(
+                let contents = self.tcx().destructure_const(ty::Const::new_value_direct(
                     self.tcx(),
-                    cv.valtree,
-                    cv.ty,
+                    cv
                 ));
                 let fields = contents.fields.iter().copied();
                 match *cv.ty.kind() {
@@ -1982,10 +1981,6 @@ pub trait PrettyPrinter<'tcx>: Printer<'tcx> + fmt::Write {
                 }
                 return Ok(());
             }
-            (ty::ValTreeKind::Leaf(leaf), ty::Ref(_, inner_ty, _)) => {
-                write!(self, "&")?;
-                return self.pretty_print_const_scalar_int(*leaf, inner_ty, print_ty);
-            }
             (ty::ValTreeKind::Leaf(leaf), _) => {
                 return self.pretty_print_const_scalar_int(*leaf, cv.ty, print_ty);
             }
@@ -2004,7 +1999,7 @@ pub trait PrettyPrinter<'tcx>: Printer<'tcx> + fmt::Write {
             write!(self, "<ZST>")?;
         } else {
             write!(self, "{:?}", cv.valtree)?;
-        }
+        } 
         if print_ty {
             write!(self, ": ")?;
             cv.ty.print(self)?;

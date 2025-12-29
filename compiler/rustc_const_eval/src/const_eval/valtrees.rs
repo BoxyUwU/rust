@@ -36,17 +36,13 @@ fn branches<'tcx>(
     // For enums, we prepend their variant index before the variant's fields so we can figure out
     // the variant again when just seeing a valtree.
     if let Some(variant) = variant {
-        branches.push(ty::Const::new_value(
-            *ecx.tcx,
-            ty::ValTree::from_scalar_int(*ecx.tcx, variant.as_u32().into()),
-            ecx.tcx.types.u32,
-        ));
+        branches.push(ty::ValTree::from_scalar_int(*ecx.tcx, variant.as_u32().into()));
     }
 
     for i in 0..field_count {
         let field = ecx.project_field(&place, FieldIdx::from_usize(i)).unwrap();
         let valtree = const_to_valtree_inner(ecx, &field, num_nodes)?;
-        branches.push(ty::Const::new_value(*ecx.tcx, valtree, field.layout.ty));
+        branches.push(valtree);
     }
 
     // Have to account for ZSTs here
@@ -69,7 +65,7 @@ fn slice_branches<'tcx>(
     for i in 0..n {
         let place_elem = ecx.project_index(place, i).unwrap();
         let valtree = const_to_valtree_inner(ecx, &place_elem, num_nodes)?;
-        elems.push(ty::Const::new_value(*ecx.tcx, valtree, place_elem.layout.ty));
+        elems.push(valtree);
     }
 
     Ok(ty::ValTree::from_branches(*ecx.tcx, elems))
@@ -205,7 +201,7 @@ fn reconstruct_place_meta<'tcx>(
         |ty| ty,
         || {
             let branches = last_valtree.to_branch();
-            last_valtree = branches.last().unwrap().to_value().valtree;
+            last_valtree = *branches.last().unwrap();
             debug!(?branches, ?last_valtree);
         },
     );
@@ -287,7 +283,7 @@ pub fn valtree_to_const_value<'tcx>(
         ty::Ref(_, inner_ty, _) => {
             let mut ecx =
                 mk_eval_cx_to_read_const_val(tcx, DUMMY_SP, typing_env, CanAccessMutGlobal::No);
-            let imm = valtree_to_ref(&mut ecx, cv.valtree, inner_ty);
+            let imm = valtree_to_ref(&mut ecx, cv.to_full_valtree(), inner_ty);
             let imm = ImmTy::from_immediate(
                 imm,
                 tcx.layout_of(typing_env.as_query_input(cv.ty)).unwrap(),
@@ -322,9 +318,9 @@ pub fn valtree_to_const_value<'tcx>(
                 mk_eval_cx_to_read_const_val(tcx, DUMMY_SP, typing_env, CanAccessMutGlobal::No);
 
             // Need to create a place for this valtree.
-            let place = create_valtree_place(&mut ecx, layout, cv.valtree);
+            let place = create_valtree_place(&mut ecx, layout, cv.to_full_valtree());
 
-            valtree_into_mplace(&mut ecx, &place, cv.valtree);
+            valtree_into_mplace(&mut ecx, &place, cv.to_full_valtree());
             dump_place(&ecx, &place);
             intern_const_alloc_recursive(&mut ecx, InternKind::Constant, &place).unwrap();
 
@@ -430,7 +426,7 @@ fn valtree_into_mplace<'tcx>(
                 };
 
                 debug!(?place_inner);
-                valtree_into_mplace(ecx, &place_inner, inner_valtree.to_value().valtree);
+                valtree_into_mplace(ecx, &place_inner, *inner_valtree);
                 dump_place(ecx, &place_inner);
             }
 

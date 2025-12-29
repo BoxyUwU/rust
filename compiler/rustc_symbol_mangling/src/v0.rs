@@ -751,7 +751,7 @@ impl<'tcx> Printer<'tcx> for V0SymbolMangler<'tcx> {
 
                 let pointee_ty =
                     ct_ty.builtin_deref(true).expect("tried to dereference on non-ptr type");
-                let dereferenced_const = ty::Const::new_value(self.tcx, valtree, pointee_ty);
+                let dereferenced_const = ty::Const::new_value_direct(self.tcx, ty::Value { valtree, ty: pointee_ty });
                 dereferenced_const.print(self)?;
             }
 

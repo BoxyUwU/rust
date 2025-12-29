@@ -1,19 +1,28 @@
 use std::fmt;
 use std::ops::Deref;
 
-use rustc_data_structures::intern::Interned;
-use rustc_hir::def::Namespace;
 use rustc_macros::{
     HashStable, Lift, TyDecodable, TyEncodable, TypeFoldable, TypeVisitable, extension,
 };
 
+use rustc_hir::def::Namespace;
+
 use super::ScalarInt;
 use crate::mir::interpret::{ErrorHandled, Scalar};
 use crate::ty::print::{FmtPrinter, PrettyPrinter};
-use crate::ty::{self, Ty, TyCtxt, ValTreeKind};
+use crate::ty::{self, Interned, Ty, List, TyCtxt, ValTreeKind, ValTreeRecur};
+
+use rustc_type_ir::inherent::*;
 
 #[extension(pub trait ValTreeKindExt<'tcx>)]
-impl<'tcx> ty::ValTreeKind<TyCtxt<'tcx>> {
+impl<'tcx> FullValTreeKind<'tcx> {
+    fn try_to_scalar(&self) -> Option<Scalar> {
+        self.try_to_leaf().map(Scalar::Int)
+    }
+}
+
+#[extension(pub trait PartialValTreeKindExt<'tcx>)]
+impl<'tcx> PartialValTreeKind<'tcx> {
     fn try_to_scalar(&self) -> Option<Scalar> {
         self.try_to_leaf().map(Scalar::Int)
     }
@@ -26,15 +35,11 @@ impl<'tcx> ty::ValTreeKind<TyCtxt<'tcx>> {
 /// [dev guide]: https://rustc-dev-guide.rust-lang.org/mir/index.html#valtrees
 #[derive(Copy, Clone, Hash, Eq, PartialEq)]
 #[derive(HashStable)]
-// FIXME(mgca): Try not interning here. We already intern `ty::Const` which `ValTreeKind`
-// recurses through
-pub struct ValTree<'tcx>(pub(crate) Interned<'tcx, ty::ValTreeKind<TyCtxt<'tcx>>>);
+pub struct ValTree<'tcx>(pub(crate) Interned<'tcx, FullValTreeKind<'tcx>>);
 
-impl<'tcx> rustc_type_ir::inherent::ValTree<TyCtxt<'tcx>> for ValTree<'tcx> {
-    fn kind(&self) -> &ty::ValTreeKind<TyCtxt<'tcx>> {
-        &self
-    }
-}
+// FIXME: interning this list seems suboptimal but slices arent typefoldable
+pub type FullValTreeKind<'tcx> = ty::ValTreeKind<TyCtxt<'tcx>, &'tcx List<ValTree<'tcx>>>;
+impl<'tcx> ValTreeRecur<TyCtxt<'tcx>> for &'tcx List<ValTree<'tcx>> {}
 
 impl<'tcx> ValTree<'tcx> {
     /// Returns the zero-sized valtree: `Branch([])`.
@@ -42,34 +47,32 @@ impl<'tcx> ValTree<'tcx> {
         tcx.consts.valtree_zst
     }
 
-    pub fn is_zst(self) -> bool {
-        matches!(*self, ty::ValTreeKind::Branch(box []))
-    }
-
     pub fn from_raw_bytes(tcx: TyCtxt<'tcx>, bytes: &[u8]) -> Self {
         let branches = bytes.iter().map(|&b| {
-            ty::Const::new_value(tcx, Self::from_scalar_int(tcx, b.into()), tcx.types.u8)
+            Self::from_scalar_int(tcx, b.into())
         });
         Self::from_branches(tcx, branches)
     }
 
     pub fn from_branches(
         tcx: TyCtxt<'tcx>,
-        branches: impl IntoIterator<Item = ty::Const<'tcx>>,
+        branches: impl IntoIterator<Item = ty::ValTree<'tcx>>,
     ) -> Self {
-        tcx.intern_valtree(ty::ValTreeKind::Branch(branches.into_iter().collect()))
+        let kind = ty::ValTreeKind::Branch(&*tcx.mk_valtree_list_from_iter(branches.into_iter()));
+        tcx.intern_full_valtree(kind)
     }
 
     pub fn from_scalar_int(tcx: TyCtxt<'tcx>, i: ScalarInt) -> Self {
-        tcx.intern_valtree(ty::ValTreeKind::Leaf(i))
+        let kind = ty::ValTreeKind::Leaf(i);
+        tcx.intern_full_valtree(kind)
     }
 }
 
 impl<'tcx> Deref for ValTree<'tcx> {
-    type Target = &'tcx ty::ValTreeKind<TyCtxt<'tcx>>;
+    type Target = &'tcx FullValTreeKind<'tcx>;
 
     #[inline]
-    fn deref(&self) -> &&'tcx ty::ValTreeKind<TyCtxt<'tcx>> {
+    fn deref(&self) -> &&'tcx FullValTreeKind<'tcx> {
         &self.0.0
     }
 }
@@ -95,10 +98,78 @@ pub type ConstToValTreeResult<'tcx> = Result<Result<ValTree<'tcx>, Ty<'tcx>>, Er
 #[derive(HashStable, TyEncodable, TyDecodable, TypeFoldable, TypeVisitable, Lift)]
 pub struct Value<'tcx> {
     pub ty: Ty<'tcx>,
-    pub valtree: ValTree<'tcx>,
+    pub valtree: PartialValTree<'tcx>,
 }
 
+#[derive(Copy, Clone, Hash, Eq, PartialEq)]
+#[derive(HashStable)]
+pub struct PartialValTree<'tcx>(pub(crate) Interned<'tcx, PartialValTreeKind<'tcx>>);
+
+// FIXME: interning this list seems suboptimal but its not `TypeFoldable` otherwise lol
+pub type PartialValTreeKind<'tcx> = ty::ValTreeKind<TyCtxt<'tcx>, &'tcx List<ty::Const<'tcx>>>;
+impl<'tcx> ValTreeRecur<TyCtxt<'tcx>> for &'tcx List<ty::Const<'tcx>> {}
+
+impl<'tcx> IntoKind for PartialValTree<'tcx> {
+    type Kind = PartialValTreeKind<'tcx>;
+    fn kind(self) -> PartialValTreeKind<'tcx> {
+        *self.0
+    }
+}
+
+impl<'tcx> Deref for PartialValTree<'tcx> {
+    type Target = &'tcx PartialValTreeKind<'tcx>;
+
+    #[inline]
+    fn deref(&self) -> &&'tcx PartialValTreeKind<'tcx> {
+        &self.0.0
+    }
+}
+
+impl fmt::Debug for PartialValTree<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        (**self).fmt(f)
+    }
+}
+
+
 impl<'tcx> Value<'tcx> {
+    pub fn to_full_valtree(&self) -> ValTree<'tcx> {
+        todo!()
+    }
+    
+    /// Returns the zero-sized valtree: `Branch([])`.
+    pub fn zst(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>) -> Self {
+        Self::from_branches(tcx, [], ty)
+    }
+    
+    pub fn from_raw_bytes(tcx: TyCtxt<'tcx>, bytes: &[u8], ty: Ty<'tcx>) -> Self {
+        let branches = bytes.iter().map(|&b| {
+            ty::Const::new_value_direct(tcx, Self::from_scalar_int(tcx, b.into(), tcx.types.u8))
+        });
+        Self::from_branches(tcx, branches, todo!())
+    }
+
+    pub fn from_branches(
+        tcx: TyCtxt<'tcx>,
+        branches: impl IntoIterator<Item = ty::Const<'tcx>>,
+        ty: Ty<'tcx>,
+    ) -> Self {
+        let branches = tcx.mk_const_list_from_iter(branches.into_iter());
+        let valtree = tcx.intern_partial_valtree(ty::ValTreeKind::Branch(branches));
+        ty::Value {
+            ty,
+            valtree,
+        }
+    }
+
+    pub fn from_scalar_int(tcx: TyCtxt<'tcx>, i: ScalarInt, ty: Ty<'tcx>) -> Self {
+        let valtree = tcx.intern_partial_valtree(ty::ValTreeKind::Leaf(i));
+        ty::Value {
+            ty,
+            valtree,
+        }
+    }
+    
     /// Attempts to extract the raw bits from the constant.
     ///
     /// Fails if the value can't be represented as bits (e.g. because it is a reference
@@ -153,8 +224,8 @@ impl<'tcx> Value<'tcx> {
     /// if this constant is some other kind.
     #[inline]
     pub fn to_leaf(self) -> ScalarInt {
-        match &**self.valtree {
-            ValTreeKind::Leaf(s) => *s,
+        match self.valtree.kind() {
+            ValTreeKind::Leaf(s) => s,
             ValTreeKind::Branch(..) => bug!("expected leaf, got {:?}", self),
         }
     }
@@ -163,7 +234,7 @@ impl<'tcx> Value<'tcx> {
     /// if this constant is some other kind.
     #[inline]
     pub fn to_branch(self) -> &'tcx [ty::Const<'tcx>] {
-        match &**self.valtree {
+        match self.valtree.kind() {
             ValTreeKind::Branch(branch) => &**branch,
             ValTreeKind::Leaf(..) => bug!("expected branch, got {:?}", self),
         }
@@ -171,8 +242,8 @@ impl<'tcx> Value<'tcx> {
 
     /// Attempts to convert to a `ValTreeKind::Leaf` value.
     pub fn try_to_leaf(self) -> Option<ScalarInt> {
-        match &**self.valtree {
-            ValTreeKind::Leaf(s) => Some(*s),
+        match self.valtree.kind() {
+            ValTreeKind::Leaf(s) => Some(s),
             ValTreeKind::Branch(_) => None,
         }
     }
@@ -184,7 +255,7 @@ impl<'tcx> Value<'tcx> {
 
     /// Attempts to convert to a `ValTreeKind::Branch` value.
     pub fn try_to_branch(self) -> Option<&'tcx [ty::Const<'tcx>]> {
-        match &**self.valtree {
+        match self.valtree.kind() {
             ValTreeKind::Branch(branch) => Some(&**branch),
             ValTreeKind::Leaf(_) => None,
         }
@@ -196,7 +267,7 @@ impl<'tcx> rustc_type_ir::inherent::ValueConst<TyCtxt<'tcx>> for Value<'tcx> {
         self.ty
     }
 
-    fn valtree(self) -> ValTree<'tcx> {
+    fn valtree(self) -> PartialValTree<'tcx> {
         self.valtree
     }
 }

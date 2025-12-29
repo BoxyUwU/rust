@@ -732,7 +732,7 @@ impl<'p, 'tcx: 'p> RustcPatCtxt<'p, 'tcx> {
                 };
                 match ScalarInt::try_from_uint(bits, size) {
                     Some(scalar) => {
-                        let valtree = ty::ValTree::from_scalar_int(tcx, scalar);
+                        let valtree = ty::Value::from_scalar_int(tcx, scalar, ty.inner());
                         PatRangeBoundary::Finite(valtree)
                     }
                     // The value doesn't fit. Since `x >= 0` and 0 always encodes the minimum value
@@ -753,8 +753,7 @@ impl<'p, 'tcx: 'p> RustcPatCtxt<'p, 'tcx> {
             "_".to_string()
         } else if range.is_singleton() {
             let lo = cx.hoist_pat_range_bdy(range.lo, ty);
-            let value = ty::Value { ty: ty.inner(), valtree: lo.as_finite().unwrap() };
-            value.to_string()
+            lo.as_finite().unwrap().to_string()
         } else {
             // We convert to an inclusive range for diagnostics.
             let mut end = rustc_hir::RangeEnd::Included;
@@ -766,7 +765,7 @@ impl<'p, 'tcx: 'p> RustcPatCtxt<'p, 'tcx> {
                 // this). We show this to the user as `usize::MAX..` which is slightly incorrect but
                 // probably clear enough.
                 let max = ty.numeric_max_val(cx.tcx).unwrap();
-                let max = ty::ValTree::from_scalar_int(cx.tcx, max.try_to_scalar_int().unwrap());
+                let max = ty::Value::from_scalar_int(cx.tcx, max.try_to_scalar_int().unwrap(), ty.inner());
                 lo = PatRangeBoundary::Finite(max);
             }
             let hi = if let Some(hi) = range.hi.minus_one() {

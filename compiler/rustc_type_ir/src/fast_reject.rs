@@ -499,8 +499,9 @@ impl<I: Interner, const INSTANTIATE_LHS_WITH_INFER: bool, const INSTANTIATE_RHS_
         };
 
         match lhs.kind() {
+            // FIXME(mgca): we may want to recurse here?
             ty::ConstKind::Value(lhs_val) => match rhs.kind() {
-                ty::ConstKind::Value(rhs_val) => lhs_val.valtree() == rhs_val.valtree(),
+                ty::ConstKind::Value(rhs_val) => lhs_val.valtree().kind() == rhs_val.valtree().kind(),
                 _ => false,
             },
 

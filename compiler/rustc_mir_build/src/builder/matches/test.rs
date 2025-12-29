@@ -288,7 +288,6 @@ impl<'a, 'tcx> Builder<'a, 'tcx> {
                 };
 
                 if let Some(lo) = range.lo.as_finite() {
-                    let lo = ty::Value { ty: range.ty, valtree: lo };
                     let lo = self.literal_operand(test.span, Const::from_ty_value(self.tcx, lo));
                     self.compare(
                         block,
@@ -302,7 +301,6 @@ impl<'a, 'tcx> Builder<'a, 'tcx> {
                 };
 
                 if let Some(hi) = range.hi.as_finite() {
-                    let hi = ty::Value { ty: range.ty, valtree: hi };
                     let hi = self.literal_operand(test.span, Const::from_ty_value(self.tcx, hi));
                     let op = match range.end {
                         RangeEnd::Included => BinOp::Le,

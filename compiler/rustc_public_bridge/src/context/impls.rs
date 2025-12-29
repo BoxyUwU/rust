@@ -467,12 +467,14 @@ impl<'tcx, B: Bridge> CompilerCtxt<'tcx, B> {
 
     /// Create a new constant that represents the given string value.
     pub fn new_const_str(&self, value: &str) -> MirConst<'tcx> {
-        let ty = Ty::new_static_str(self.tcx);
-        let bytes = value.as_bytes();
-        let valtree = ValTree::from_raw_bytes(self.tcx, bytes);
-        let cv = ty::Value { ty, valtree };
-        let val = self.tcx.valtree_to_const_val(cv);
-        MirConst::from_value(val, ty)
+        // TODO
+        todo!()
+        // let ty = Ty::new_static_str(self.tcx);
+        // let bytes = value.as_bytes();
+        // let valtree = ValTree::from_raw_bytes(self.tcx, bytes);
+        // let cv = ty::Value { ty, valtree };
+        // let val = self.tcx.valtree_to_const_val(cv);
+        // MirConst::from_value(val, ty)
     }
 
     /// Create a new constant that represents the given boolean value.
@@ -522,7 +524,9 @@ impl<'tcx, B: Bridge> CompilerCtxt<'tcx, B> {
     }
 
     pub fn ty_const_new_value(&self, valtree: ValTree<'tcx>, ty: Ty<'tcx>) -> ty::Const<'tcx> {
-        ty::Const::new_value(self.tcx, valtree, ty)
+        // TODO
+        todo!()
+        // ty::Const::new_value(self.tcx, valtree, ty)
     }
 
     pub fn ty_valtree_from_scalar_int(&self, i: ScalarInt) -> ValTree<'tcx> {
