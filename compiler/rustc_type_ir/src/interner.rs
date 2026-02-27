@@ -61,12 +61,7 @@ pub trait Interner:
     type GenericArg: GenericArg<Self>;
     type Term: Term<Self>;
 
-    type BoundVarKinds: Copy
-        + Debug
-        + Hash
-        + Eq
-        + SliceLike<Item = ty::BoundVariableKind<Self>>
-        + Default;
+    type BoundVarKinds: BoundVarKinds<Self>;
 
     type PredefinedOpaques: Copy
         + Debug

@@ -504,7 +504,8 @@ impl<'tcx> RegionInferenceContext<'tcx> {
         // If this is a nested body, we propagate unsatisfied
         // outlives constraints to the parent body instead of
         // eagerly erroing.
-        let mut propagated_outlives_requirements = infcx.tcx.is_typeck_child(mir_def_id).then(Vec::new);
+        let mut propagated_outlives_requirements =
+            infcx.tcx.is_typeck_child(mir_def_id).then(Vec::new);
 
         self.check_type_tests(infcx, propagated_outlives_requirements.as_mut(), &mut errors_buffer);
 
@@ -523,7 +524,10 @@ impl<'tcx> RegionInferenceContext<'tcx> {
                     .expect("Polonius output is unavailable despite `-Z polonius`"),
             );
         } else {
-            self.check_universal_regions(propagated_outlives_requirements.as_mut(), &mut errors_buffer);
+            self.check_universal_regions(
+                propagated_outlives_requirements.as_mut(),
+                &mut errors_buffer,
+            );
         }
 
         debug!(?errors_buffer);
@@ -535,7 +539,10 @@ impl<'tcx> RegionInferenceContext<'tcx> {
         } else {
             let num_external_vids = self.universal_regions().num_global_and_external_regions();
             (
-                Some(ClosureRegionRequirements { num_external_vids, outlives_requirements: propagated_outlives_requirements }),
+                Some(ClosureRegionRequirements {
+                    num_external_vids,
+                    outlives_requirements: propagated_outlives_requirements,
+                }),
                 errors_buffer,
             )
         }

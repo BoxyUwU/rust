@@ -1,18 +1,22 @@
 use std::mem;
 use std::ops::ControlFlow;
 
+use rustc_data_structures::transitive_relation::TransitiveRelationBuilder;
 #[cfg(feature = "nightly")]
 use rustc_macros::HashStable_NoContext;
-use rustc_type_ir::data_structures::{HashMap, HashSet};
+use rustc_type_ir::ClauseKind::*;
+use rustc_type_ir::data_structures::{HashMap, HashSet, IndexMap};
 use rustc_type_ir::inherent::*;
+use rustc_type_ir::outlives::Component;
+use rustc_type_ir::region_constraint::{Assumptions, RegionConstraint};
 use rustc_type_ir::relate::Relate;
 use rustc_type_ir::relate::solver_relating::RelateExt;
 use rustc_type_ir::search_graph::{CandidateHeadUsages, PathKind};
 use rustc_type_ir::solve::OpaqueTypesJank;
 use rustc_type_ir::{
-    self as ty, CanonicalVarValues, InferCtxtLike, Interner, TypeFoldable, TypeFolder,
-    TypeSuperFoldable, TypeSuperVisitable, TypeVisitable, TypeVisitableExt, TypeVisitor,
-    TypingMode,
+    self as ty, AliasTy, Binder, CanonicalVarValues, InferCtxtLike, Interner, OutlivesPredicate,
+    TypeFoldable, TypeFolder, TypeSuperFoldable, TypeSuperVisitable, TypeVisitable,
+    TypeVisitableExt, TypeVisitor, TypingMode, UniverseIndex,
 };
 use tracing::{debug, instrument, trace};
 
@@ -564,7 +568,7 @@ where
     pub(super) fn compute_goal(&mut self, goal: Goal<I, I::Predicate>) -> QueryResult<I> {
         let Goal { param_env, predicate } = goal;
         let kind = predicate.kind();
-        self.enter_forall(kind, |ecx, kind| match kind {
+        self.enter_forall_with_assumptions(kind, param_env, |ecx, kind| match kind {
             ty::PredicateKind::Clause(ty::ClauseKind::Trait(predicate)) => {
                 ecx.compute_trait_goal(Goal { param_env, predicate }).map(|(r, _via)| r)
             }
@@ -1055,14 +1059,26 @@ where
         self.delegate.instantiate_binder_with_infer(value)
     }
 
-    /// `enter_forall`, but takes `&mut self` and passes it back through the
-    /// callback since it can't be aliased during the call.
-    pub(super) fn enter_forall<T: TypeFoldable<I>, U>(
+    /// The `param_env` is used to *compute* the assumptions of the binder, not *as* the
+    /// assumptions associated with the binder.
+    ///
+    /// FIXME(inherent_associated_types): fix this?
+    pub(super) fn enter_forall_with_assumptions<T: TypeFoldable<I>, U>(
         &mut self,
         value: ty::Binder<I, T>,
+        param_env: I::ParamEnv,
         f: impl FnOnce(&mut Self, T) -> U,
     ) -> U {
-        self.delegate.enter_forall(value, |value| f(self, value))
+        self.delegate.enter_forall(value, |value| {
+            let u = self.delegate.universe();
+            let assumptions = if self.higher_ranked_assumptions_v2() {
+                self.region_assumptions_from_term(value.clone(), u, param_env)
+            } else {
+                None
+            };
+            self.delegate.insert_universe_assumptions(u, assumptions);
+            f(self, value)
+        })
     }
 
     pub(super) fn resolve_vars_if_possible<T>(&self, value: T) -> T
@@ -1074,6 +1090,10 @@ where
 
     pub(super) fn shallow_resolve(&self, ty: I::Ty) -> I::Ty {
         self.delegate.shallow_resolve(ty)
+    }
+
+    pub(super) fn shallow_resolve_const(&self, ct: I::Const) -> I::Const {
+        self.delegate.shallow_resolve_const(ct)
     }
 
     pub(super) fn eager_resolve_region(&self, r: I::Region) -> I::Region {
@@ -1090,6 +1110,18 @@ where
             self.inspect.add_var_value(arg);
         }
         args
+    }
+
+    pub(super) fn universe(&self) -> UniverseIndex {
+        self.delegate.universe()
+    }
+
+    pub(super) fn higher_ranked_assumptions_v2(&self) -> bool {
+        self.delegate.higher_ranked_assumptions_v2()
+    }
+
+    pub(super) fn register_solver_region_constraint(&self, c: RegionConstraint<I>) {
+        self.delegate.register_solver_region_constraint(c);
     }
 
     pub(super) fn register_ty_outlives(&self, ty: I::Ty, lt: I::Region) {
@@ -1185,6 +1217,19 @@ where
         BoundVarReplacer::replace_bound_vars(&**self.delegate, universes, t).0
     }
 
+    pub(super) fn replace_escaping_bound_vars<T: TypeFoldable<I>>(
+        &self,
+        value: T,
+        universes: &mut Vec<Option<ty::UniverseIndex>>,
+    ) -> (
+        T,
+        IndexMap<ty::PlaceholderRegion<I>, ty::BoundRegion<I>>,
+        IndexMap<ty::PlaceholderType<I>, ty::BoundTy<I>>,
+        IndexMap<ty::PlaceholderConst<I>, ty::BoundConst<I>>,
+    ) {
+        BoundVarReplacer::replace_bound_vars(&**self.delegate, universes, value)
+    }
+
     pub(super) fn may_use_unstable_feature(
         &self,
         param_env: I::ParamEnv,
@@ -1232,12 +1277,24 @@ where
             previous call to `try_evaluate_added_goals!`"
         );
 
-        // We only check for leaks from universes which were entered inside
-        // of the query.
-        self.delegate.leak_check(self.max_input_universe).map_err(|NoSolution| {
-            trace!("failed the leak check");
-            NoSolution
-        })?;
+        let (solver_region_constraint, goals_certainty) =
+            match self.delegate.higher_ranked_assumptions_v2() {
+                true => {
+                    let (constraint, certainty) = self
+                        .eagerly_handle_placeholders(self.delegate.get_solve_region_constraint())?;
+                    (constraint, certainty.and(goals_certainty))
+                }
+                false => {
+                    // We only check for leaks from universes which were entered inside
+                    // of the query.
+                    self.delegate.leak_check(self.max_input_universe).map_err(|NoSolution| {
+                        trace!("failed the leak check");
+                        NoSolution
+                    })?;
+
+                    (RegionConstraint::new_true(), goals_certainty)
+                }
+            };
 
         let (certainty, normalization_nested_goals) =
             match (self.current_goal_kind, shallow_certainty) {
@@ -1287,8 +1344,11 @@ where
             return Ok(self.make_ambiguous_response_no_constraints(cause, opaque_types_jank));
         }
 
-        let external_constraints =
-            self.compute_external_query_constraints(certainty, normalization_nested_goals);
+        let external_constraints = self.compute_external_query_constraints(
+            certainty,
+            normalization_nested_goals,
+            solver_region_constraint,
+        );
         let (var_values, mut external_constraints) =
             eager_resolve_vars(self.delegate, (self.var_values, external_constraints));
 
@@ -1340,6 +1400,7 @@ where
         &self,
         certainty: Certainty,
         normalization_nested_goals: NestedNormalizationGoals<I>,
+        solver_region_constraint: RegionConstraint<I>,
     ) -> ExternalConstraintsData<I> {
         // We only return region constraints once the certainty is `Yes`. This
         // is necessary as we may drop nested goals on ambiguity, which may result
@@ -1350,7 +1411,10 @@ where
         // `tests/ui/higher-ranked/leak-check/leak-check-in-selection-5-ambig.rs` and
         // `tests/ui/higher-ranked/leak-check/leak-check-in-selection-6-ambig-unify.rs`.
         let region_constraints = if certainty == Certainty::Yes {
-            self.delegate.make_deduplicated_region_constraints()
+            match self.higher_ranked_assumptions_v2() {
+                true => Vec::new(),
+                false => self.delegate.make_deduplicated_region_constraints(),
+            }
         } else {
             Default::default()
         };
@@ -1363,7 +1427,197 @@ where
             .delegate
             .clone_opaque_types_added_since(self.initial_opaque_types_storage_num_entries);
 
-        ExternalConstraintsData { region_constraints, opaque_types, normalization_nested_goals }
+        ExternalConstraintsData {
+            solver_region_constraint,
+            region_constraints,
+            opaque_types,
+            normalization_nested_goals,
+        }
+    }
+
+    #[instrument(level = "debug", skip(self), ret)]
+    pub(super) fn region_assumptions_from_term(
+        &mut self,
+        t: impl TypeVisitable<I>,
+        u: UniverseIndex,
+        param_env: I::ParamEnv,
+    ) -> Option<Assumptions<I>> {
+        struct RawAssumptions<'a, 'b, D: SolverDelegate<Interner = I>, I: Interner> {
+            ecx: &'a mut EvalCtxt<'b, D, I>,
+            param_env: I::ParamEnv,
+            out: Vec<Goal<I, I::Predicate>>,
+        }
+
+        impl<D, I> TypeVisitor<I> for RawAssumptions<'_, '_, D, I>
+        where
+            I: Interner,
+            D: SolverDelegate<Interner = I>,
+        {
+            fn visit_ty(&mut self, t: I::Ty) {
+                self.out.extend(
+                    self.ecx
+                        .well_formed_goals(self.param_env, t.into())
+                        .unwrap_or(vec![])
+                        .into_iter(),
+                );
+            }
+
+            fn visit_const(&mut self, c: I::Const) {
+                // FIXME: empty vec here is weird?
+                self.out.extend(
+                    self.ecx
+                        .well_formed_goals(self.param_env, c.into())
+                        .unwrap_or(vec![])
+                        .into_iter(),
+                );
+            }
+        }
+
+        let mut reqs_builder = RawAssumptions { ecx: self, param_env, out: vec![] };
+        t.visit_with(&mut reqs_builder);
+        let reqs = reqs_builder.out;
+
+        let mut region_outlives_builder = TransitiveRelationBuilder::default();
+        let mut inverse_region_outlives_builder = TransitiveRelationBuilder::default();
+        let mut type_outlives = vec![];
+
+        // If there are inference variables in type outlives then we may not be able
+        // to elaborate to the full set of implied bounds right now. To avoid incorrectly
+        // NoSolution'ing when lifting constraints to a lower universe due to no usable
+        // assumptions, we just bail here.
+        //
+        // This is somewhat imprecise as if both the infer var and the outlived region are
+        // in a lower universe than the binder we're computing assumptions for then it doesn't
+        // really matter as we wouldn't use those outlives as assumptions anyway.
+        if reqs.iter().any(|goal| {
+            // We don't care about region infers as they can't be further destructured
+            goal.predicate.has_non_region_infer()
+        }) {
+            return None;
+        }
+
+        // FIXME(-Zhigher-ranked-assumptions-v2): we need to normalize here/somewhere
+        // as we assume the type outlives assumptions only have rigid types :>
+        let clauses = rustc_type_ir::elaborate::elaborate(
+            self.cx(),
+            reqs.into_iter().filter_map(|goal| goal.predicate.as_clause()),
+        );
+
+        clauses
+            .filter(move |clause| {
+                rustc_type_ir::region_constraint::max_universe(&**self.delegate, *clause) == u
+            })
+            .for_each(|clause| match clause.kind().skip_binder() {
+                RegionOutlives(OutlivesPredicate(r1, r2)) => {
+                    assert!(clause.kind().no_bound_vars().is_some());
+                    region_outlives_builder.add(r1, r2);
+                    inverse_region_outlives_builder.add(r2, r1);
+                }
+                TypeOutlives(p) => {
+                    type_outlives.push(clause.kind().map_bound(|_| p));
+                }
+                _ => (),
+            });
+
+        Some(Assumptions {
+            type_outlives,
+            region_outlives: region_outlives_builder.freeze(),
+            inverse_region_outlives: inverse_region_outlives_builder.freeze(),
+        })
+    }
+
+    #[instrument(level = "debug", skip(self), ret)]
+    fn eagerly_handle_placeholders(
+        &mut self,
+        constraint: RegionConstraint<I>,
+    ) -> Result<(RegionConstraint<I>, Certainty), NoSolution> {
+        let smallest_universe = self.max_input_universe.index();
+        let largest_universe = self.universe().index();
+        debug!(?smallest_universe, largest_universe);
+
+        let constraint = ((smallest_universe + 1)..=largest_universe)
+            .map(|u| UniverseIndex::from_usize(u))
+            .rev()
+            .fold(constraint, |constraint, u| {
+                rustc_type_ir::region_constraint::eagerly_handle_placeholders_in_universe(
+                    &**self.delegate,
+                    constraint,
+                    u,
+                )
+            });
+
+        if constraint.is_false() {
+            Err(NoSolution)
+        } else {
+            let certainty =
+                if constraint.is_ambig() { Certainty::AMBIGUOUS } else { Certainty::Yes };
+
+            Ok((constraint, certainty))
+        }
+    }
+
+    #[instrument(level = "debug", skip(self), ret)]
+    pub(super) fn destructure_type_outlives(
+        &mut self,
+        ty: I::Ty,
+        r: I::Region,
+    ) -> RegionConstraint<I> {
+        let mut components = Default::default();
+        rustc_type_ir::outlives::push_outlives_components(self.cx(), ty, &mut components);
+        self.destructure_components(&components, r)
+    }
+
+    fn destructure_components(
+        &mut self,
+        components: &[Component<I>],
+        r: I::Region,
+    ) -> RegionConstraint<I> {
+        RegionConstraint::And(
+            components.into_iter().map(|c| self.destructure_component(c, r)).collect(),
+        )
+    }
+
+    fn destructure_component(&mut self, c: &Component<I>, r: I::Region) -> RegionConstraint<I> {
+        use Component::*;
+        match c {
+            Region(c_r) => RegionConstraint::RegionOutlives(*c_r, r),
+            Placeholder(p) => {
+                RegionConstraint::PlaceholderTyOutlives(Ty::new_placeholder(self.cx(), *p), r)
+            }
+            Alias(alias) => self.destructure_alias_outlives(*alias, r),
+            UnresolvedInferenceVariable(_) => RegionConstraint::Ambiguity,
+            Param(_) => panic!("Params should have been canonicalized to placeholders"),
+            EscapingAlias(components) => self.destructure_components(components, r),
+        }
+    }
+
+    #[instrument(level = "debug", skip(self), ret)]
+    fn destructure_alias_outlives(
+        &mut self,
+        alias: AliasTy<I>,
+        r: I::Region,
+    ) -> RegionConstraint<I> {
+        let item_bounds =
+            rustc_type_ir::outlives::declared_bounds_from_definition(self.cx(), alias)
+                .map(|bound| RegionConstraint::RegionOutlives(bound, r));
+        let item_bound_outlives = RegionConstraint::Or(item_bounds.collect());
+
+        let where_clause_outlives =
+            RegionConstraint::AliasTyOutlivesFromEnv(Binder::dummy((alias, r)));
+
+        let mut components = Default::default();
+        rustc_type_ir::outlives::compute_alias_components_recursive(
+            self.cx(),
+            alias,
+            &mut components,
+        );
+        let components_outlives = self.destructure_components(&components, r);
+
+        RegionConstraint::Or(Box::new([
+            item_bound_outlives,
+            where_clause_outlives,
+            components_outlives,
+        ]))
     }
 }
 

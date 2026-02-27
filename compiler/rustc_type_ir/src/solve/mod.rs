@@ -10,6 +10,7 @@ use rustc_type_ir_macros::{
 };
 
 use crate::lang_items::SolverTraitLangItem;
+use crate::region_constraint::RegionConstraint;
 use crate::search_graph::PathKind;
 use crate::{self as ty, Canonical, CanonicalVarValues, Interner, Upcast};
 
@@ -254,6 +255,7 @@ impl<I: Interner> Eq for Response<I> {}
 #[cfg_attr(feature = "nightly", derive(HashStable_NoContext))]
 pub struct ExternalConstraintsData<I: Interner> {
     pub region_constraints: Vec<ty::RegionConstraint<I>>,
+    pub solver_region_constraint: RegionConstraint<I>,
     pub opaque_types: Vec<(ty::OpaqueTypeKey<I>, I::Ty)>,
     pub normalization_nested_goals: NestedNormalizationGoals<I>,
 }
@@ -262,9 +264,16 @@ impl<I: Interner> Eq for ExternalConstraintsData<I> {}
 
 impl<I: Interner> ExternalConstraintsData<I> {
     pub fn is_empty(&self) -> bool {
-        self.region_constraints.is_empty()
-            && self.opaque_types.is_empty()
-            && self.normalization_nested_goals.is_empty()
+        let ExternalConstraintsData {
+            solver_region_constraint,
+            region_constraints,
+            opaque_types,
+            normalization_nested_goals,
+        } = self;
+        solver_region_constraint.is_true()
+            && region_constraints.is_empty()
+            && opaque_types.is_empty()
+            && normalization_nested_goals.is_empty()
     }
 }
 

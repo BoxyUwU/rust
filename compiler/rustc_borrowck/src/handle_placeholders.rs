@@ -35,7 +35,6 @@ pub(crate) struct LoweredConstraints<'tcx> {
     pub(crate) placeholder_indices: PlaceholderIndices<'tcx>,
 }
 
-
 /// A Visitor for SCC annotation construction.
 pub(crate) struct SccAnnotations<'d, 'tcx, A: scc::Annotation> {
     pub(crate) scc_to_annotation: IndexVec<ConstraintSccIndex, A>,

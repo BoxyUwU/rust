@@ -22,6 +22,10 @@ impl<'tcx> rustc_type_ir::InferCtxtLike for InferCtxt<'tcx> {
         self.next_trait_solver
     }
 
+    fn higher_ranked_assumptions_v2(&self) -> bool {
+        self.tcx.sess.opts.unstable_opts.higher_ranked_assumptions_v2
+    }
+
     fn typing_mode(&self) -> ty::TypingMode<'tcx> {
         self.typing_mode()
     }
@@ -32,6 +36,27 @@ impl<'tcx> rustc_type_ir::InferCtxtLike for InferCtxt<'tcx> {
 
     fn create_next_universe(&self) -> ty::UniverseIndex {
         self.create_next_universe()
+    }
+
+    fn insert_universe_assumptions(
+        &self,
+        u: ty::UniverseIndex,
+        assumptions: Option<rustc_type_ir::region_constraint::Assumptions<TyCtxt<'tcx>>>,
+    ) {
+        self.universe_assumptions_for_next_solver.borrow_mut().insert(u, assumptions);
+    }
+
+    fn get_universe_assumptions(
+        &self,
+        u: ty::UniverseIndex,
+    ) -> Option<rustc_type_ir::region_constraint::Assumptions<TyCtxt<'tcx>>> {
+        self.universe_assumptions_for_next_solver.borrow().get(&u).unwrap().as_ref().cloned()
+    }
+
+    fn get_solve_region_constraint(
+        &self,
+    ) -> rustc_type_ir::region_constraint::RegionConstraint<TyCtxt<'tcx>> {
+        self.inner.borrow().solver_region_constraint_storage.get_constraint()
     }
 
     fn universe_of_ty(&self, vid: ty::TyVid) -> Option<ty::UniverseIndex> {
@@ -270,6 +295,18 @@ impl<'tcx> rustc_type_ir::InferCtxtLike for InferCtxt<'tcx> {
             a,
             b,
         );
+    }
+
+    fn register_solver_region_constraint(
+        &self,
+        c: rustc_type_ir::region_constraint::RegionConstraint<TyCtxt<'tcx>>,
+    ) {
+        let mut inner = self.inner.borrow_mut();
+        use rustc_data_structures::undo_log::UndoLogs;
+
+        use crate::infer::UndoLog;
+        inner.undo_log.push(UndoLog::PushSolverRegionConstraint);
+        inner.solver_region_constraint_storage.push(c);
     }
 
     fn register_ty_outlives(&self, ty: Ty<'tcx>, r: ty::Region<'tcx>, span: Span) {
