@@ -400,7 +400,15 @@ pub trait GenericArg<I: Interner<GenericArg = Self>>:
 
 #[rust_analyzer::prefer_underscore_import]
 pub trait Term<I: Interner<Term = Self>>:
-    Copy + Debug + Hash + Eq + IntoKind<Kind = ty::TermKind<I>> + TypeFoldable<I> + Relate<I>
+    Copy
+    + Debug
+    + Hash
+    + Eq
+    + IntoKind<Kind = ty::TermKind<I>>
+    + TypeFoldable<I>
+    + Relate<I>
+    + From<I::Ty>
+    + From<I::Const>
 {
     fn as_type(&self) -> Option<I::Ty> {
         if let ty::TermKind::Ty(ty) = self.kind() { Some(ty) } else { None }
@@ -562,6 +570,18 @@ pub trait Clause<I: Interner<Clause = Self>>:
     + Elaboratable<I>
 {
     fn as_predicate(self) -> I::Predicate;
+
+    fn as_type_outlives_clause(self) -> Option<ty::Binder<I, ty::OutlivesPredicate<I, I::Ty>>> {
+        self.kind()
+            .map_bound(|clause| {
+                if let ty::ClauseKind::TypeOutlives(outlives) = clause {
+                    Some(outlives)
+                } else {
+                    None
+                }
+            })
+            .transpose()
+    }
 
     fn as_trait_clause(self) -> Option<ty::Binder<I, ty::TraitPredicate<I>>> {
         self.kind()
