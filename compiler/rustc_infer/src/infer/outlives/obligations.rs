@@ -142,6 +142,8 @@ impl<'tcx> InferCtxt<'tcx> {
         sub_region: Region<'tcx>,
         cause: &ObligationCause<'tcx>,
     ) {
+        assert!(!self.tcx.sess.opts.unstable_opts.higher_ranked_assumptions_v2);
+
         // `is_global` means the type has no params, infer, placeholder, or non-`'static`
         // free regions. If the type has none of these things, then we can skip registering
         // this outlives obligation since it has no components which affect lifetime
@@ -455,7 +457,7 @@ where
         // These are guaranteed to apply, no matter the inference
         // results.
         let trait_bounds: Vec<_> =
-            self.verify_bound.declared_bounds_from_definition(alias_ty).collect();
+            rustc_type_ir::outlives::declared_bounds_from_definition(self.tcx, alias_ty).collect();
 
         debug!(?trait_bounds);
 
