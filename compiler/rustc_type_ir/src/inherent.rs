@@ -715,6 +715,12 @@ pub trait OpaqueTypeStorageEntries: Debug + Copy + Default {
     fn needs_reevaluation(self, canonicalized: usize) -> bool;
 }
 
+pub trait BoundVarKinds<I: Interner>:
+    Copy + Debug + Hash + Eq + SliceLike<Item = ty::BoundVariableKind<I>> + Default
+{
+    fn from_vars(cx: I, iter: impl IntoIterator<Item = ty::BoundVariableKind<I>>) -> Self;
+}
+
 pub trait SliceLike: Sized + Copy {
     type Item: Copy;
     type IntoIter: Iterator<Item = Self::Item> + DoubleEndedIterator;
