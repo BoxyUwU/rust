@@ -113,9 +113,14 @@ where
 
     unify_query_var_values(delegate, param_env, &original_values, var_values, span);
 
-    let ExternalConstraintsData { region_constraints, opaque_types, normalization_nested_goals } =
-        &*external_constraints;
+    let ExternalConstraintsData {
+        solver_region_constraint,
+        region_constraints,
+        opaque_types,
+        normalization_nested_goals,
+    } = &*external_constraints;
 
+    delegate.register_solver_region_constraint(solver_region_constraint.clone());
     register_region_constraints(delegate, region_constraints, span);
     register_new_opaque_types(delegate, opaque_types, span);
 

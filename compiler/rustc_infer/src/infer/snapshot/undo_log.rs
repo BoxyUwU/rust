@@ -28,6 +28,7 @@ pub(crate) enum UndoLog<'tcx> {
     RegionUnificationTable(sv::UndoLog<ut::Delegate<RegionVidKey<'tcx>>>),
     ProjectionCache(traits::UndoLog<'tcx>),
     PushTypeOutlivesConstraint,
+    PushSolverRegionConstraint,
     PushRegionAssumption,
     PushHirTypeckPotentiallyRegionDependentGoal,
 }
@@ -77,6 +78,14 @@ impl<'tcx> Rollback<UndoLog<'tcx>> for InferCtxtInner<'tcx> {
                 self.region_constraint_storage.as_mut().unwrap().unification_table.reverse(undo)
             }
             UndoLog::ProjectionCache(undo) => self.projection_cache.reverse(undo),
+            UndoLog::PushSolverRegionConstraint => {
+                let popped = self.solver_region_constraint_storage.pop();
+                assert_matches!(
+                    popped,
+                    Some(_),
+                    "pushed solver region constraint but could not pop it"
+                );
+            }
             UndoLog::PushTypeOutlivesConstraint => {
                 let popped = self.region_obligations.pop();
                 assert_matches!(popped, Some(_), "pushed region constraint but could not pop it");

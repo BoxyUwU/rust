@@ -234,6 +234,22 @@ pub trait InferCtxtLike: Sized {
     fn universe(&self) -> ty::UniverseIndex;
     fn create_next_universe(&self) -> ty::UniverseIndex;
 
+    fn higher_ranked_assumptions_v2(&self) -> bool {
+        false
+    }
+    fn insert_universe_assumptions(
+        &self,
+        u: ty::UniverseIndex,
+        assumptions: Option<crate::region_constraint::Assumptions<Self::Interner>>,
+    );
+    fn get_universe_assumptions(
+        &self,
+        u: ty::UniverseIndex,
+    ) -> Option<crate::region_constraint::Assumptions<Self::Interner>>;
+    fn get_solve_region_constraint(
+        &self,
+    ) -> crate::region_constraint::RegionConstraint<Self::Interner>;
+
     fn universe_of_ty(&self, ty: ty::TyVid) -> Option<ty::UniverseIndex>;
     fn universe_of_lt(&self, lt: ty::RegionVid) -> Option<ty::UniverseIndex>;
     fn universe_of_ct(&self, ct: ty::ConstVid) -> Option<ty::UniverseIndex>;
@@ -331,6 +347,11 @@ pub trait InferCtxtLike: Sized {
         a: <Self::Interner as Interner>::Region,
         b: <Self::Interner as Interner>::Region,
         span: <Self::Interner as Interner>::Span,
+    );
+
+    fn register_solver_region_constraint(
+        &self,
+        c: crate::region_constraint::RegionConstraint<Self::Interner>,
     );
 
     fn register_ty_outlives(

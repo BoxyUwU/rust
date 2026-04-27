@@ -1092,6 +1092,18 @@ where
         args
     }
 
+    pub(super) fn universe(&self) -> UniverseIndex {
+        self.delegate.universe()
+    }
+
+    pub(super) fn higher_ranked_assumptions_v2(&self) -> bool {
+        self.delegate.higher_ranked_assumptions_v2()
+    }
+
+    pub(super) fn register_solver_region_constraint(&self, c: RegionConstraint<I>) {
+        self.delegate.register_solver_region_constraint(c);
+    }
+
     pub(super) fn register_ty_outlives(&self, ty: I::Ty, lt: I::Region) {
         self.delegate.register_ty_outlives(ty, lt, self.origin_span);
     }
@@ -1287,8 +1299,11 @@ where
             return Ok(self.make_ambiguous_response_no_constraints(cause, opaque_types_jank));
         }
 
-        let external_constraints =
-            self.compute_external_query_constraints(certainty, normalization_nested_goals);
+        let external_constraints = self.compute_external_query_constraints(
+            certainty,
+            normalization_nested_goals,
+            solver_region_constraint,
+        );
         let (var_values, mut external_constraints) =
             eager_resolve_vars(self.delegate, (self.var_values, external_constraints));
 
@@ -1340,6 +1355,7 @@ where
         &self,
         certainty: Certainty,
         normalization_nested_goals: NestedNormalizationGoals<I>,
+        solver_region_constraint: RegionConstraint<I>,
     ) -> ExternalConstraintsData<I> {
         // We only return region constraints once the certainty is `Yes`. This
         // is necessary as we may drop nested goals on ambiguity, which may result
