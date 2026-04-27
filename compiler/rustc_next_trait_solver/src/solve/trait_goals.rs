@@ -1063,12 +1063,16 @@ where
                     && ecx
                         .probe(|_| ProbeKind::ProjectionCompatibility)
                         .enter(|ecx| -> Result<_, NoSolution> {
-                            ecx.enter_forall(target_projection, |ecx, target_projection| {
-                                let source_projection =
-                                    ecx.instantiate_binder_with_infer(source_projection);
-                                ecx.eq(param_env, source_projection, target_projection)?;
-                                ecx.try_evaluate_added_goals()
-                            })
+                            ecx.enter_forall_with_assumptions(
+                                target_projection,
+                                param_env,
+                                |ecx, target_projection| {
+                                    let source_projection =
+                                        ecx.instantiate_binder_with_infer(source_projection);
+                                    ecx.eq(param_env, source_projection, target_projection)?;
+                                    ecx.try_evaluate_added_goals()
+                                },
+                            )
                         })
                         .is_ok()
             };
@@ -1081,12 +1085,16 @@ where
                     ty::ExistentialPredicate::Trait(target_principal) => {
                         let source_principal = upcast_principal.unwrap();
                         let target_principal = bound.rebind(target_principal);
-                        ecx.enter_forall(target_principal, |ecx, target_principal| {
-                            let source_principal =
-                                ecx.instantiate_binder_with_infer(source_principal);
-                            ecx.eq(param_env, source_principal, target_principal)?;
-                            ecx.try_evaluate_added_goals()
-                        })?;
+                        ecx.enter_forall_with_assumptions(
+                            target_principal,
+                            param_env,
+                            |ecx, target_principal| {
+                                let source_principal =
+                                    ecx.instantiate_binder_with_infer(source_principal);
+                                ecx.eq(param_env, source_principal, target_principal)?;
+                                ecx.try_evaluate_added_goals()
+                            },
+                        )?;
                     }
                     // Check that b_ty's projection is satisfied by exactly one of
                     // a_ty's projections. First, we look through the list to see if
@@ -1107,12 +1115,16 @@ where
                                 Certainty::AMBIGUOUS,
                             );
                         }
-                        ecx.enter_forall(target_projection, |ecx, target_projection| {
-                            let source_projection =
-                                ecx.instantiate_binder_with_infer(source_projection);
-                            ecx.eq(param_env, source_projection, target_projection)?;
-                            ecx.try_evaluate_added_goals()
-                        })?;
+                        ecx.enter_forall_with_assumptions(
+                            target_projection,
+                            param_env,
+                            |ecx, target_projection| {
+                                let source_projection =
+                                    ecx.instantiate_binder_with_infer(source_projection);
+                                ecx.eq(param_env, source_projection, target_projection)?;
+                                ecx.try_evaluate_added_goals()
+                            },
+                        )?;
                     }
                     // Check that b_ty's auto traits are present in a_ty's bounds.
                     ty::ExistentialPredicate::AutoTrait(def_id) => {
@@ -1337,14 +1349,17 @@ where
         ) -> Result<ty::Binder<I, Vec<I::Ty>>, NoSolution>,
     ) -> Result<Candidate<I>, NoSolution> {
         self.probe_trait_candidate(source).enter(|ecx| {
-            let goals =
-                ecx.enter_forall(constituent_tys(ecx, goal.predicate.self_ty())?, |ecx, tys| {
+            let goals = ecx.enter_forall_with_assumptions(
+                constituent_tys(ecx, goal.predicate.self_ty())?,
+                goal.param_env,
+                |ecx, tys| {
                     tys.into_iter()
                         .map(|ty| {
                             goal.with(ecx.cx(), goal.predicate.with_replaced_self_ty(ecx.cx(), ty))
                         })
                         .collect::<Vec<_>>()
-                });
+                },
+            );
             ecx.add_goals(GoalSource::ImplWhereBound, goals);
             ecx.evaluate_added_goals_and_make_canonical_response(Certainty::Yes)
         })

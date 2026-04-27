@@ -564,7 +564,7 @@ where
     pub(super) fn compute_goal(&mut self, goal: Goal<I, I::Predicate>) -> QueryResult<I> {
         let Goal { param_env, predicate } = goal;
         let kind = predicate.kind();
-        self.enter_forall(kind, |ecx, kind| match kind {
+        self.enter_forall_with_assumptions(kind, param_env, |ecx, kind| match kind {
             ty::PredicateKind::Clause(ty::ClauseKind::Trait(predicate)) => {
                 ecx.compute_trait_goal(Goal { param_env, predicate }).map(|(r, _via)| r)
             }
@@ -1055,14 +1055,26 @@ where
         self.delegate.instantiate_binder_with_infer(value)
     }
 
-    /// `enter_forall`, but takes `&mut self` and passes it back through the
-    /// callback since it can't be aliased during the call.
-    pub(super) fn enter_forall<T: TypeFoldable<I>, U>(
+    /// The `param_env` is used to *compute* the assumptions of the binder, not *as* the
+    /// assumptions associated with the binder.
+    ///
+    /// FIXME(inherent_associated_types): fix this?
+    pub(super) fn enter_forall_with_assumptions<T: TypeFoldable<I>, U>(
         &mut self,
         value: ty::Binder<I, T>,
+        param_env: I::ParamEnv,
         f: impl FnOnce(&mut Self, T) -> U,
     ) -> U {
-        self.delegate.enter_forall(value, |value| f(self, value))
+        self.delegate.enter_forall(value, |value| {
+            let u = self.delegate.universe();
+            let assumptions = if self.higher_ranked_assumptions_v2() {
+                self.region_assumptions_from_term(value.clone(), u, param_env)
+            } else {
+                None
+            };
+            self.delegate.insert_universe_assumptions(u, assumptions);
+            f(self, value)
+        })
     }
 
     pub(super) fn resolve_vars_if_possible<T>(&self, value: T) -> T
@@ -1379,7 +1391,104 @@ where
             .delegate
             .clone_opaque_types_added_since(self.initial_opaque_types_storage_num_entries);
 
-        ExternalConstraintsData { region_constraints, opaque_types, normalization_nested_goals }
+        ExternalConstraintsData {
+            solver_region_constraint,
+            region_constraints,
+            opaque_types,
+            normalization_nested_goals,
+        }
+    }
+
+    #[instrument(level = "debug", skip(self), ret)]
+    pub(super) fn region_assumptions_from_term(
+        &mut self,
+        t: impl TypeVisitable<I>,
+        u: UniverseIndex,
+        param_env: I::ParamEnv,
+    ) -> Option<Assumptions<I>> {
+        struct RawAssumptions<'a, 'b, D: SolverDelegate<Interner = I>, I: Interner> {
+            ecx: &'a mut EvalCtxt<'b, D, I>,
+            param_env: I::ParamEnv,
+            out: Vec<Goal<I, I::Predicate>>,
+        }
+
+        impl<D, I> TypeVisitor<I> for RawAssumptions<'_, '_, D, I>
+        where
+            I: Interner,
+            D: SolverDelegate<Interner = I>,
+        {
+            fn visit_ty(&mut self, t: I::Ty) {
+                self.out.extend(
+                    self.ecx
+                        .well_formed_goals(self.param_env, t.into())
+                        .unwrap_or(vec![])
+                        .into_iter(),
+                );
+            }
+
+            fn visit_const(&mut self, c: I::Const) {
+                // FIXME: empty vec here is weird?
+                self.out.extend(
+                    self.ecx
+                        .well_formed_goals(self.param_env, c.into())
+                        .unwrap_or(vec![])
+                        .into_iter(),
+                );
+            }
+        }
+
+        let mut reqs_builder = RawAssumptions { ecx: self, param_env, out: vec![] };
+        t.visit_with(&mut reqs_builder);
+        let reqs = reqs_builder.out;
+
+        let mut region_outlives_builder = TransitiveRelationBuilder::default();
+        let mut inverse_region_outlives_builder = TransitiveRelationBuilder::default();
+        let mut type_outlives = vec![];
+
+        // If there are inference variables in type outlives then we may not be able
+        // to elaborate to the full set of implied bounds right now. To avoid incorrectly
+        // NoSolution'ing when lifting constraints to a lower universe due to no usable
+        // assumptions, we just bail here.
+        //
+        // This is somewhat imprecise as if both the infer var and the outlived region are
+        // in a lower universe than the binder we're computing assumptions for then it doesn't
+        // really matter as we wouldn't use those outlives as assumptions anyway.
+        if reqs.iter().any(|goal| {
+            // We don't care about region infers as they can't be further destructured
+            goal.predicate.has_non_region_infer()
+        }) {
+            return None;
+        }
+
+        // FIXME(-Zhigher-ranked-assumptions-v2): we need to normalize here/somewhere
+        // as we assume the type outlives assumptions only have rigid types :>
+        let clauses = rustc_type_ir::elaborate::elaborate(
+            self.cx(),
+            reqs.into_iter().filter_map(|goal| goal.predicate.as_clause()),
+        );
+
+        clauses
+            .filter(move |clause| {
+                rustc_type_ir::region_constraint::max_universe(&**self.delegate, *clause) == u
+            })
+            .for_each(|clause| match clause.kind().skip_binder() {
+                RegionOutlives(OutlivesPredicate(r1, r2)) => {
+                    assert!(clause.kind().no_bound_vars().is_some());
+                    region_outlives_builder.add(r1, r2);
+                    inverse_region_outlives_builder.add(r2, r1);
+                }
+                TypeOutlives(p) => {
+                    type_outlives.push(clause.kind().map_bound(|_| p));
+                }
+                _ => (),
+            });
+
+        Some(Assumptions {
+            type_outlives,
+            region_outlives: region_outlives_builder.freeze(),
+            inverse_region_outlives: inverse_region_outlives_builder.freeze(),
+        })
+    }
     }
 }
 
