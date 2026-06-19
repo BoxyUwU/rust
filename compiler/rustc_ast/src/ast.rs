@@ -1628,6 +1628,7 @@ impl Expr {
             | ExprKind::While(..)
             | ExprKind::Yield(YieldKind::Postfix(..))
             | ExprKind::Err(_)
+            | ExprKind::DirectConstArg(..)
             | ExprKind::Dummy => prefix_attrs_precedence(&self.attrs),
         }
     }
@@ -1925,6 +1926,8 @@ pub enum ExprKind {
 
     /// Acts as a null expression. Lowering it will always emit a bug.
     Dummy,
+
+    DirectConstArg(Box<Expr>),
 }
 
 /// Used to differentiate between `for` loops and `for await` loops.
@@ -2568,6 +2571,7 @@ pub enum TyKind {
     Dummy,
     /// Placeholder for a kind that has failed to be defined.
     Err(ErrorGuaranteed),
+    DirectConstArg(Box<Expr>),
 }
 
 impl TyKind {

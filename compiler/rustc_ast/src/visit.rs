@@ -1074,6 +1074,7 @@ macro_rules! common_visitor_and_walkers {
                     visit_visitable!($($mut)? vis, kind, expr, ty),
                 ExprKind::Err(_guar) => {}
                 ExprKind::Dummy => {}
+                ExprKind::DirectConstArg(expr) => visit_visitable!($($mut)? vis, expr),
             }
 
             visit_span(vis, span)

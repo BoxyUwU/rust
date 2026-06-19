@@ -1435,6 +1435,11 @@ impl<'hir> LoweringContext<'_, 'hir> {
                             }
                         }
                     }
+                    TyKind::DirectConstArg(expr) if self.tcx.features().min_generic_const_args() => {
+                        let ct = self.lower_expr_to_const_arg_direct(&expr);
+                        let ct = self.arena.alloc(ct);
+                        return GenericArg::Const(ct.try_as_ambig_ct().unwrap())
+                    }
                     _ => {}
                 }
                 GenericArg::Type(self.lower_ty_alloc(ty, itctx).try_as_ambig_ty().unwrap())
@@ -1706,6 +1711,10 @@ impl<'hir> LoweringContext<'_, 'hir> {
                     "`TyKind::CVarArgs` should have been handled elsewhere",
                 );
                 hir::TyKind::Err(guar)
+            }
+            TyKind::DirectConstArg(_) => {
+                let e = self.tcx.dcx().struct_span_err(t.span, "expected type found const").emit();
+                hir::TyKind::Err(e)
             }
             TyKind::Dummy => panic!("`TyKind::Dummy` should never be lowered"),
         };
@@ -2812,23 +2821,10 @@ impl<'hir> LoweringContext<'_, 'hir> {
     ) -> hir::ConstArg<'hir> {
         let tcx = self.tcx;
 
-        // We cannot change parsing depending on feature gates available,
-        // we can only require feature gates to be active as a delayed check.
-        // Thus we just parse anon consts generally and make the real decision
-        // making in ast lowering.
-        // FIXME(min_generic_const_args): revisit once stable
-        if tcx.features().min_generic_const_args() {
-            return match anon.mgca_disambiguation {
-                MgcaDisambiguation::AnonConst => {
-                    let lowered_anon = self.lower_anon_const_to_anon_const(anon, span);
-                    ConstArg {
-                        hir_id: self.next_id(),
-                        kind: hir::ConstArgKind::Anon(lowered_anon),
-                        span: lowered_anon.span,
-                    }
-                }
-                MgcaDisambiguation::Direct => self.lower_expr_to_const_arg_direct(&anon.value),
-            };
+        if tcx.features().min_generic_const_args()
+            && let ExprKind::DirectConstArg(expr) = &anon.value.kind 
+        {
+            return self.lower_expr_to_const_arg_direct(expr);
         }
 
         // Unwrap a block, so that e.g. `{ P }` is recognised as a parameter. Const arguments

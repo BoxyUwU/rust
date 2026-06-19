@@ -497,6 +497,10 @@ impl<'hir> LoweringContext<'_, 'hir> {
                     unreachable!("already handled")
                 }
 
+                ExprKind::DirectConstArg(_) => {
+                    let e = self.tcx.dcx().struct_span_err(e.span, "expected expr found const argument").emit();
+                    hir::ExprKind::Err(e)
+                }
                 ExprKind::MacCall(_) => panic!("{:?} shouldn't exist here", e.span),
             };
 
