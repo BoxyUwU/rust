@@ -43,7 +43,9 @@ impl<'tcx> rustc_type_ir::InferCtxtLike for InferCtxt<'tcx> {
         u: ty::UniverseIndex,
         assumptions: Option<rustc_type_ir::region_constraint::Assumptions<TyCtxt<'tcx>>>,
     ) {
-        self.placeholder_assumptions_for_next_solver.borrow_mut().insert(u, assumptions);
+        let None = self.placeholder_assumptions_for_next_solver.borrow_mut().insert(u, assumptions) else {
+            panic!("Inserted assumptions twice for universe u={u:?}");
+        };
     }
 
     fn get_placeholder_assumptions(
