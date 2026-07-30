@@ -1,0 +1,15 @@
+error: unsatisfied lifetime constraint from -Zassumptions-on-binders :3
+  --> $DIR/higher_ranked_gat_bound.rs:23:1
+   |
+LL | fn bar<'b>() {
+   | ^^^^^^^^^^^^
+   |
+   = note: meoow :c
+note: due to a current limitation of the type system, this implies a `'static` lifetime
+  --> $DIR/higher_ranked_gat_bound.rs:20:5
+   |
+LL |     for<'a> T::Assoc<'a>: Send,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: aborting due to 1 previous error
+
