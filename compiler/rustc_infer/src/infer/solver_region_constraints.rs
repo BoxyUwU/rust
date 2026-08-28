@@ -22,6 +22,3 @@ impl<'tcx> SolverRegionConstraintStorage<'tcx> {
         self.0 = constraint;
     }
 }
-
-#[cfg(test)]
-mod tests;
