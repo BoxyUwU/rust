@@ -1,4 +1,5 @@
 //@ compile-flags: -Zassumptions-on-binders -Znext-solver=globally
+//~^ ERROR: unable to satisfy region constraints in root
 
 // test that we resolve region variables in our alias outlives constraints when eagerly handling
 // the alias outlives constraint. this currently errors but it shouldn't.
@@ -14,7 +15,7 @@ core::test_binder_constraints! {
     where
         for<'a, 'b> T: Trait<'a, 'b>,
     {
-        forall<'a> //~ ERROR: unable to satisfy constraints involving placeholders due to unknown implied bounds
+        forall<'a>
         where
             for<'b> <T as Trait<'a, 'b>>::Assoc: 'c,
         {
@@ -30,20 +31,18 @@ core::test_binder_constraints! {
                     }
                 }
             } expect {
-                // incorrectly rewritten to ambiguity currently
+                // incorrectly rewritten to return higher ranked alias outlives with everything being bound variables.
+                // this causes us to be unable to use the assumption `for<'b> <T as Trait<'a, 'b>>::Assoc: 'c` to prove
+                // anything because we've "forgotten" that we had an `'a` or `'c` originally. 
                 //
                 // handling this correctly requires us to eagerly handle `<T as Trait<'a1, 'b2>::Assoc: 'c2` by
                 // resolving that to `<T as Trait<'a, 'b>>:Assoc: 'c` so that the only current-universe term is `b`.
-                // Then we need to convert this into `for<'b> <T as Trait<'a, 'b>>::Assoc: 'c` to get a smaller-universe
+                // Then we need to convert this into `for<'b> <T as Trait<'a, 'b>>::Assoc: 'c` to get a lower-universe
                 // constraint that we can propagate.
-                //
-                // Currently we do not resolve vars and also don't replace too-large-universe region variables with
-                // bound variables so we also don't produce `for<'a, 'b, 'c> <T as Trait<'a, 'b>>::Assoc: 'c` like one
-                // would expect without having the ability to resolve region variables.
-                //
-                // Though note that `for<'a, 'b, 'c> <T as Trait<'a, 'b>>:Assoc: 'c` would be incorrect to return as it
-                // is too strict and would not be able to match against the assumption `for<'b> <T as Trait<'a, 'b>>::Assoc: 'c`. 
-                ambiguity
+                or {
+                    for<'a2, 'b2, 'c2> <T as Trait<'a2, 'b2>>::Assoc: 'c2,
+                    for<'a2, 'b2> <T as Trait<'a2, 'b2>>::Assoc: 'static,
+                }
             }
         }
     }

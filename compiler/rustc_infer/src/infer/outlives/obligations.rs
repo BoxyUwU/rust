@@ -288,6 +288,10 @@ impl<'tcx> InferCtxt<'tcx> {
         );
         debug!(?constraint);
 
+        if constraint.is_false() {
+            self.dcx().struct_span_err(crate::infer::DUMMY_SP, "unable to satisfy region constraints in root").emit();
+        }
+
         // FIXME(-Zassumptions-on-binders): actually implement OR as an  OR
         for c in constraint.and_constraint.0.into_iter().chain(
             constraint
