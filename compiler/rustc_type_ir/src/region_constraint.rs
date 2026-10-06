@@ -542,7 +542,7 @@ pub fn eagerly_handle_placeholders_in_universe<Infcx: InferCtxtLike<Interner = I
     // (`'?x: '!a` and `'!a: '?x` → `'!a`). Alias/env matching has to see that shape
     // or `alias_outlives.rs` / `implied_higher_ranked_alias_outlives_assumption.rs`
     // go ambiguous.
-    let constraint = normalize_equated_region_vars(infcx, constraint, u);
+    // let constraint = normalize_equated_region_vars(infcx, constraint, u);
 
     // 1. rewrite type outlives constraints involving things from `u` into either region constraints
     //     involving things from `u` or type outlives constraints not involving things from `u`

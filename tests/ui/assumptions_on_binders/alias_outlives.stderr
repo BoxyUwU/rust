@@ -1,8 +1,87 @@
 error: higher-ranked lifetime bound could not be satisfied
-  --> $DIR/alias_outlives.rs:37:45
+  --> $DIR/alias_outlives.rs:38:9
+   |
+LL |         forall<'b> {
+   |         ^^^^^^
+
+error[E0283]: type annotations needed: cannot satisfy `for<'a> <T as AliasHaver>::Assoc: Trait<'a>`
+  --> $DIR/alias_outlives.rs:67:45
+   |
+LL | const REGIONCK_ENV_PASS<'a, T: AliasHaver>: ReqTrait<T::Assoc> = todo!()
+   |                                             ^^^^^^^^^^^^^^^^^^
+   |
+   = note: cannot satisfy `for<'a> <T as AliasHaver>::Assoc: Trait<'a>`
+note: required by a bound in `ReqTrait`
+  --> $DIR/alias_outlives.rs:50:20
+   |
+LL | struct ReqTrait<T: for<'a> Trait<'a>>(T);
+   |                    ^^^^^^^^^^^^^^^^^ required by this bound in `ReqTrait`
+
+error[E0283]: type annotations needed: cannot satisfy `for<'a> <T as AliasHaver>::Assoc: Trait<'a>`
+  --> $DIR/alias_outlives.rs:71:45
    |
 LL | const REGIONCK_ENV_FAIL<'a, T: AliasHaver>: ReqTrait<T::Assoc> = todo!()
    |                                             ^^^^^^^^^^^^^^^^^^
+   |
+   = note: cannot satisfy `for<'a> <T as AliasHaver>::Assoc: Trait<'a>`
+note: required by a bound in `ReqTrait`
+  --> $DIR/alias_outlives.rs:50:20
+   |
+LL | struct ReqTrait<T: for<'a> Trait<'a>>(T);
+   |                    ^^^^^^^^^^^^^^^^^ required by this bound in `ReqTrait`
 
-error: aborting due to 1 previous error
+error[E0283]: type annotations needed: cannot satisfy `for<'a> <T as AliasHaver>::Assoc: Trait<'a>`
+  --> $DIR/alias_outlives.rs:56:12
+   |
+LL |     let _: ReqTrait<T::Assoc>;
+   |            ^^^^^^^^^^^^^^^^^^
+   |
+   = note: cannot satisfy `for<'a> <T as AliasHaver>::Assoc: Trait<'a>`
+note: required by a bound in `ReqTrait`
+  --> $DIR/alias_outlives.rs:50:20
+   |
+LL | struct ReqTrait<T: for<'a> Trait<'a>>(T);
+   |                    ^^^^^^^^^^^^^^^^^ required by this bound in `ReqTrait`
 
+error[E0283]: type annotations needed: cannot satisfy `for<'a> <T as AliasHaver>::Assoc: Trait<'a>`
+  --> $DIR/alias_outlives.rs:64:12
+   |
+LL |     let _: ReqTrait<T::Assoc>;
+   |            ^^^^^^^^^^^^^^^^^^
+   |
+   = note: cannot satisfy `for<'a> <T as AliasHaver>::Assoc: Trait<'a>`
+note: required by a bound in `ReqTrait`
+  --> $DIR/alias_outlives.rs:50:20
+   |
+LL | struct ReqTrait<T: for<'a> Trait<'a>>(T);
+   |                    ^^^^^^^^^^^^^^^^^ required by this bound in `ReqTrait`
+
+error[E0283]: type annotations needed: cannot satisfy `for<'a> <T as AliasHaver>::Assoc: Trait<'a>`
+  --> $DIR/alias_outlives.rs:67:66
+   |
+LL | const REGIONCK_ENV_PASS<'a, T: AliasHaver>: ReqTrait<T::Assoc> = todo!()
+   |                                                                  ^^^^^^^
+   |
+   = note: cannot satisfy `for<'a> <T as AliasHaver>::Assoc: Trait<'a>`
+note: required by a bound in `ReqTrait`
+  --> $DIR/alias_outlives.rs:50:20
+   |
+LL | struct ReqTrait<T: for<'a> Trait<'a>>(T);
+   |                    ^^^^^^^^^^^^^^^^^ required by this bound in `ReqTrait`
+
+error[E0283]: type annotations needed: cannot satisfy `for<'a> <T as AliasHaver>::Assoc: Trait<'a>`
+  --> $DIR/alias_outlives.rs:71:66
+   |
+LL | const REGIONCK_ENV_FAIL<'a, T: AliasHaver>: ReqTrait<T::Assoc> = todo!()
+   |                                                                  ^^^^^^^
+   |
+   = note: cannot satisfy `for<'a> <T as AliasHaver>::Assoc: Trait<'a>`
+note: required by a bound in `ReqTrait`
+  --> $DIR/alias_outlives.rs:50:20
+   |
+LL | struct ReqTrait<T: for<'a> Trait<'a>>(T);
+   |                    ^^^^^^^^^^^^^^^^^ required by this bound in `ReqTrait`
+
+error: aborting due to 7 previous errors
+
+For more information about this error, try `rustc --explain E0283`.

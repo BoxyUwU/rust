@@ -4,39 +4,88 @@
 // if there's a `T::Assoc: 'static` assumption in the root universe and if not that it is
 // an error :)
 
-#![feature(generic_const_items)]
+#![feature(test_binder_constraints, generic_const_items)]
 
 trait AliasHaver {
     type Assoc;
 }
 
+// core::test_binder_constraints! {
+//     impl<'a, T: AliasHaver>
+//     where
+//         <T as AliasHaver>::Assoc: 'static,
+//     {
+//         forall<'b> {
+//             where <T as AliasHaver>::Assoc: 'b
+//         } expect {
+//             or {
+//                 for<'b> <T as AliasHaver>::Assoc: 'b,
+//                 for<> <T as AliasHaver>::Assoc: 'static,
+//                 T: 'static,
+//             }
+//         }
+//     }
+// }
+
+
 trait Trait<'a> {}
 impl<'a, T: 'a> Trait<'a> for T {}
 
-struct ReqTrait<T: for<'a> Trait<'a>>(T);
-
-fn borrowck_env_pass<'a, T: AliasHaver>()
-where
-    <T as AliasHaver>::Assoc: 'static,
-{
-    let _: ReqTrait<T::Assoc>;
+core::test_binder_constraints! {
+    impl<'a, T: AliasHaver>
+    where
+        <T as AliasHaver>::Assoc: 'static,
+    {
+        forall<'b> {
+            // where for<'c> <T as AliasHaver>::Assoc: Trait<'c>
+            forall<'c> {
+                where <T as AliasHaver>::Assoc: Trait<'c>
+            } expect {}
+        } expect {}
+    }
 }
 
-fn borrowck_env_fail<'a, T: AliasHaver>()
-// FIXME: ^ this should raise an ERROR: unsatisfied lifetime constraint from -Zassumptions-on-binders
-where
-    <T as AliasHaver>::Assoc: 'a,
-{
-    let _: ReqTrait<T::Assoc>;
-}
+// core::test_binder_constraints! {
+//     impl<'a, T: AliasHaver>
+//     where
+//         <T as AliasHaver>::Assoc: 'a,
+//     {
+//         forall<'b> { //~ ERROR: higher-ranked lifetime bound could not be satisfied
+//             where <T as AliasHaver>::Assoc: 'b
+//         } expect {
+//             or {
+//                 for<'b> <T as AliasHaver>::Assoc: 'b,
+//                 for<> <T as AliasHaver>::Assoc: 'static,
+//                 T: 'static,
+//             }
+//         }
+//     }
+// }
 
-const REGIONCK_ENV_PASS<'a, T: AliasHaver>: ReqTrait<T::Assoc> = todo!()
-where
-    <T as AliasHaver>::Assoc: 'static;
+// struct ReqTrait<T: for<'a> Trait<'a>>(T);
 
-const REGIONCK_ENV_FAIL<'a, T: AliasHaver>: ReqTrait<T::Assoc> = todo!()
-//~^ ERROR: higher-ranked lifetime bound could not be satisfied
-where
-    <T as AliasHaver>::Assoc: 'a;
+// fn borrowck_env_pass<'a, T: AliasHaver>()
+// where
+//     <T as AliasHaver>::Assoc: 'static,
+// {
+//     let _: ReqTrait<T::Assoc>;
+// }
+
+// fn borrowck_env_fail<'a, T: AliasHaver>()
+// // FIXME: ^ this should raise an ERROR: unsatisfied lifetime constraint from -Zassumptions-on-binders
+// where
+//     <T as AliasHaver>::Assoc: 'a,
+// {
+//     let _: ReqTrait<T::Assoc>;
+// }
+
+// const REGIONCK_ENV_PASS<'a, T: AliasHaver>: ReqTrait<T::Assoc> = todo!()
+// where
+//     <T as AliasHaver>::Assoc: 'static;
+
+// const REGIONCK_ENV_FAIL<'a, T: AliasHaver>: ReqTrait<T::Assoc> = todo!()
+// //~^ ERROR: higher-ranked lifetime bound could not be satisfied
+// where
+//     <T as AliasHaver>::Assoc: 'a;
 
 fn main() {}
