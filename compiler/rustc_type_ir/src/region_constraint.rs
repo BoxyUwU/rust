@@ -1158,7 +1158,6 @@ fn rewrite_alias_ty_outlives_constraints_in_universe_for_eager_placeholder_handl
     //
     // we don't care about this when rewriting in the root universe as we know the complete set of assumptions
     {
-
         let (escaping_alias, escaping_r) = bound_outlives.skip_binder();
         let max_u = max_universe(infcx, escaping_r);
         debug!(?max_u);
