@@ -2421,8 +2421,19 @@ impl<'tcx> WfCheckingCtxt<'_, 'tcx> {
 
     #[instrument(level = "debug", skip(self))]
     fn check_test_binder_forall(&self, forall: TestBinderForall<'tcx>) {
+        let prev_u = self.infcx.universe();
         self.infcx.enter_forall(forall.binder, |body| {
-            let u = self.infcx.universe();
+            let u = if prev_u == self.infcx.universe() {
+                // Not creating the universe unconditionally breaks calling
+                // eagerly handle placeholders later on in this function.
+                //
+                // `enter_forall` has some special cases to avoid creating universes
+                // in some cases for perf reasons
+                self.infcx.create_next_universe()
+            } else {
+                self.infcx.universe()
+            };
+
             let mut builder = TransitiveRelationBuilder::default();
             for &(r1, r2) in &body.region_outlives {
                 builder.add(r1, r2);

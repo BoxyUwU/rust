@@ -4094,6 +4094,7 @@ pub struct TestBinderExists {
 
 #[derive(Clone, Encodable, Decodable, Debug, Walkable)]
 pub enum TestBinderConstraint {
+    Ambiguity(Span),
     And {
         items: ThinVec<TestBinderConstraint>,
     },

@@ -2773,6 +2773,11 @@ impl<'a> Parser<'a> {
 
     pub fn parse_test_binder_constraint(&mut self) -> PResult<'a, TestBinderConstraint> {
         match self.token.ident() {
+            Some((Ident { name: sym::ambiguity, .. }, IdentKind::Normal)) => {
+                let span = self.token.span;
+                self.bump();
+                Ok(TestBinderConstraint::Ambiguity(span))
+            }
             Some((Ident { name: sym::and, .. }, IdentKind::Normal)) => {
                 self.bump();
                 let items = self
